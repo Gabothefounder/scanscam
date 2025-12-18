@@ -1,26 +1,13 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /* ---------- types ---------- */
 
-type AnalysisSignal = {
-  type: string;
-  evidence: string;
-  weight?: number;
-};
-
 type ScanResult = {
-  risk_tier: "low" | "medium" | "high";
+  risk: "low" | "medium" | "high";
+  reasons: string[];
   summary_sentence?: string;
-  signals: AnalysisSignal[];
-  data_quality: {
-    is_message_like: boolean;
-  };
-  language?: "en" | "fr";
-  source?: "user_text" | "ocr";
-  used_fallback?: boolean;
 };
 
 /* ---------- copy ---------- */
@@ -32,7 +19,7 @@ const copy = {
       medium: "Medium Risk",
       high: "High Risk",
     },
-    defaultSummary: "No strong scam patterns were detected in this message.",
+    defaultSummary: "This message shows common scam warning signs.",
     guidanceTitle: "Before acting",
     guidance: [
       "Pause before responding — legitimate services don’t require immediate action.",
@@ -56,8 +43,7 @@ const copy = {
       medium: "Risque moyen",
       high: "Risque élevé",
     },
-    defaultSummary:
-      "Aucun signal fort de fraude n’a été détecté dans ce message.",
+    defaultSummary: "Ce message présente des signes courants de fraude.",
     guidanceTitle: "Avant d’agir",
     guidance: [
       "Prenez un moment avant de répondre — les services légitimes n’exigent pas d’action immédiate.",
@@ -78,17 +64,19 @@ const copy = {
 };
 
 export default function ResultPage() {
-  const params = useSearchParams();
-  const lang = params.get("lang") === "fr" ? "fr" : "en";
-  const t = copy[lang];
-
+  const [mounted, setMounted] = useState(false);
+  const [lang, setLang] = useState<"en" | "fr">("en");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [consented, setConsented] = useState<null | boolean>(null);
   const [consentSent, setConsentSent] = useState(false);
 
-  /* ---------- load analysis result ---------- */
+  /* ---------- mount-only logic ---------- */
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const detectedLang = params.get("lang") === "fr" ? "fr" : "en";
+    setLang(detectedLang);
+
     try {
       const stored = sessionStorage.getItem("scanResult");
       if (stored) {
@@ -97,17 +85,14 @@ export default function ResultPage() {
     } catch {
       setResult(null);
     }
+
+    setMounted(true);
   }, []);
 
-  /* ---------- consent side-effect (D1.2 + D1.3) ---------- */
+  /* ---------- consent side-effect ---------- */
 
   useEffect(() => {
-    if (
-      consented !== true ||
-      !result ||
-      consentSent
-    )
-      return;
+    if (consented !== true || !result || consentSent) return;
 
     setConsentSent(true);
 
@@ -119,44 +104,35 @@ export default function ResultPage() {
         scan_result: result,
       }),
     }).catch(() => {
-      // Silent by design — never affect UX
+      // silent by design
     });
   }, [consented, result, consentSent]);
 
-  /* ---------- derived UI fields ---------- */
+  if (!mounted) return null;
 
-  const risk = result?.risk_tier ?? "low";
-  const reasons =
-    result?.signals?.map((s) => s.evidence) ?? [];
+  const t = copy[lang];
+  const risk = result?.risk ?? "low";
+  const reasons = result?.reasons ?? [];
 
   return (
     <main style={styles.container}>
       <section style={styles.card}>
-        {/* Risk Tier */}
-        <div style={styles[`tier_${risk}`]}>
-          {t.tier[risk]}
-        </div>
+        <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
 
-        {/* Summary */}
         <p style={styles.summary}>
-          {result?.summary_sentence ||
-            t.defaultSummary}
+          {result?.summary_sentence || t.defaultSummary}
         </p>
 
-        {/* Reasons */}
         {reasons.length > 0 && (
           <ul style={styles.reasons}>
-            {reasons.map((reason, i) => (
-              <li key={i}>{reason}</li>
+            {reasons.map((r, i) => (
+              <li key={i}>{r}</li>
             ))}
           </ul>
         )}
 
-        {/* Guidance */}
         <div style={styles.guidance}>
-          <div style={styles.guidanceTitle}>
-            {t.guidanceTitle}
-          </div>
+          <div style={styles.guidanceTitle}>{t.guidanceTitle}</div>
           <ul>
             {t.guidance.map((g, i) => (
               <li key={i}>{g}</li>
@@ -164,61 +140,34 @@ export default function ResultPage() {
           </ul>
         </div>
 
-        {/* ScanScam presence */}
         <p style={styles.presence}>{t.presence}</p>
 
-        {/* Consent (post-result only) */}
-        {result && (
-          <div style={styles.consent}>
-            {consented === null && (
-              <>
-                <div style={styles.consentTitle}>
-                  {t.consentTitle}
-                </div>
-                <p style={styles.consentText}>
-                  {t.consentText}
-                </p>
-                <div style={styles.consentActions}>
-                  <button
-                    style={styles.allow}
-                    onClick={() =>
-                      setConsented(true)
-                    }
-                  >
-                    {t.allow}
-                  </button>
-                  <button
-                    style={styles.deny}
-                    onClick={() =>
-                      setConsented(false)
-                    }
-                  >
-                    {t.deny}
-                  </button>
-                </div>
-              </>
-            )}
+        <div style={styles.consent}>
+          {consented === null && (
+            <>
+              <div style={styles.consentTitle}>{t.consentTitle}</div>
+              <p style={styles.consentText}>{t.consentText}</p>
+              <div style={styles.consentActions}>
+                <button style={styles.allow} onClick={() => setConsented(true)}>
+                  {t.allow}
+                </button>
+                <button style={styles.deny} onClick={() => setConsented(false)}>
+                  {t.deny}
+                </button>
+              </div>
+            </>
+          )}
 
-            {consented === true && (
-              <p style={styles.thankYou}>
-                {t.thankYou}
-              </p>
-            )}
-          </div>
-        )}
+          {consented === true && (
+            <p style={styles.thankYou}>{t.thankYou}</p>
+          )}
+        </div>
 
-        {/* End actions */}
         <div style={styles.endActions}>
-          <a
-            href={`/scan?lang=${lang}`}
-            style={styles.link}
-          >
+          <a href={`/scan?lang=${lang}`} style={styles.link}>
             {t.again}
           </a>
-          <a
-            href="/"
-            style={styles.linkSecondary}
-          >
+          <a href="/" style={styles.linkSecondary}>
             {t.close}
           </a>
         </div>
@@ -233,7 +182,6 @@ const styles: any = {
   container: {
     minHeight: "100vh",
     backgroundColor: "#F7F8FA",
-    fontFamily: "Inter, system-ui, sans-serif",
     display: "flex",
     justifyContent: "center",
     padding: "16px",
@@ -292,4 +240,3 @@ const styles: any = {
   link: { color: "#2E6BFF", textDecoration: "none", fontWeight: 500 },
   linkSecondary: { color: "#8A8F98", textDecoration: "none" },
 };
-
