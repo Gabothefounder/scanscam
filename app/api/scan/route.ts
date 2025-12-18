@@ -16,7 +16,11 @@ const MIN_LENGTH = 20;
    Helpers
 -------------------------------------------------- */
 
-function reject(code: string, message: string, status = 400) {
+function reject(
+  code: string,
+  message: string,
+  status = 400
+) {
   return NextResponse.json(
     { ok: false, code, message },
     { status }
@@ -45,7 +49,7 @@ export async function POST(req: Request) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
-    crypto.randomUUID(); // isolation only, never stored
+    crypto.randomUUID(); // isolation only
 
   /* ---------- Rate limiting (E1) ---------- */
   if (!checkRateLimit(ip)) {
@@ -86,7 +90,7 @@ export async function POST(req: Request) {
   let contentText = "";
   let source: "user_text" | "ocr" = "user_text";
 
-  /* ---------- IMAGE PATH (E2.3 OCR protection) ---------- */
+  /* ---------- IMAGE PATH (OCR) ---------- */
   if (image) {
     if (isOCRBlocked(ip)) {
       logEvent("ocr_blocked", "warning", "ocr");
@@ -154,7 +158,7 @@ export async function POST(req: Request) {
     }
   }
 
-  /* ---------- Non-message detection (E2.1) ---------- */
+  /* ---------- Non-message detection ---------- */
   if (looksLikeConversation(contentText)) {
     logEvent("non_message_input", "info", "scan_api");
     return reject(
@@ -165,7 +169,7 @@ export async function POST(req: Request) {
     );
   }
 
-  /* ---------- Repeated scan suppression (E2.2) ---------- */
+  /* ---------- Repeated scan suppression ---------- */
   if (isRepeatedScan(ip, contentText)) {
     logEvent("duplicate_scan", "info", "scan_api");
     return reject(
@@ -177,7 +181,7 @@ export async function POST(req: Request) {
     );
   }
 
-  /* ---------- Live AI analysis ---------- */
+  /* ---------- AI Analysis ---------- */
   try {
     const { result } = await analyzeScan({
       messageText: contentText,
@@ -185,9 +189,24 @@ export async function POST(req: Request) {
       source,
     });
 
+    /**
+     * 🔑 NORMALIZATION LAYER (CRITICAL)
+     * Convert AI schema → frontend schema explicitly.
+     * No fallbacks, no guessing.
+     */
+
+    const normalizedResult = {
+      risk: result.risk_tier,
+      summary_sentence: result.summary_sentence,
+      reasons:
+        Array.isArray(result.signals)
+          ? result.signals.map((s: any) => s.description)
+          : [],
+    };
+
     return NextResponse.json({
       ok: true,
-      result, // FULL AnalysisResult — no storage here
+      result: normalizedResult,
     });
   } catch (err) {
     logEvent("analysis_failed", "critical", "ai");
