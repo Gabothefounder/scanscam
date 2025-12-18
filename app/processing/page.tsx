@@ -17,14 +17,14 @@ const copy = {
 export default function ProcessingPage() {
   const params = useSearchParams();
   const router = useRouter();
+
   const lang = params.get("lang") === "fr" ? "fr" : "en";
   const t = copy[lang];
 
-  // Mock processing delay → results
   useEffect(() => {
     const timer = setTimeout(() => {
       router.push(`/result?lang=${lang}`);
-    }, 1500);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, [lang, router]);

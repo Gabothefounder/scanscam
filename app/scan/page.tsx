@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+
 export default function ScanPage() {
-  /* ---------- hooks (MUST be stable order) ---------- */
+  /* ---------- hooks (stable order) ---------- */
 
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
@@ -52,6 +53,8 @@ export default function ScanPage() {
     setImageFile(null);
   };
 
+  /* ---------- main action ---------- */
+
   const handleScan = async () => {
     setError(null);
     setLoading(true);
@@ -79,6 +82,13 @@ export default function ScanPage() {
         return;
       }
 
+      // ✅ STEP 3 — STORE FULL ANALYSIS RESULT (NOT UI-MAPPED DATA)
+      sessionStorage.setItem(
+        "scanResult",
+        JSON.stringify(data.result)
+      );
+
+      // redirect to processing
       window.location.href = `/processing?lang=${lang}`;
     } catch {
       setError(
@@ -91,6 +101,7 @@ export default function ScanPage() {
   };
 
   /* ---------- hydration-safe render ---------- */
+
   if (!mounted) {
     return null;
   }

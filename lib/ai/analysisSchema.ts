@@ -1,67 +1,72 @@
 import { z } from "zod";
 
-export const AnalysisSchema = z.object({
-  version: z.literal("1.0"),
+/**
+ * MVP Analysis Schema
+ * Enforces only what the UI consumes.
+ * Optional fields prevent parse failures.
+ */
 
-  language_detected: z.enum(["en", "fr", "mixed", "unknown"]),
+export const AnalysisSchema = z.object({
+  /* ---------- meta ---------- */
+
+  version: z.literal("1.0").optional(),
+
+  language_detected: z
+    .enum(["en", "fr", "mixed", "unknown"])
+    .optional(),
+
+  /* ---------- core classification ---------- */
 
   risk_tier: z.enum(["low", "medium", "high"]),
 
-  confidence: z.number().min(0).max(1),
+  summary_sentence: z.string().max(200).optional(),
 
-  summary: z.object({
-    headline: z.string().max(80),
-    why_it_matters: z.string().max(240),
-  }),
+  /* ---------- signals shown to user ---------- */
 
   signals: z
     .array(
       z.object({
-        type: z.enum([
-          "urgency",
-          "authority",
-          "payment",
-          "link",
-          "credential",
-          "secrecy",
-          "threat",
-          "too_good_to_be_true",
-          "impersonation",
-          "remote_access",
-          "personal_data",
-          "other",
-        ]),
+        type: z.string(),
         evidence: z.string().max(200),
-        weight: z.number().int().min(1).max(5),
+        weight: z.number().int().min(1).max(5).optional(),
       })
     )
-    .max(10),
+    .default([]),
 
-  recommended_actions: z.array(
-    z.object({
-      action: z.enum([
-        "do_not_click",
-        "do_not_send_money",
-        "verify_independently",
-        "contact_official_channel",
-        "block_report",
-        "secure_accounts",
-        "other",
-      ]),
-      details: z.string().max(200),
-    })
-  ),
+  /* ---------- data quality (important) ---------- */
 
   data_quality: z.object({
     is_message_like: z.boolean(),
-    ocr_suspected_errors: z.boolean(),
-    notes: z.string().max(200),
+    ocr_suspected_errors: z.boolean().optional(),
+    notes: z.string().optional(),
   }),
 
-  safety: z.object({
-    pii_detected: z.boolean(),
-    pii_types: z.array(z.string()),
-  }),
+  /* ---------- future-facing fields (optional) ---------- */
+
+  confidence: z.number().min(0).max(1).optional(),
+
+  summary: z
+    .object({
+      headline: z.string().max(80),
+      why_it_matters: z.string().max(240),
+    })
+    .optional(),
+
+  recommended_actions: z
+    .array(
+      z.object({
+        action: z.string(),
+        details: z.string().max(200),
+      })
+    )
+    .optional(),
+
+  safety: z
+    .object({
+      pii_detected: z.boolean(),
+      pii_types: z.array(z.string()),
+    })
+    .optional(),
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisSchema>;
