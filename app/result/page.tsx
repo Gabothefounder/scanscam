@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 
 /* ---------- types ---------- */
@@ -64,29 +66,29 @@ const copy = {
 };
 
 export default function ResultPage() {
-  const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
   const [result, setResult] = useState<ScanResult | null>(null);
-  const [consented, setConsented] = useState<null | boolean>(null);
+  const [consented, setConsented] = useState<boolean | null>(null);
   const [consentSent, setConsentSent] = useState(false);
 
-  /* ---------- mount-only logic ---------- */
+  /* ---------- load state on mount ---------- */
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const detectedLang = params.get("lang") === "fr" ? "fr" : "en";
-    setLang(detectedLang);
-
     try {
+      // language
+      const params = new URLSearchParams(window.location.search);
+      const l = params.get("lang");
+      setLang(l === "fr" ? "fr" : "en");
+
+      // scan result
       const stored = sessionStorage.getItem("scanResult");
       if (stored) {
         setResult(JSON.parse(stored));
       }
     } catch {
+      // fail silently — user still sees page
       setResult(null);
     }
-
-    setMounted(true);
   }, []);
 
   /* ---------- consent side-effect ---------- */
@@ -104,11 +106,9 @@ export default function ResultPage() {
         scan_result: result,
       }),
     }).catch(() => {
-      // silent by design
+      // intentionally silent
     });
   }, [consented, result, consentSent]);
-
-  if (!mounted) return null;
 
   const t = copy[lang];
   const risk = result?.risk ?? "low";
@@ -178,7 +178,7 @@ export default function ResultPage() {
 
 /* ---------- styles ---------- */
 
-const styles: any = {
+const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: "100vh",
     backgroundColor: "#F7F8FA",
