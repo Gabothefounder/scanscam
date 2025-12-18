@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ProcessingPage() {
+export default function ProcessingClient() {
   const router = useRouter();
   const [lang, setLang] = useState<"en" | "fr">("en");
 
