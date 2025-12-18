@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,7 +10,6 @@ export default function ProcessingPage() {
   const [lang, setLang] = useState<"en" | "fr">("en");
 
   useEffect(() => {
-    // Read URL params ONLY after mount
     const params = new URLSearchParams(window.location.search);
     const detectedLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(detectedLang);
