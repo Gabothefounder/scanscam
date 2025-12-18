@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const copy = {
   en: {
@@ -17,19 +17,23 @@ const copy = {
 };
 
 export default function ProcessingPage() {
-  const params = useSearchParams();
   const router = useRouter();
-
-  const lang = params.get("lang") === "fr" ? "fr" : "en";
-  const t = copy[lang];
+  const [lang, setLang] = useState<"en" | "fr">("en");
 
   useEffect(() => {
+    // Read query params safely on client only
+    const params = new URLSearchParams(window.location.search);
+    const detectedLang = params.get("lang") === "fr" ? "fr" : "en";
+    setLang(detectedLang);
+
     const timer = setTimeout(() => {
-      router.push(`/result?lang=${lang}`);
+      router.push(`/result?lang=${detectedLang}`);
     }, 1200);
 
     return () => clearTimeout(timer);
-  }, [lang, router]);
+  }, [router]);
+
+  const t = copy[lang];
 
   return (
     <main style={styles.container}>
