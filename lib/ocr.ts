@@ -34,5 +34,7 @@ export async function ocrImage(base64Image: string): Promise<string> {
 
   
 
-  return text.trim();
+  if (!text) return "";
+return text.trim();
+
 }
