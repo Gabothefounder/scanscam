@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import { useRouter } from "next/navigation";
 
 export default function ScanPage() {
-  /* ---------- hooks (stable order) ---------- */
+  /* ---------- hooks ---------- */
+
+  const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
@@ -14,7 +16,7 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  /* ---------- resolve language AFTER mount ---------- */
+  /* ---------- resolve language after mount ---------- */
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -33,6 +35,8 @@ export default function ScanPage() {
         ? "Téléverser une capture d’écran"
         : "Upload a screenshot",
     scan: lang === "fr" ? "Analyser" : "Scan",
+    scanning:
+      lang === "fr" ? "Analyse en cours…" : "Analyzing…",
     anonymous:
       lang === "fr"
         ? "L’analyse est anonyme. Rien n’est lié à vous."
@@ -82,14 +86,14 @@ export default function ScanPage() {
         return;
       }
 
-      // ✅ STEP 3 — STORE FULL ANALYSIS RESULT (NOT UI-MAPPED DATA)
+      // Store full analysis result
       sessionStorage.setItem(
         "scanResult",
         JSON.stringify(data.result)
       );
 
-      // redirect to processing
-      window.location.href = `/processing?lang=${lang}`;
+      // ✅ Single redirect (no /processing)
+      router.push(`/result?lang=${lang}`);
     } catch {
       setError(
         lang === "fr"
@@ -100,7 +104,7 @@ export default function ScanPage() {
     }
   };
 
-  /* ---------- hydration-safe render ---------- */
+  /* ---------- hydration-safe ---------- */
 
   if (!mounted) {
     return null;
@@ -114,7 +118,7 @@ export default function ScanPage() {
           placeholder={t.placeholder}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          disabled={!!imageFile}
+          disabled={!!imageFile || loading}
         />
 
         <div style={styles.uploadRow}>
@@ -124,6 +128,7 @@ export default function ScanPage() {
               type="file"
               accept="image/*"
               hidden
+              disabled={loading}
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   setImageFile(e.target.files[0]);
@@ -136,7 +141,11 @@ export default function ScanPage() {
           {imageFile && (
             <div style={styles.imagePreview}>
               <span style={styles.fileName}>{imageFile.name}</span>
-              <button onClick={clearImage} style={styles.clearButton}>
+              <button
+                onClick={clearImage}
+                style={styles.clearButton}
+                disabled={loading}
+              >
                 ×
               </button>
             </div>
@@ -150,7 +159,7 @@ export default function ScanPage() {
           style={styles.scanButton}
           disabled={loading}
         >
-          {loading ? "…" : t.scan}
+          {loading ? t.scanning : t.scan}
         </button>
 
         <p style={styles.microcopy}>{t.anonymous}</p>
