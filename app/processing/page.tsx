@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function ProcessingPage() {
   const router = useRouter();
-
-  const lang =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("lang") === "fr"
-      ? "fr"
-      : "en";
+  const [lang, setLang] = useState<"en" | "fr">("en");
 
   useEffect(() => {
+    // Read URL params ONLY after mount
+    const params = new URLSearchParams(window.location.search);
+    const detectedLang = params.get("lang") === "fr" ? "fr" : "en";
+    setLang(detectedLang);
+
     const timer = setTimeout(() => {
-      router.push(`/result?lang=${lang}`);
+      router.push(`/result?lang=${detectedLang}`);
     }, 1200);
 
     return () => clearTimeout(timer);
-  }, [lang, router]);
+  }, [router]);
 
   return (
     <main style={styles.container}>
@@ -37,6 +37,8 @@ export default function ProcessingPage() {
     </main>
   );
 }
+
+/* ---------- styles ---------- */
 
 const styles = {
   container: {
