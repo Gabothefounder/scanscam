@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const copy = {
   en: {
@@ -15,12 +15,18 @@ const copy = {
 };
 
 export default function ProcessingInner() {
-  const params = useSearchParams();
   const router = useRouter();
+  const [lang, setLang] = useState<"en" | "fr">("en");
 
-  const lang = params.get("lang") === "fr" ? "fr" : "en";
+  /* ---------- resolve language on client only ---------- */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setLang(params.get("lang") === "fr" ? "fr" : "en");
+  }, []);
+
   const t = copy[lang];
 
+  /* ---------- redirect after brief pause ---------- */
   useEffect(() => {
     const timer = setTimeout(() => {
       router.push(`/result?lang=${lang}`);
