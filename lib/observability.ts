@@ -1,11 +1,27 @@
 import { createClient } from "@supabase/supabase-js";
 
+/* -------------------------------------------------
+   Supabase client — SERVER ONLY
+   Uses SERVICE ROLE key
+-------------------------------------------------- */
+
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-type Severity = "info" | "warning" | "critical";
+/* -------------------------------------------------
+   Types
+-------------------------------------------------- */
+
+export type Severity = "info" | "warning" | "error" | "critical";
+
+/* -------------------------------------------------
+   logEvent
+   - NEVER throws
+   - NEVER blocks app logic
+   - Best-effort observability only
+-------------------------------------------------- */
 
 export async function logEvent(
   event_type: string,
@@ -14,13 +30,14 @@ export async function logEvent(
   context: Record<string, any> = {}
 ) {
   try {
-    await supabase.from("observability_events").insert({
+    await supabase.from("events").insert({
       event_type,
       severity,
       source,
       context,
     });
   } catch {
-    // Never throw. Observability must NEVER break the app.
+    // 🔕 Silent by design
+    // Observability must never affect runtime behavior
   }
 }
