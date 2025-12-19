@@ -1,10 +1,10 @@
 export const runtime = "nodejs";
 
 import { createClient } from "@supabase/supabase-js";
+import { logEvent } from "@/lib/observability";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
-   Uses SERVICE ROLE key (bypasses RLS)
 -------------------------------------------------- */
 
 const supabase = createClient(
@@ -19,7 +19,7 @@ const supabase = createClient(
 export async function POST(req: Request) {
   let body: any;
 
-  /* ---------- Safe JSON parse ---------- */
+  /* ---------- Safe parse ---------- */
   try {
     body = await req.json();
   } catch {
@@ -28,76 +28,74 @@ export async function POST(req: Request) {
 
   const { consent, scan_result } = body ?? {};
 
-  /* ---------- HARD CONSENT GATE ---------- */
-  if (consent !== true) {
+  /* ---------- Hard consent gate ---------- */
+  if (consent !== true || !scan_result) {
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- NORMALIZE SCHEMA (AI + FRONTEND) ---------- */
-  const risk =
-    scan_result?.risk_tier ??
-    scan_result?.risk ??
+  /* ---------- Canonical risk ---------- */
+  const risk_tier =
+    scan_result.risk_tier ??
+    scan_result.risk ??
     null;
 
-  const signals =
-    scan_result?.signals ??
-    scan_result?.reasons ??
-    null;
-
-  /* ---------- STRICT VALIDATION (SERVER-OWNED) ---------- */
-  if (
-    !scan_result ||
-    !risk ||
-    !Array.isArray(signals)
-  ) {
-    console.warn("[CONSENT_VALIDATION_FAILED]", {
-      has_scan_result: !!scan_result,
-      risk,
-      has_signals_array: Array.isArray(signals),
+  if (!risk_tier) {
+    logEvent("consent_invalid_scan", "warning", "consent_api", {
+      reason: "missing_risk",
     });
-
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- RECONSTRUCT DATA QUALITY (AUTHORITATIVE) ---------- */
+  /* ---------- Canonical signals ---------- */
+  let signals: any[] = [];
+
+  if (Array.isArray(scan_result.signals)) {
+    signals = scan_result.signals;
+  } else if (Array.isArray(scan_result.reasons)) {
+    signals = scan_result.reasons.map((r: string) => ({
+      description: r,
+    }));
+  }
+
+  /* ---------- Canonical metadata ---------- */
+  const language =
+    scan_result.language === "fr" ? "fr" : "en";
+
+  const source =
+    scan_result.source === "ocr" ? "ocr" : "user_text";
+
+  /* ---------- Data quality ---------- */
   const data_quality = {
     is_message_like: true,
+    ...(scan_result.data_quality ?? {}),
   };
 
-  /* ---------- BUILD CANONICAL ROW ---------- */
+  /* ---------- Build row ---------- */
   const row = {
-    risk_tier: risk,
+    risk_tier,
     summary_sentence: scan_result.summary_sentence ?? null,
     signals,
-    language: scan_result.language ?? null,
-    source: scan_result.source ?? null,
+    language,
+    source,
     data_quality,
     used_fallback: Boolean(scan_result.used_fallback),
   };
 
-  console.log("[CONSENT_DEBUG] Attempting insert", {
-    risk_tier: row.risk_tier,
-    language: row.language,
-    source: row.source,
-    signals_count: row.signals.length,
-    has_summary: !!row.summary_sentence,
-    used_fallback: row.used_fallback,
+  logEvent("consent_accepted", "info", "consent_api", {
+    risk_tier,
+    language,
+    source,
+    signals_count: signals.length,
   });
 
-  /* ---------- INSERT + FORCE RETURN (DIAGNOSTIC) ---------- */
-  const { data, error } = await supabase
+  /* ---------- Insert ---------- */
+  const { error } = await supabase
     .from("scans")
-    .insert(row)
-    .select();
-
-  console.log("[CONSENT_INSERT_RESULT]", { data, error });
+    .insert(row);
 
   if (error) {
-    console.error("[CONSENT_WRITE_FAILED]", {
+    logEvent("consent_write_failed", "critical", "consent_api", {
       message: error.message,
-      details: error.details,
-      hint: error.hint,
-      timestamp: new Date().toISOString(),
     });
   }
 
