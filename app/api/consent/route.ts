@@ -44,22 +44,25 @@ export async function POST(req: Request) {
     scan_result?.reasons ??
     null;
 
-  /* ---------- STRICT VALIDATION ---------- */
+  /* ---------- STRICT VALIDATION (SERVER-OWNED) ---------- */
   if (
     !scan_result ||
     !risk ||
-    !Array.isArray(signals) ||
-    scan_result.data_quality?.is_message_like !== true
+    !Array.isArray(signals)
   ) {
     console.warn("[CONSENT_VALIDATION_FAILED]", {
       has_scan_result: !!scan_result,
       risk,
       has_signals_array: Array.isArray(signals),
-      is_message_like: scan_result?.data_quality?.is_message_like,
     });
 
     return new Response(null, { status: 204 });
   }
+
+  /* ---------- RECONSTRUCT DATA QUALITY (AUTHORITATIVE) ---------- */
+  const data_quality = {
+    is_message_like: true,
+  };
 
   /* ---------- BUILD CANONICAL ROW ---------- */
   const row = {
@@ -68,7 +71,7 @@ export async function POST(req: Request) {
     signals,
     language: scan_result.language ?? null,
     source: scan_result.source ?? null,
-    data_quality: scan_result.data_quality,
+    data_quality,
     used_fallback: Boolean(scan_result.used_fallback),
   };
 
@@ -81,16 +84,13 @@ export async function POST(req: Request) {
     used_fallback: row.used_fallback,
   });
 
-  /* ---------- INSERT + FORCE RETURN ---------- */
+  /* ---------- INSERT + FORCE RETURN (DIAGNOSTIC) ---------- */
   const { data, error } = await supabase
     .from("scans")
     .insert(row)
     .select();
 
-  console.log("[CONSENT_INSERT_RESULT]", {
-    data,
-    error,
-  });
+  console.log("[CONSENT_INSERT_RESULT]", { data, error });
 
   if (error) {
     console.error("[CONSENT_WRITE_FAILED]", {
