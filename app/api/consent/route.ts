@@ -23,7 +23,6 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    // Silent exit by design
     return new Response(null, { status: 204 });
   }
 
@@ -34,7 +33,7 @@ export async function POST(req: Request) {
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- NORMALIZE SCHEMA (FRONTEND + AI) ---------- */
+  /* ---------- NORMALIZE SCHEMA (AI + FRONTEND) ---------- */
   const risk =
     scan_result?.risk_tier ??
     scan_result?.risk ??
@@ -45,19 +44,26 @@ export async function POST(req: Request) {
     scan_result?.reasons ??
     null;
 
-  /* ---------- VALIDATION (STRICT, NON-NEGOTIABLE) ---------- */
+  /* ---------- STRICT VALIDATION ---------- */
   if (
     !scan_result ||
     !risk ||
     !Array.isArray(signals) ||
     scan_result.data_quality?.is_message_like !== true
   ) {
+    console.warn("[CONSENT_VALIDATION_FAILED]", {
+      has_scan_result: !!scan_result,
+      risk,
+      has_signals_array: Array.isArray(signals),
+      is_message_like: scan_result?.data_quality?.is_message_like,
+    });
+
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- BUILD CANONICAL INSERT PAYLOAD ---------- */
+  /* ---------- BUILD CANONICAL ROW ---------- */
   const row = {
-    risk_tier: risk, // canonical storage
+    risk_tier: risk,
     summary_sentence: scan_result.summary_sentence ?? null,
     signals,
     language: scan_result.language ?? null,
@@ -66,8 +72,7 @@ export async function POST(req: Request) {
     used_fallback: Boolean(scan_result.used_fallback),
   };
 
-  /* ---------- DEBUG LOG (SAFE TO REMOVE LATER) ---------- */
-  console.log("[CONSENT_DEBUG] Insert scan", {
+  console.log("[CONSENT_DEBUG] Attempting insert", {
     risk_tier: row.risk_tier,
     language: row.language,
     source: row.source,
@@ -76,18 +81,25 @@ export async function POST(req: Request) {
     used_fallback: row.used_fallback,
   });
 
-  /* ---------- INSERT (SINGLE ATTEMPT, NO RETRIES) ---------- */
-  const { error } = await supabase
+  /* ---------- INSERT + FORCE RETURN ---------- */
+  const { data, error } = await supabase
     .from("scans")
-    .insert(row);
+    .insert(row)
+    .select();
+
+  console.log("[CONSENT_INSERT_RESULT]", {
+    data,
+    error,
+  });
 
   if (error) {
     console.error("[CONSENT_WRITE_FAILED]", {
       message: error.message,
+      details: error.details,
+      hint: error.hint,
       timestamp: new Date().toISOString(),
     });
   }
 
-  // Intentionally return no content
   return new Response(null, { status: 204 });
 }
