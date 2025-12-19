@@ -86,13 +86,7 @@ export default function ScanPage() {
         return;
       }
 
-      // Store full analysis result
-      sessionStorage.setItem(
-        "scanResult",
-        JSON.stringify(data.result)
-      );
-
-      // ✅ Single redirect (no /processing)
+      sessionStorage.setItem("scanResult", JSON.stringify(data.result));
       router.push(`/result?lang=${lang}`);
     } catch {
       setError(
@@ -106,9 +100,7 @@ export default function ScanPage() {
 
   /* ---------- hydration-safe ---------- */
 
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
 
   return (
     <main style={styles.page}>
@@ -170,7 +162,7 @@ export default function ScanPage() {
 
 /* ---------- styles ---------- */
 
-const styles: any = {
+const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     background: "#F7F8FA",
@@ -193,9 +185,13 @@ const styles: any = {
     minHeight: "160px",
     padding: "14px",
     fontSize: "16px",
+    lineHeight: 1.5,
+    color: "#111827",            // typed text (FIX)
+    backgroundColor: "#FFFFFF",
     borderRadius: "10px",
     border: "1px solid #D1D5DB",
     resize: "vertical",
+    outline: "none",
   },
 
   uploadRow: {
@@ -209,6 +205,7 @@ const styles: any = {
     color: "#2E6BFF",
     cursor: "pointer",
     width: "fit-content",
+    fontWeight: 500,
   },
 
   imagePreview: {
@@ -219,7 +216,7 @@ const styles: any = {
   },
 
   fileName: {
-    color: "#374151",
+    color: "#111827",            // FIX
   },
 
   clearButton: {
@@ -227,7 +224,7 @@ const styles: any = {
     background: "transparent",
     cursor: "pointer",
     fontSize: "18px",
-    color: "#6B7280",
+    color: "#4B5563",            // FIX
   },
 
   error: {
@@ -243,11 +240,12 @@ const styles: any = {
     background: "#2E6BFF",
     color: "#FFFFFF",
     cursor: "pointer",
+    fontWeight: 600,
   },
 
   microcopy: {
     fontSize: "13px",
-    color: "#6B7280",
+    color: "#374151",            // FIX
     textAlign: "center",
   },
 };
