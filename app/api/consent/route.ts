@@ -23,14 +23,20 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
+    // Silent by design
     return new Response(null, { status: 204 });
   }
 
   const { consent, scan_result } = body ?? {};
 
-  /* ---------- CONSENT DENIED ---------- */
-  if (consent !== true) {
-    logEvent("consent_denied", "info", "consent_api", {
+  /* =================================================
+     CONSENT = DENIED (explicit user action)
+     → Log event ONLY
+     → Do NOT write scan
+  ================================================= */
+
+  if (consent === false) {
+    await logEvent("consent_denied", "info", "consent_api", {
       risk_tier:
         scan_result?.risk_tier ??
         scan_result?.risk ??
@@ -41,7 +47,22 @@ export async function POST(req: Request) {
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- NORMALIZE SCHEMA ---------- */
+  /* =================================================
+     CONSENT = MISSING / INVALID
+     → Ignore silently
+  ================================================= */
+
+  if (consent !== true) {
+    return new Response(null, { status: 204 });
+  }
+
+  /* =================================================
+     CONSENT = GIVEN
+     → Validate payload
+     → Insert scan
+     → Log success event
+  ================================================= */
+
   const risk =
     scan_result?.risk_tier ??
     scan_result?.risk ??
@@ -55,7 +76,7 @@ export async function POST(req: Request) {
       : null;
 
   if (!risk || !Array.isArray(signals)) {
-    logEvent("consent_invalid_payload", "warning", "consent_api", {
+    await logEvent("consent_invalid_payload", "warning", "consent_api", {
       has_risk: Boolean(risk),
       has_signals_array: Array.isArray(signals),
     });
@@ -63,7 +84,7 @@ export async function POST(req: Request) {
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- BUILD CANONICAL SCAN ROW ---------- */
+  /* ---------- Build canonical scan row ---------- */
   const row = {
     risk_tier: risk,
     summary_sentence: scan_result.summary_sentence ?? null,
@@ -76,21 +97,21 @@ export async function POST(req: Request) {
     used_fallback: Boolean(scan_result.used_fallback),
   };
 
-  /* ---------- INSERT SCAN ---------- */
+  /* ---------- Insert scan ---------- */
   const { error } = await supabase
     .from("scans")
     .insert(row);
 
   if (error) {
-    logEvent("consent_write_failed", "critical", "consent_api", {
+    await logEvent("consent_write_failed", "critical", "consent_api", {
       message: error.message,
     });
 
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- CONSENT GIVEN (SUCCESS) ---------- */
-  logEvent("consent_given", "info", "consent_api", {
+  /* ---------- Consent success event ---------- */
+  await logEvent("consent_given", "info", "consent_api", {
     risk_tier: row.risk_tier,
     language: row.language,
     source: row.source,
