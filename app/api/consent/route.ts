@@ -5,6 +5,7 @@ import { logEvent } from "@/lib/observability";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
+   Uses SERVICE ROLE key (bypasses RLS)
 -------------------------------------------------- */
 
 const supabase = createClient(
@@ -19,7 +20,7 @@ const supabase = createClient(
 export async function POST(req: Request) {
   let body: any;
 
-  /* ---------- Safe parse ---------- */
+  /* ---------- Safe JSON parse ---------- */
   try {
     body = await req.json();
   } catch {
@@ -28,76 +29,68 @@ export async function POST(req: Request) {
 
   const { consent, scan_result } = body ?? {};
 
-  /* ---------- Hard consent gate ---------- */
-  if (consent !== true || !scan_result) {
+  /* ---------- CONSENT DENIED ---------- */
+  if (consent !== true) {
+    logEvent("consent_denied", "info", "consent_api", {
+      risk_tier:
+        scan_result?.risk_tier ??
+        scan_result?.risk ??
+        null,
+    });
+
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- Canonical risk ---------- */
-  const risk_tier =
-    scan_result.risk_tier ??
-    scan_result.risk ??
+  /* ---------- NORMALIZE SCHEMA ---------- */
+  const risk =
+    scan_result?.risk_tier ??
+    scan_result?.risk ??
     null;
 
-  if (!risk_tier) {
-    logEvent("consent_invalid_scan", "warning", "consent_api", {
-      reason: "missing_risk",
-    });
+  const signals =
+    Array.isArray(scan_result?.signals)
+      ? scan_result.signals
+      : Array.isArray(scan_result?.reasons)
+      ? scan_result.reasons
+      : null;
+
+  if (!risk || !Array.isArray(signals)) {
+    logEvent("consent_invalid_payload", "warning", "consent_api");
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- Canonical signals ---------- */
-  let signals: any[] = [];
-
-  if (Array.isArray(scan_result.signals)) {
-    signals = scan_result.signals;
-  } else if (Array.isArray(scan_result.reasons)) {
-    signals = scan_result.reasons.map((r: string) => ({
-      description: r,
-    }));
-  }
-
-  /* ---------- Canonical metadata ---------- */
-  const language =
-    scan_result.language === "fr" ? "fr" : "en";
-
-  const source =
-    scan_result.source === "ocr" ? "ocr" : "user_text";
-
-  /* ---------- Data quality ---------- */
-  const data_quality = {
-    is_message_like: true,
-    ...(scan_result.data_quality ?? {}),
-  };
-
-  /* ---------- Build row ---------- */
+  /* ---------- BUILD CANONICAL ROW ---------- */
   const row = {
-    risk_tier,
+    risk_tier: risk,
     summary_sentence: scan_result.summary_sentence ?? null,
     signals,
-    language,
-    source,
-    data_quality,
+    language: scan_result.language ?? null,
+    source: scan_result.source ?? null,
+    data_quality: {
+      is_message_like: true,
+    },
     used_fallback: Boolean(scan_result.used_fallback),
   };
 
-  logEvent("consent_accepted", "info", "consent_api", {
-    risk_tier,
-    language,
-    source,
-    signals_count: signals.length,
-  });
-
-  /* ---------- Insert ---------- */
+  /* ---------- INSERT SCAN ---------- */
   const { error } = await supabase
     .from("scans")
     .insert(row);
 
   if (error) {
-    logEvent("consent_write_failed", "critical", "consent_api", {
+    logEvent("consent_write_failed", "error", "consent_api", {
       message: error.message,
     });
+
+    return new Response(null, { status: 204 });
   }
+
+  /* ---------- CONSENT GIVEN (SUCCESS) ---------- */
+  logEvent("consent_given", "info", "consent_api", {
+    risk_tier: row.risk_tier,
+    language: row.language,
+    source: row.source,
+  });
 
   return new Response(null, { status: 204 });
 }
