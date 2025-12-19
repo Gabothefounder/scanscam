@@ -75,7 +75,7 @@ export default function ResultPage() {
   const [consented, setConsented] = useState<boolean | null>(null);
   const [consentSent, setConsentSent] = useState(false);
 
-  /* ---------- load canonical scan result ---------- */
+  /* ---------- load scan result ---------- */
 
   useEffect(() => {
     try {
@@ -92,10 +92,10 @@ export default function ResultPage() {
     }
   }, []);
 
-  /* ---------- consent side-effect ---------- */
+  /* ---------- consent side-effect (CRITICAL FIX) ---------- */
 
   useEffect(() => {
-    if (consented !== true || !result || consentSent) return;
+    if (consented === null || !result || consentSent) return;
 
     setConsentSent(true);
 
@@ -103,10 +103,12 @@ export default function ResultPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        consent: true,
+        consent: consented, // ✅ true OR false
         scan_result: result,
       }),
-    }).catch(() => {});
+    }).catch(() => {
+      // silent by design
+    });
   }, [consented, result, consentSent]);
 
   if (!result) return null;
@@ -157,10 +159,16 @@ export default function ResultPage() {
               <div style={styles.consentTitle}>{t.consentTitle}</div>
               <p style={styles.consentText}>{t.consentText}</p>
               <div style={styles.consentActions}>
-                <button style={styles.allow} onClick={() => setConsented(true)}>
+                <button
+                  style={styles.allow}
+                  onClick={() => setConsented(true)}
+                >
                   {t.allow}
                 </button>
-                <button style={styles.deny} onClick={() => setConsented(false)}>
+                <button
+                  style={styles.deny}
+                  onClick={() => setConsented(false)}
+                >
                   {t.deny}
                 </button>
               </div>
