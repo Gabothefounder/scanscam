@@ -75,18 +75,15 @@ export default function ResultPage() {
 
   useEffect(() => {
     try {
-      // language
       const params = new URLSearchParams(window.location.search);
       const l = params.get("lang");
       setLang(l === "fr" ? "fr" : "en");
 
-      // scan result
       const stored = sessionStorage.getItem("scanResult");
       if (stored) {
         setResult(JSON.parse(stored));
       }
     } catch {
-      // fail silently — user still sees page
       setResult(null);
     }
   }, []);
@@ -105,9 +102,7 @@ export default function ResultPage() {
         consent: true,
         scan_result: result,
       }),
-    }).catch(() => {
-      // intentionally silent
-    });
+    }).catch(() => {});
   }, [consented, result, consentSent]);
 
   const t = copy[lang];
@@ -197,23 +192,57 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "18px",
     boxShadow: "0 12px 36px rgba(11,18,32,0.08)",
   },
+
   tier_low: { fontSize: 22, fontWeight: 600, color: "#065F46" },
   tier_medium: { fontSize: 22, fontWeight: 600, color: "#B45309" },
   tier_high: { fontSize: 22, fontWeight: 600, color: "#991B1B" },
-  summary: { fontSize: 15, color: "#5F6670" },
-  reasons: { paddingLeft: 18, fontSize: 15 },
+
+  summary: { fontSize: 15, color: "#1F2937" },
+
+  reasons: {
+    paddingLeft: 18,
+    fontSize: 15,
+    color: "#1F2937",
+  },
+
   guidance: {
-    backgroundColor: "#F7F8FA",
+    backgroundColor: "#F3F4F6",
     borderRadius: 12,
     padding: 16,
     fontSize: 14,
+    color: "#111827",
   },
-  guidanceTitle: { fontWeight: 600, marginBottom: 6 },
-  presence: { fontSize: 13, color: "#6B7280" },
-  consent: { borderTop: "1px solid #E5E7EB", paddingTop: 16 },
-  consentTitle: { fontWeight: 600 },
-  consentText: { color: "#5F6670", marginBottom: 12 },
-  consentActions: { display: "flex", gap: 12 },
+
+  guidanceTitle: {
+    fontWeight: 600,
+    marginBottom: 6,
+  },
+
+  presence: {
+    fontSize: 13,
+    color: "#374151",
+  },
+
+  consent: {
+    borderTop: "1px solid #E5E7EB",
+    paddingTop: 16,
+  },
+
+  consentTitle: {
+    fontWeight: 600,
+    color: "#111827",
+  },
+
+  consentText: {
+    color: "#1F2937",
+    marginBottom: 12,
+  },
+
+  consentActions: {
+    display: "flex",
+    gap: 12,
+  },
+
   allow: {
     backgroundColor: "#2E6BFF",
     color: "#FFFFFF",
@@ -223,20 +252,36 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontWeight: 600,
   },
+
   deny: {
     background: "none",
     border: "1px solid #D1D5DB",
     borderRadius: 10,
     padding: "10px 14px",
     cursor: "pointer",
+    color: "#111827",
   },
-  thankYou: { fontSize: 14, color: "#5F6670" },
+
+  thankYou: {
+    fontSize: 14,
+    color: "#1F2937",
+  },
+
   endActions: {
     marginTop: 8,
     display: "flex",
     justifyContent: "space-between",
     fontSize: 14,
   },
-  link: { color: "#2E6BFF", textDecoration: "none", fontWeight: 500 },
-  linkSecondary: { color: "#8A8F98", textDecoration: "none" },
+
+  link: {
+    color: "#2E6BFF",
+    textDecoration: "none",
+    fontWeight: 500,
+  },
+
+  linkSecondary: {
+    color: "#4B5563",
+    textDecoration: "none",
+  },
 };
