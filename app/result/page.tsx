@@ -92,7 +92,7 @@ export default function ResultPage() {
     }
   }, []);
 
-  /* ---------- consent side-effect (CRITICAL FIX) ---------- */
+  /* ---------- consent side-effect (ALLOW + DENY) ---------- */
 
   useEffect(() => {
     if (consented === null || !result || consentSent) return;
@@ -103,8 +103,8 @@ export default function ResultPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        consent: consented, // ✅ true OR false
-        scan_result: result,
+        consent: consented, // 🔑 true OR false
+        scan_result: result, // 🔑 canonical payload
       }),
     }).catch(() => {
       // silent by design

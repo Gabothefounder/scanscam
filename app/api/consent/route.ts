@@ -5,7 +5,6 @@ import { logEvent } from "@/lib/observability";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
-   Uses SERVICE ROLE key (bypasses RLS)
 -------------------------------------------------- */
 
 const supabase = createClient(
@@ -36,6 +35,7 @@ export async function POST(req: Request) {
         scan_result?.risk_tier ??
         scan_result?.risk ??
         null,
+      has_scan_result: Boolean(scan_result),
     });
 
     return new Response(null, { status: 204 });
@@ -55,11 +55,15 @@ export async function POST(req: Request) {
       : null;
 
   if (!risk || !Array.isArray(signals)) {
-    logEvent("consent_invalid_payload", "warning", "consent_api");
+    logEvent("consent_invalid_payload", "warning", "consent_api", {
+      has_risk: Boolean(risk),
+      has_signals_array: Array.isArray(signals),
+    });
+
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- BUILD CANONICAL ROW ---------- */
+  /* ---------- BUILD CANONICAL SCAN ROW ---------- */
   const row = {
     risk_tier: risk,
     summary_sentence: scan_result.summary_sentence ?? null,
@@ -78,7 +82,7 @@ export async function POST(req: Request) {
     .insert(row);
 
   if (error) {
-    logEvent("consent_write_failed", "error", "consent_api", {
+    logEvent("consent_write_failed", "critical", "consent_api", {
       message: error.message,
     });
 
