@@ -38,7 +38,7 @@ function looksLikeConversation(text: string): boolean {
 export async function POST(req: Request) {
   let body: any;
 
-  /* ---------- IP extraction ---------- */
+  /* ---------- IP extraction (ephemeral) ---------- */
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
@@ -79,7 +79,13 @@ export async function POST(req: Request) {
   if (image) {
     if (isOCRBlocked(ip)) {
       logEvent("ocr_blocked", "warning", "ocr");
-      return reject("ocr_blocked", "OCR temporarily blocked.", 429);
+      return reject(
+        "ocr_blocked",
+        language === "fr"
+          ? "OCR temporairement bloqué."
+          : "OCR temporarily blocked.",
+        429
+      );
     }
 
     try {
@@ -88,13 +94,23 @@ export async function POST(req: Request) {
     } catch {
       recordOCRResult(ip, "failure");
       logEvent("ocr_failed", "warning", "ocr");
-      return reject("ocr_failed", "Image could not be processed.");
+      return reject(
+        "ocr_failed",
+        language === "fr"
+          ? "Impossible de traiter l’image."
+          : "Image could not be processed."
+      );
     }
 
     if (!contentText || contentText.length < MIN_LENGTH) {
       recordOCRResult(ip, "low_text");
       logEvent("ocr_low_text", "info", "ocr");
-      return reject("ocr_no_text", "Not enough readable text.");
+      return reject(
+        "ocr_no_text",
+        language === "fr"
+          ? "Texte lisible insuffisant."
+          : "Not enough readable text."
+      );
     }
 
     recordOCRResult(ip, "success");
@@ -104,27 +120,48 @@ export async function POST(req: Request) {
   if (!image) {
     if (!text || typeof text !== "string") {
       logEvent("empty_text", "info", "scan_api");
-      return reject("empty_text", "No text provided.");
+      return reject(
+        "empty_text",
+        language === "fr"
+          ? "Aucun texte fourni."
+          : "No text provided."
+      );
     }
 
     contentText = text.trim();
 
     if (contentText.length < MIN_LENGTH) {
       logEvent("text_too_short", "info", "scan_api");
-      return reject("text_too_short", "Message too short.");
+      return reject(
+        "text_too_short",
+        language === "fr"
+          ? "Message trop court."
+          : "Message too short."
+      );
     }
   }
 
   /* ---------- Non-message detection ---------- */
   if (looksLikeConversation(contentText)) {
     logEvent("non_message_input", "info", "scan_api");
-    return reject("conversation_detected", "Not a received message.");
+    return reject(
+      "conversation_detected",
+      language === "fr"
+        ? "Veuillez fournir le message exact reçu."
+        : "Please provide the exact received message."
+    );
   }
 
   /* ---------- Duplicate suppression ---------- */
   if (isRepeatedScan(ip, contentText)) {
     logEvent("duplicate_scan", "info", "scan_api");
-    return reject("duplicate_scan", "Duplicate scan.", 429);
+    return reject(
+      "duplicate_scan",
+      language === "fr"
+        ? "Message déjà analysé récemment."
+        : "Message already analyzed recently.",
+      429
+    );
   }
 
   /* ---------- AI analysis ---------- */
@@ -135,11 +172,16 @@ export async function POST(req: Request) {
       source,
     });
 
-    /* ---------- CANONICAL RESPONSE ---------- */
+    /**
+     * 🔑 CANONICAL RESPONSE
+     * - Server owns: language, source, data_quality
+     * - AI owns: risk_tier, signals, summary_sentence
+     */
+
     return NextResponse.json({
       ok: true,
       result: {
-        /* AI / DB schema */
+        /* AI output (as-is) */
         ...result,
 
         /* Server truth */
@@ -147,10 +189,9 @@ export async function POST(req: Request) {
         source,
         data_quality: {
           is_message_like: true,
-          ...(result.data_quality ?? {}),
         },
 
-        /* Frontend compatibility */
+        /* Frontend compatibility (legacy) */
         risk: result.risk_tier,
         reasons: Array.isArray(result.signals)
           ? result.signals.map((s: any) => s.description)
@@ -160,6 +201,11 @@ export async function POST(req: Request) {
   } catch (err) {
     logEvent("analysis_failed", "critical", "ai");
     console.error("SCAN_ANALYSIS_FAILED", err);
-    return reject("analysis_failed", "Analysis failed.");
+    return reject(
+      "analysis_failed",
+      language === "fr"
+        ? "Erreur lors de l’analyse."
+        : "Analysis failed."
+    );
   }
 }
