@@ -23,6 +23,7 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
+    // Silent exit by design
     return new Response(null, { status: 204 });
   }
 
@@ -33,50 +34,60 @@ export async function POST(req: Request) {
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- VALIDATION (D2.3) ---------- */
+  /* ---------- NORMALIZE SCHEMA (FRONTEND + AI) ---------- */
+  const risk =
+    scan_result?.risk_tier ??
+    scan_result?.risk ??
+    null;
+
+  const signals =
+    scan_result?.signals ??
+    scan_result?.reasons ??
+    null;
+
+  /* ---------- VALIDATION (STRICT, NON-NEGOTIABLE) ---------- */
   if (
     !scan_result ||
-    scan_result.risk_tier == null ||
-    !Array.isArray(scan_result.signals) ||
+    !risk ||
+    !Array.isArray(signals) ||
     scan_result.data_quality?.is_message_like !== true
   ) {
     return new Response(null, { status: 204 });
   }
 
-  /* ---------- BUILD INSERT PAYLOAD ---------- */
+  /* ---------- BUILD CANONICAL INSERT PAYLOAD ---------- */
   const row = {
-    risk_tier: scan_result.risk_tier,
+    risk_tier: risk, // canonical storage
     summary_sentence: scan_result.summary_sentence ?? null,
-    signals: scan_result.signals,
-    language: scan_result.language,
-    source: scan_result.source,
+    signals,
+    language: scan_result.language ?? null,
+    source: scan_result.source ?? null,
     data_quality: scan_result.data_quality,
     used_fallback: Boolean(scan_result.used_fallback),
   };
 
-  /* ---------- TEMP DEBUG LOG (REMOVE LATER) ---------- */
-  console.log("[CONSENT_DEBUG] About to insert scan:", {
+  /* ---------- DEBUG LOG (SAFE TO REMOVE LATER) ---------- */
+  console.log("[CONSENT_DEBUG] Insert scan", {
     risk_tier: row.risk_tier,
     language: row.language,
     source: row.source,
+    signals_count: row.signals.length,
     has_summary: !!row.summary_sentence,
-    signals_count: Array.isArray(row.signals)
-      ? row.signals.length
-      : null,
     used_fallback: row.used_fallback,
   });
 
-  /* ---------- INSERT ONCE (NO RETRIES) ---------- */
+  /* ---------- INSERT (SINGLE ATTEMPT, NO RETRIES) ---------- */
   const { error } = await supabase
     .from("scans")
     .insert(row);
 
   if (error) {
     console.error("[CONSENT_WRITE_FAILED]", {
-      error: error.message,
+      message: error.message,
       timestamp: new Date().toISOString(),
     });
   }
 
+  // Intentionally return no content
   return new Response(null, { status: 204 });
 }
