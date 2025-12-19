@@ -4,14 +4,6 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 
-/* ---------- types ---------- */
-
-type ScanResult = {
-  risk: "low" | "medium" | "high";
-  reasons: string[];
-  summary_sentence?: string;
-};
-
 /* ---------- copy ---------- */
 
 const copy = {
@@ -66,12 +58,17 @@ const copy = {
 };
 
 export default function ResultPage() {
+  /**
+   * IMPORTANT:
+   * - result is a CANONICAL server-owned object
+   * - DO NOT type or reshape it
+   */
+  const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
-  const [result, setResult] = useState<ScanResult | null>(null);
   const [consented, setConsented] = useState<boolean | null>(null);
   const [consentSent, setConsentSent] = useState(false);
 
-  /* ---------- load state on mount ---------- */
+  /* ---------- load canonical scan result ---------- */
 
   useEffect(() => {
     try {
@@ -100,14 +97,25 @@ export default function ResultPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         consent: true,
-        scan_result: result,
+        scan_result: result, // 🔑 FULL CANONICAL PAYLOAD
       }),
-    }).catch(() => {});
+    }).catch(() => {
+      // intentionally silent
+    });
   }, [consented, result, consentSent]);
 
+  if (!result) return null;
+
   const t = copy[lang];
-  const risk = result?.risk ?? "low";
-  const reasons = result?.reasons ?? [];
+
+  const risk: "low" | "medium" | "high" =
+    result.risk ?? result.risk_tier ?? "low";
+
+  const reasons: string[] = Array.isArray(result.reasons)
+    ? result.reasons
+    : Array.isArray(result.signals)
+    ? result.signals.map((s: any) => s.description)
+    : [];
 
   return (
     <main style={styles.container}>
@@ -115,7 +123,7 @@ export default function ResultPage() {
         <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
 
         <p style={styles.summary}>
-          {result?.summary_sentence || t.defaultSummary}
+          {result.summary_sentence || t.defaultSummary}
         </p>
 
         {reasons.length > 0 && (
@@ -171,7 +179,7 @@ export default function ResultPage() {
   );
 }
 
-/* ---------- styles ---------- */
+/* ---------- styles (mobile-readable contrast) ---------- */
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -181,6 +189,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     padding: "16px",
   },
+
   card: {
     width: "100%",
     maxWidth: "560px",
@@ -194,15 +203,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   tier_low: { fontSize: 22, fontWeight: 600, color: "#065F46" },
-  tier_medium: { fontSize: 22, fontWeight: 600, color: "#B45309" },
-  tier_high: { fontSize: 22, fontWeight: 600, color: "#991B1B" },
+  tier_medium: { fontSize: 22, fontWeight: 600, color: "#92400E" },
+  tier_high: { fontSize: 22, fontWeight: 600, color: "#7F1D1D" },
 
-  summary: { fontSize: 15, color: "#1F2937" },
+  summary: { fontSize: 15, color: "#111827" },
 
   reasons: {
     paddingLeft: 18,
     fontSize: 15,
-    color: "#1F2937",
+    color: "#111827",
   },
 
   guidance: {
@@ -244,7 +253,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   allow: {
-    backgroundColor: "#2E6BFF",
+    backgroundColor: "#2563EB",
     color: "#FFFFFF",
     border: "none",
     borderRadius: 10,
@@ -264,7 +273,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   thankYou: {
     fontSize: 14,
-    color: "#1F2937",
+    color: "#111827",
   },
 
   endActions: {
@@ -275,13 +284,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   link: {
-    color: "#2E6BFF",
+    color: "#2563EB",
     textDecoration: "none",
     fontWeight: 500,
   },
 
   linkSecondary: {
-    color: "#4B5563",
+    color: "#374151",
     textDecoration: "none",
   },
 };
