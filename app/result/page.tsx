@@ -13,7 +13,13 @@ const copy = {
       medium: "Medium Risk",
       high: "High Risk",
     },
-    defaultSummary: "This message shows common scam warning signs.",
+    defaultSummary: {
+      low: "This message does not show strong scam-related manipulation patterns.",
+      medium:
+        "This message shows suspicious patterns commonly used in scams. Caution is advised.",
+      high:
+        "This message strongly resembles known scam techniques and may be attempting to manipulate you.",
+    },
     guidanceTitle: "Before acting",
     guidance: [
       "Pause before responding — legitimate services don’t require immediate action.",
@@ -37,7 +43,13 @@ const copy = {
       medium: "Risque moyen",
       high: "Risque élevé",
     },
-    defaultSummary: "Ce message présente des signes courants de fraude.",
+    defaultSummary: {
+      low: "Ce message ne présente pas de signes clairs de manipulation frauduleuse.",
+      medium:
+        "Ce message présente des schémas suspects souvent associés à des fraudes. La prudence est recommandée.",
+      high:
+        "Ce message ressemble fortement à des techniques de fraude connues et pourrait chercher à vous manipuler.",
+    },
     guidanceTitle: "Avant d’agir",
     guidance: [
       "Prenez un moment avant de répondre — les services légitimes n’exigent pas d’action immédiate.",
@@ -58,11 +70,6 @@ const copy = {
 };
 
 export default function ResultPage() {
-  /**
-   * IMPORTANT:
-   * - result is a CANONICAL server-owned object
-   * - DO NOT type or reshape it
-   */
   const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
   const [consented, setConsented] = useState<boolean | null>(null);
@@ -97,11 +104,9 @@ export default function ResultPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         consent: true,
-        scan_result: result, // 🔑 FULL CANONICAL PAYLOAD
+        scan_result: result,
       }),
-    }).catch(() => {
-      // intentionally silent
-    });
+    }).catch(() => {});
   }, [consented, result, consentSent]);
 
   if (!result) return null;
@@ -117,14 +122,15 @@ export default function ResultPage() {
     ? result.signals.map((s: any) => s.description)
     : [];
 
+  const summary =
+    result.summary_sentence || t.defaultSummary[risk];
+
   return (
     <main style={styles.container}>
       <section style={styles.card}>
         <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
 
-        <p style={styles.summary}>
-          {result.summary_sentence || t.defaultSummary}
-        </p>
+        <p style={styles.summary}>{summary}</p>
 
         {reasons.length > 0 && (
           <ul style={styles.reasons}>
@@ -179,7 +185,7 @@ export default function ResultPage() {
   );
 }
 
-/* ---------- styles (mobile-readable contrast) ---------- */
+/* ---------- styles ---------- */
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -189,7 +195,6 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     padding: "16px",
   },
-
   card: {
     width: "100%",
     maxWidth: "560px",
@@ -201,19 +206,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "18px",
     boxShadow: "0 12px 36px rgba(11,18,32,0.08)",
   },
-
   tier_low: { fontSize: 22, fontWeight: 600, color: "#065F46" },
   tier_medium: { fontSize: 22, fontWeight: 600, color: "#92400E" },
   tier_high: { fontSize: 22, fontWeight: 600, color: "#7F1D1D" },
-
   summary: { fontSize: 15, color: "#111827" },
-
-  reasons: {
-    paddingLeft: 18,
-    fontSize: 15,
-    color: "#111827",
-  },
-
+  reasons: { paddingLeft: 18, fontSize: 15, color: "#111827" },
   guidance: {
     backgroundColor: "#F3F4F6",
     borderRadius: 12,
@@ -221,37 +218,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     color: "#111827",
   },
-
-  guidanceTitle: {
-    fontWeight: 600,
-    marginBottom: 6,
-  },
-
-  presence: {
-    fontSize: 13,
-    color: "#374151",
-  },
-
-  consent: {
-    borderTop: "1px solid #E5E7EB",
-    paddingTop: 16,
-  },
-
-  consentTitle: {
-    fontWeight: 600,
-    color: "#111827",
-  },
-
-  consentText: {
-    color: "#1F2937",
-    marginBottom: 12,
-  },
-
-  consentActions: {
-    display: "flex",
-    gap: 12,
-  },
-
+  guidanceTitle: { fontWeight: 600, marginBottom: 6 },
+  presence: { fontSize: 13, color: "#374151" },
+  consent: { borderTop: "1px solid #E5E7EB", paddingTop: 16 },
+  consentTitle: { fontWeight: 600 },
+  consentText: { color: "#1F2937", marginBottom: 12 },
+  consentActions: { display: "flex", gap: 12 },
   allow: {
     backgroundColor: "#2563EB",
     color: "#FFFFFF",
@@ -261,7 +233,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontWeight: 600,
   },
-
   deny: {
     background: "none",
     border: "1px solid #D1D5DB",
@@ -270,27 +241,13 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     color: "#111827",
   },
-
-  thankYou: {
-    fontSize: 14,
-    color: "#111827",
-  },
-
+  thankYou: { fontSize: 14, color: "#111827" },
   endActions: {
     marginTop: 8,
     display: "flex",
     justifyContent: "space-between",
     fontSize: 14,
   },
-
-  link: {
-    color: "#2563EB",
-    textDecoration: "none",
-    fontWeight: 500,
-  },
-
-  linkSecondary: {
-    color: "#374151",
-    textDecoration: "none",
-  },
+  link: { color: "#2563EB", textDecoration: "none", fontWeight: 500 },
+  linkSecondary: { color: "#374151", textDecoration: "none" },
 };
