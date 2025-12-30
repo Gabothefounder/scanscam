@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 /* ---------------- Copy ---------------- */
 
@@ -11,6 +12,7 @@ const copy = {
     supportingLine: "Your report strengthens a shared warning that helps protect others.",
     primaryCta: "Share with people you care about",
     secondaryCta: "Scan another message",
+    attribution: "Built by Lucid Intel",
   },
   fr: {
     primaryMessage: "Merci.",
@@ -18,6 +20,7 @@ const copy = {
     supportingLine: "Votre signalement renforce un avertissement collectif qui aide à protéger les autres.",
     primaryCta: "Partager avec les personnes qui comptent pour vous",
     secondaryCta: "Analyser un autre message",
+    attribution: "Conçu par Lucid Intel",
   },
 };
 
@@ -81,6 +84,16 @@ export default function SuccessPage() {
           <a href={`/scan?lang=${lang}`} style={styles.secondaryButton}>
             {t.secondaryCta}
           </a>
+
+          <div style={styles.attribution}>
+            <Image
+              src="/Logo/Lucid-mark.png"
+              alt="Lucid Intel"
+              width={20}
+              height={20}
+            />
+            <span style={styles.attributionText}>{t.attribution}</span>
+          </div>
         </div>
       </section>
     </main>
@@ -164,6 +177,22 @@ const styles = {
     textDecoration: "none",
     fontWeight: 500,
     fontSize: "16px",
+  },
+
+  attribution: {
+    marginTop: "32px",
+    paddingTop: "24px",
+    borderTop: "1px solid #E5E7EB",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+  },
+
+  attributionText: {
+    fontSize: "13px",
+    color: "#9CA3AF",
+    fontWeight: 400,
   },
 };
 
