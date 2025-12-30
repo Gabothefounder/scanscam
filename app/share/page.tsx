@@ -8,9 +8,11 @@ import Image from "next/image";
 const copy = {
   en: {
     instruction: "Screenshot this. This is your story — share it with people you care about.",
+    backToHome: "Back to home",
   },
   fr: {
     instruction: "Prenez une capture d'écran. C'est votre histoire — partagez-la avec les personnes qui comptent pour vous.",
+    backToHome: "Retour à l'accueil",
   },
 };
 
@@ -56,6 +58,10 @@ export default function SharePage() {
             priority
           />
         </div>
+
+        <a href="/" style={styles.backButton}>
+          {t.backToHome}
+        </a>
       </section>
     </main>
   );
@@ -95,5 +101,17 @@ const styles = {
     width: "min(480px, 85vw)",
     aspectRatio: "1 / 1",
     position: "relative" as const,
+  },
+
+  backButton: {
+    padding: "16px 18px",
+    backgroundColor: "#FFFFFF",
+    color: "#0B1220",
+    textAlign: "center" as const,
+    borderRadius: "12px",
+    textDecoration: "none",
+    fontWeight: 500,
+    fontSize: "16px",
+    border: "1px solid #D1D5DB",
   },
 };

@@ -28,7 +28,7 @@ export default function Header() {
 
   return (
     <header style={styles.header}>
-      <div style={styles.brand}>
+      <a href="/" style={styles.brand}>
         <Image
           src="/Logo/Lucid-mark.png"
           alt="ScanScam"
@@ -37,7 +37,7 @@ export default function Header() {
           priority
         />
         <span style={styles.brandText}>ScanScam</span>
-      </div>
+      </a>
 
       <button onClick={switchLang} style={styles.langSwitch}>
         {lang === "fr" ? "EN" : "FR"}
@@ -60,6 +60,8 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+    textDecoration: "none",
+    cursor: "pointer",
   },
 
   brandText: {
