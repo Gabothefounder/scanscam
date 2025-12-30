@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 
 /* ---------------- Copy ---------------- */
@@ -52,6 +54,7 @@ export default function ImpactPage() {
 
   const handleContinue = () => {
     if (selectedOption) {
+      sessionStorage.setItem("report_identity_impact", selectedOption);
       window.location.href = `/report/loss?lang=${lang}`;
     }
   };

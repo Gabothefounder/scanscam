@@ -8,42 +8,61 @@ import { useEffect, useState } from "react";
 
 const copy = {
   en: {
-    question: "If there was a loss, which range best describes it?",
-    options: [
-      "No loss",
-      "Less than $500",
-      "$500 to $5,000",
-      "More than $5,000",
-      "Prefer not to say",
+    question1: "What best describes what happened?",
+    question1Options: [
+      "Someone asked for money or payment",
+      "Someone asked for personal information",
+      "Someone pretended to be a trusted organization",
+      "Something else / not sure",
+    ],
+    question2: "How did this reach you?",
+    question2Options: [
+      "Text message (SMS)",
+      "Email",
+      "Phone call",
+      "Social media",
+      "Messaging app (WhatsApp, Telegram, etc.)",
+      "Website or ad",
     ],
     continue: "Continue",
-    goBack: "Go back",
+    exit: "Go back",
   },
   fr: {
-    question: "S'il y a eu une perte, quelle tranche correspond le mieux ?",
-    options: [
-      "Aucune perte",
-      "Moins de 500 $",
-      "Entre 500 $ et 5 000 $",
-      "Plus de 5 000 $",
-      "Préfère ne pas répondre",
+    question1: "Qu'est-ce qui décrit le mieux ce qui s'est passé ?",
+    question1Options: [
+      "Quelqu'un a demandé de l'argent ou un paiement",
+      "Quelqu'un a demandé des informations personnelles",
+      "Quelqu'un se faisait passer pour une organisation de confiance",
+      "Autre chose / Je ne suis pas certain",
+    ],
+    question2: "Comment cela vous est-il parvenu ?",
+    question2Options: [
+      "Message texte (SMS)",
+      "Courriel",
+      "Appel téléphonique",
+      "Réseaux sociaux",
+      "Application de messagerie (WhatsApp, Telegram, etc.)",
+      "Site web ou publicité",
     ],
     continue: "Continuer",
-    goBack: "Revenir",
+    exit: "Revenir",
   },
 };
 
 /* ---------------- Page ---------------- */
 
-export default function LossPage() {
+export default function WhoPage() {
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<1 | 2>(1);
+  const [selectedQ1, setSelectedQ1] = useState<string | null>(null);
+  const [selectedQ2, setSelectedQ2] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const currentLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(currentLang);
+    sessionStorage.setItem("report_language", currentLang);
     setMounted(true);
   }, []);
 
@@ -55,27 +74,45 @@ export default function LossPage() {
   const t = copy[lang];
 
   const handleContinue = () => {
-    if (selectedOption) {
-      sessionStorage.setItem("report_financial_loss", selectedOption);
-      window.location.href = `/report/story?lang=${lang}`;
+    if (currentQuestion === 1 && selectedQ1) {
+      setCurrentQuestion(2);
+    } else if (currentQuestion === 2 && selectedQ2) {
+      window.location.href = `/report/details?lang=${lang}`;
     }
   };
 
-  const isContinueEnabled = selectedOption !== null;
+  const handleOptionSelect = (option: string) => {
+    if (currentQuestion === 1) {
+      setSelectedQ1(option);
+    } else {
+      setSelectedQ2(option);
+    }
+  };
+
+  const isContinueEnabled =
+    (currentQuestion === 1 && selectedQ1 !== null) ||
+    (currentQuestion === 2 && selectedQ2 !== null);
+
+  const currentOptions =
+    currentQuestion === 1 ? t.question1Options : t.question2Options;
+  const currentQuestionText =
+    currentQuestion === 1 ? t.question1 : t.question2;
+  const selectedValue =
+    currentQuestion === 1 ? selectedQ1 : selectedQ2;
 
   return (
     <main style={styles.container}>
       <section style={styles.main}>
         <div style={styles.card}>
-          <h1 style={styles.question}>{t.question}</h1>
+          <h1 style={styles.question}>{currentQuestionText}</h1>
 
           <div style={styles.options}>
-            {t.options.map((option, index) => {
-              const isSelected = option === selectedOption;
+            {currentOptions.map((option, index) => {
+              const isSelected = option === selectedValue;
               return (
                 <button
                   key={index}
-                  onClick={() => setSelectedOption(option)}
+                  onClick={() => handleOptionSelect(option)}
                   style={{
                     ...styles.optionButton,
                     ...(isSelected ? styles.optionButtonSelected : {}),
@@ -100,8 +137,8 @@ export default function LossPage() {
             {t.continue}
           </button>
 
-          <a href={`/report/impact?lang=${lang}`} style={styles.goBackButton}>
-            {t.goBack}
+          <a href={`/?lang=${lang}`} style={styles.exitButton}>
+            {t.exit}
           </a>
         </div>
       </section>
@@ -196,7 +233,7 @@ const styles = {
     cursor: "not-allowed",
   },
 
-  goBackButton: {
+  exitButton: {
     marginTop: "8px",
     padding: "16px 18px",
     backgroundColor: "transparent",

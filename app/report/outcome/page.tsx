@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 
 /* ---------------- Copy ---------------- */
@@ -52,6 +54,7 @@ export default function OutcomePage() {
 
   const handleContinue = () => {
     if (selectedOption) {
+      sessionStorage.setItem("report_engagement_outcome", selectedOption);
       window.location.href = `/report/impact?lang=${lang}`;
     }
   };

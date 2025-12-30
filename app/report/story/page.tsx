@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 
 /* ---------------- Copy ---------------- */
@@ -58,11 +60,13 @@ export default function StoryPage() {
   const t = copy[lang];
 
   const handleContinue = () => {
-    window.location.href = `/report/confirm?lang=${lang}`;
+    sessionStorage.setItem("report_gap_text", text2.trim() || "null");
+    window.location.href = `/report/region?lang=${lang}`;
   };
 
   const handleSkip = () => {
-    window.location.href = `/report/confirm?lang=${lang}`;
+    sessionStorage.setItem("report_gap_text", "null");
+    window.location.href = `/report/region?lang=${lang}`;
   };
 
   return (

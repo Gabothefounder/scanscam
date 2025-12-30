@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 
 /* ---------------- Copy ---------------- */
@@ -43,10 +45,12 @@ export default function RegionPage() {
   const t = copy[lang];
 
   const handleContinue = () => {
+    sessionStorage.setItem("report_city", city.trim() || "null");
     window.location.href = `/report/confirm?lang=${lang}`;
   };
 
   const handleSkip = () => {
+    sessionStorage.setItem("report_city", "null");
     window.location.href = `/report/confirm?lang=${lang}`;
   };
 

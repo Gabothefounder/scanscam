@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 
 /* ---------------- Copy ---------------- */
@@ -56,6 +58,7 @@ export default function AskPage() {
 
   const handleContinue = () => {
     if (selectedOption) {
+      sessionStorage.setItem("report_ask_type", selectedOption);
       window.location.href = `/report/outcome?lang=${lang}`;
     }
   };
