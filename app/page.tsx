@@ -6,18 +6,22 @@ import { useEffect, useState } from "react";
 
 const copy = {
   en: {
-    title: "Scan a message for scam warning signs",
-    subtext: "Completely anonymous. Takes a few seconds.",
-    cta: "Scan a message",
-    secondary: "Report a scam (coming soon)",
+    title: "Spot scams early. Protect yourself and others.",
+    subtext: "Quickly analyze suspicious messages — or report them to help make the world a little safer for everyone.",
+    primaryCta: "Scan a Scam",
+    primarySubtext: "Instant, anonymous analysis.",
+    secondaryCta: "Report a Scam",
+    secondarySubtext: "Take 3 minutes. Turn what happened to you into a warning for others.",
     footer: "This tool highlights warning signs only.",
   },
   fr: {
-    title: "Analyser un message pour détecter des signes de fraude",
-    subtext: "Complètement anonyme. En quelques secondes.",
-    cta: "Analyser un message",
-    secondary: "Signaler une fraude (bientôt disponible)",
-    footer: "Cet outil met en évidence des signes d’alerte seulement.",
+    title: "Repérez les arnaques plus tôt. Protégez-vous et les autres.",
+    subtext: "Analysez rapidement les messages suspects ou signalez-les pour éviter qu'ils se répètent.",
+    primaryCta: "Analyser une arnaque",
+    primarySubtext: "Analyse instantanée et anonyme.",
+    secondaryCta: "Signaler une arnaque",
+    secondarySubtext: "Prenez 3 minutes. Transformez ce que vous avez vécu en avertissement pour les autres.",
+    footer: "Cet outil met en évidence des signes d'alerte seulement.",
   },
 };
 
@@ -50,10 +54,14 @@ export default function Home() {
           <p style={styles.subtext}>{t.subtext}</p>
 
           <a href={`/scan?lang=${lang}`} style={styles.primaryButton}>
-            {t.cta}
+            {t.primaryCta}
           </a>
+          <p style={styles.buttonSubtext}>{t.primarySubtext}</p>
 
-          <p style={styles.secondaryText}>{t.secondary}</p>
+          <a href={`/report?lang=${lang}`} style={styles.primaryButton}>
+            {t.secondaryCta}
+          </a>
+          <p style={styles.buttonSubtext}>{t.secondarySubtext}</p>
         </div>
       </section>
 
@@ -120,7 +128,7 @@ const styles = {
     fontSize: "16px",
   },
 
-  secondaryText: {
+  buttonSubtext: {
     marginTop: "8px",
     fontSize: "14px",
     color: "#8A8F98",
