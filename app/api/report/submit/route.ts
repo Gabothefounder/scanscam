@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
   if (error) {
     return Response.json(
-      { ok: false, error: "Failed to submit report" },
+      { ok: false, error: "Database insert failed" },
       { status: 500 }
     );
   }
