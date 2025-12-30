@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 /* ---------------- Copy ---------------- */
@@ -11,7 +12,7 @@ const copy = {
     secondaryMessage: "You're not alone.",
     supportingLine: "Your report strengthens a shared warning that helps protect others.",
     primaryCta: "Share with people you care about",
-    secondaryCta: "Scan another message",
+    secondaryCta: "Start again",
     attribution: "Built by Lucid Intel",
   },
   fr: {
@@ -19,7 +20,7 @@ const copy = {
     secondaryMessage: "Vous n'êtes pas seul(e).",
     supportingLine: "Votre signalement renforce un avertissement collectif qui aide à protéger les autres.",
     primaryCta: "Partager avec les personnes qui comptent pour vous",
-    secondaryCta: "Analyser un autre message",
+    secondaryCta: "Recommencer",
     attribution: "Conçu par Lucid Intel",
   },
 };
@@ -27,6 +28,7 @@ const copy = {
 /* ---------------- Page ---------------- */
 
 export default function SuccessPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
@@ -44,27 +46,8 @@ export default function SuccessPage() {
 
   const t = copy[lang];
 
-  const handleShare = async () => {
-    const shareData = {
-      title: "ScanScam",
-      text:
-        lang === "fr"
-          ? "Vérifiez les messages suspects pour détecter des signes d'arnaque"
-          : "Check suspicious messages for scam warning signs",
-      url: window.location.origin,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        // User cancelled or error occurred, fall through to home
-        window.location.href = `/?lang=${lang}`;
-      }
-    } else {
-      // Fallback to home if native share not available
-      window.location.href = `/?lang=${lang}`;
-    }
+  const handleShare = () => {
+    router.push(`/share?lang=${lang}`);
   };
 
   return (
@@ -81,7 +64,7 @@ export default function SuccessPage() {
             {t.primaryCta}
           </button>
 
-          <a href={`/scan?lang=${lang}`} style={styles.secondaryButton}>
+          <a href={`/?lang=${lang}`} style={styles.secondaryButton}>
             {t.secondaryCta}
           </a>
 
