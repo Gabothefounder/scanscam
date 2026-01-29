@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
+import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 /* ---------- copy ---------- */
 
@@ -85,7 +86,12 @@ export default function ResultPage() {
 
       const stored = sessionStorage.getItem("scanResult");
       if (stored) {
-        setResult(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setResult(parsed);
+        
+        // E2: Log scan result shown
+        const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
+        logScanEvent("scan_shown", { tier: riskTier });
       }
     } catch {
       setResult(null);
@@ -161,13 +167,21 @@ export default function ResultPage() {
               <div style={styles.consentActions}>
                 <button
                   style={styles.allow}
-                  onClick={() => setConsented(true)}
+                  onClick={() => {
+                    setConsented(true);
+                    // E3: Log consent allow
+                    logScanEvent("scan_consent", { decision: "allow" });
+                  }}
                 >
                   {t.allow}
                 </button>
                 <button
                   style={styles.deny}
-                  onClick={() => setConsented(false)}
+                  onClick={() => {
+                    setConsented(false);
+                    // E3: Log consent deny
+                    logScanEvent("scan_consent", { decision: "deny" });
+                  }}
                 >
                   {t.deny}
                 </button>

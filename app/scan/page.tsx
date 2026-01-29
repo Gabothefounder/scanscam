@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 export default function ScanPage() {
   /* ---------- hooks ---------- */
@@ -61,6 +62,10 @@ export default function ScanPage() {
 
   const handleScan = async () => {
     setError(null);
+    
+    // E1: Log scan attempt
+    logScanEvent("scan_attempt", { length: text.length });
+    
     setLoading(true);
 
     try {
