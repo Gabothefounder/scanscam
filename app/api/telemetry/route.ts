@@ -57,6 +57,12 @@ const BANNED_KEYS = [
   "link",
 ] as const;
 
+/** Legacy event names → canonical names logged in event_type. original_event stored in context when mapped. */
+const LEGACY_EVENT_MAP: Record<string, string> = {
+  scan_attempt: "scan_submit_clicked",
+  scan_shown: "scan_result_rendered",
+};
+
 function hasBannedKeys(obj: any, bannedKeys: readonly string[]): boolean {
   if (obj === null || obj === undefined) return false;
   if (typeof obj !== "object") return false;
@@ -162,11 +168,18 @@ export async function POST(req: Request) {
     return new Response(null, { status: 204 });
   }
 
-  await logEvent(safePayload.event_type, "info", "telemetry_api", {
+  const canonicalEvent =
+    LEGACY_EVENT_MAP[safePayload.event_type] ?? safePayload.event_type;
+  const context: Record<string, any> = {
     session_id: safePayload.session_id,
     route: safePayload.route,
     ...(safePayload.props ?? {}),
-  });
+  };
+  if (canonicalEvent !== safePayload.event_type) {
+    context.original_event = safePayload.event_type;
+  }
+
+  await logEvent(canonicalEvent, "info", "telemetry_api", context);
 
   return new Response(null, { status: 204 });
 }
