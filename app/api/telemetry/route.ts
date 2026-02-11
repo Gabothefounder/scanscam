@@ -5,7 +5,7 @@ import { logEvent } from "@/lib/observability";
 /**
  * POST /api/telemetry
  * Client-side telemetry endpoint with strict validation.
- * Fire-and-forget logging to observability system.
+ * Persists events before responding (await) for reliable delivery on serverless.
  */
 
 const ALLOWED_EVENTS = [
@@ -112,11 +112,11 @@ export async function POST(req: Request) {
     const session_id = typeof body.session_id === "string" ? body.session_id : null;
     const route = typeof body.route === "string" ? body.route : null;
 
-    logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
+    await logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
       reason: "banned_key",
       session_id,
       route,
-    }).catch(() => {});
+    });
 
     return new Response(null, { status: 204 });
   }
@@ -130,22 +130,21 @@ export async function POST(req: Request) {
   // Enforce payload size cap
   const payloadString = JSON.stringify(safePayload);
   if (payloadString.length > 2000) {
-    logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
+    await logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
       reason: "too_large",
       session_id: safePayload.session_id ?? null,
       route: safePayload.route ?? null,
       size: payloadString.length,
-    }).catch(() => {});
+    });
 
     return new Response(null, { status: 204 });
   }
 
-  // Fire-and-forget insert into events
-  logEvent(safePayload.event_type, "info", "telemetry_api", {
+  await logEvent(safePayload.event_type, "info", "telemetry_api", {
     session_id: safePayload.session_id,
     route: safePayload.route,
     ...(safePayload.props ?? {}),
-  }).catch(() => {});
+  });
 
   return new Response(null, { status: 204 });
 }

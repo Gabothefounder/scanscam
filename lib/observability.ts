@@ -19,12 +19,15 @@ export async function logEvent(
   context: Record<string, any> = {}
 ) {
   try {
-    await supabase.from("events").insert({
+    const { error } = await supabase.from("events").insert({
       event_type,
       severity,
       source,
       context,
     });
+    if (error) {
+      console.error("[observability] events insert failed:", error);
+    }
   } catch {
     // Observability must never break the app
   }
