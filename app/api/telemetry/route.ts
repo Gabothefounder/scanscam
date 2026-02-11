@@ -9,6 +9,9 @@ import { logEvent } from "@/lib/observability";
  */
 
 const ALLOWED_EVENTS = [
+  "scan_attempt",
+  "scan_shown",
+  "scan_consent",
   "scan_viewed",
   "scan_submit_clicked",
   "scan_request_sent",
@@ -136,7 +139,13 @@ export async function POST(req: Request) {
 
   const safePayload = extractSafePayload(body);
   if (!safePayload) {
-    // silently ignore unknown/malformed events
+    const received = body.event_type ?? body.event;
+    await logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
+      reason: "invalid_event",
+      ...(typeof received === "string" && { received_event: received }),
+      ...(typeof body.session_id === "string" && { session_id: body.session_id }),
+      ...(typeof body.route === "string" && { route: body.route }),
+    });
     return new Response(null, { status: 204 });
   }
 
