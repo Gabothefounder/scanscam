@@ -98,6 +98,19 @@ function extractSafePayload(body: any): {
 }
 
 export async function POST(req: Request) {
+  let supabaseHost = "missing";
+  try {
+    if (process.env.SUPABASE_URL) {
+      supabaseHost = new URL(process.env.SUPABASE_URL).hostname;
+    }
+  } catch {
+    // leave as "missing"
+  }
+  console.log("[telemetry] env", {
+    supabaseHost,
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+
   let body: any;
 
   // 400 only on JSON parse failure
