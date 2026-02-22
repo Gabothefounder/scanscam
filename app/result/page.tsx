@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
+import { trackConversion } from "@/lib/gtag";
 
 /* ---------- copy ---------- */
 
@@ -146,7 +147,6 @@ function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"
             style={{
               ...styles.meterMarker,
               backgroundColor: config.color,
-              borderColor: "#FFFFFF",
             }}
           />
         </div>
@@ -167,6 +167,7 @@ export default function ResultPage() {
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
+  const conversionFiredRef = useRef(false);
 
   /* ---------- load scan result ---------- */
 
@@ -183,6 +184,11 @@ export default function ResultPage() {
         
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         logScanEvent("scan_shown", { tier: riskTier });
+
+        if (!conversionFiredRef.current) {
+          conversionFiredRef.current = true;
+          trackConversion("AW-16787240010/-lHQCNrulP0bEMro48Q-");
+        }
       }
     } catch {
       setResult(null);
