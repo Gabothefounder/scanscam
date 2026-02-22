@@ -228,21 +228,25 @@ export default function ScanPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
-    minHeight: "100vh",
-    background: "#F7F8FA",
-    padding: "16px 16px 32px",
+    height: "calc(100vh - 156px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#E2E4E9",
+    padding: "0 16px",
   },
 
   card: {
-    maxWidth: "800px",
-    margin: "0 auto",
+    width: "100%",
+    maxWidth: "640px",
     background: "#FFFFFF",
-    padding: "28px 32px",
-    borderRadius: "18px",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+    padding: "32px 28px",
+    borderRadius: "14px",
+    boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
+    border: "1px solid #D1D5DB",
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
+    gap: "18px",
   },
 
   header: {
@@ -251,28 +255,28 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   title: {
-    fontSize: 24,
-    fontWeight: 600,
-    color: "#111827",
+    fontSize: 26,
+    fontWeight: 700,
+    color: "#0B1220",
     margin: 0,
     marginBottom: 6,
   },
 
   subline: {
     fontSize: 15,
-    color: "#6B7280",
+    color: "#4B5563",
     margin: 0,
   },
 
   textarea: {
-    minHeight: "160px",
-    padding: "16px",
-    fontSize: "17px",
-    lineHeight: 1.6,
-    color: "#111827",
-    backgroundColor: "#F8FAFC",
-    borderRadius: "12px",
-    border: "2px solid #9CA3AF",
+    minHeight: "140px",
+    padding: "14px",
+    fontSize: "16px",
+    lineHeight: 1.55,
+    color: "#0B1220",
+    backgroundColor: "#FAFBFC",
+    borderRadius: "10px",
+    border: "1px solid #6B7280",
     resize: "vertical",
     outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s",
@@ -280,16 +284,16 @@ const styles: Record<string, React.CSSProperties> = {
 
   textareaFocused: {
     borderColor: "#2563EB",
-    boxShadow: "0 0 0 4px rgba(37, 99, 235, 0.15)",
+    boxShadow: "0 0 0 3px rgba(37, 99, 235, 0.12)",
     backgroundColor: "#FFFFFF",
   },
 
   divider: {
     textAlign: "center",
     fontSize: 13,
-    color: "#9CA3AF",
+    color: "#6B7280",
     fontWeight: 500,
-    padding: "8px 0",
+    padding: "4px 0",
     letterSpacing: "0.5px",
   },
 
@@ -306,13 +310,13 @@ const styles: Record<string, React.CSSProperties> = {
 
   uploadButton: {
     display: "inline-block",
-    padding: "12px 28px",
+    padding: "12px 24px",
     fontSize: 15,
-    fontWeight: 500,
-    color: "#2563EB",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    border: "2px solid #2563EB",
+    fontWeight: 600,
+    color: "#374151",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    border: "1px solid #6B7280",
     transition: "background-color 0.15s",
   },
 
@@ -354,79 +358,82 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   scanButton: {
-    padding: "16px",
-    fontSize: 18,
-    fontWeight: 600,
+    padding: "14px 24px",
+    fontSize: 17,
+    fontWeight: 700,
     borderRadius: 12,
     border: "none",
     background: "#2563EB",
     color: "#FFFFFF",
     cursor: "pointer",
     width: "100%",
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
     transition: "background-color 0.15s",
   },
 
   reassurance: {
     fontSize: 14,
-    color: "#6B7280",
+    color: "#4B5563",
     textAlign: "center",
     margin: 0,
   },
 
   optInSection: {
     borderTop: "1px solid #E5E7EB",
-    paddingTop: 16,
-    marginTop: 4,
+    paddingTop: 18,
+    marginTop: 8,
   },
 
   optInToggle: {
     background: "none",
     border: "none",
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: 15,
+    fontWeight: 500,
+    color: "#475569",
     cursor: "pointer",
     padding: 0,
     textAlign: "left",
     width: "100%",
+    transition: "color 0.15s",
   },
 
   optInContent: {
-    marginTop: 14,
+    marginTop: 12,
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 10,
     paddingLeft: 4,
   },
 
   checkboxLabel: {
     display: "flex",
     alignItems: "flex-start",
-    gap: 12,
-    fontSize: 16,
+    gap: 10,
+    fontSize: 15,
     color: "#374151",
     cursor: "pointer",
     lineHeight: 1.5,
   },
 
   checkbox: {
-    marginTop: 4,
-    width: 20,
-    height: 20,
+    marginTop: 3,
+    width: 18,
+    height: 18,
     cursor: "pointer",
   },
 
   smallNote: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: 13,
+    color: "#4B5563",
     margin: 0,
-    paddingLeft: 32,
+    paddingLeft: 28,
   },
 
   howItWorksLink: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#2563EB",
     textDecoration: "none",
-    paddingLeft: 32,
+    paddingLeft: 28,
     fontWeight: 500,
   },
 };
