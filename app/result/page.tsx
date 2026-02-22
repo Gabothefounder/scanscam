@@ -14,6 +14,12 @@ const copy = {
       medium: "Medium Risk",
       high: "High Risk",
     },
+    riskLevelLabel: "Risk level:",
+    riskLevel: {
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+    },
     defaultSummary: {
       low: "This message does not show strong scam-related manipulation patterns.",
       medium:
@@ -21,16 +27,18 @@ const copy = {
       high:
         "This message strongly resembles known scam techniques and may be attempting to manipulate you.",
     },
-    guidanceTitle: "Before acting",
+    actionTitle: "What to do next",
     guidance: [
       "Pause before responding — legitimate services don't require immediate action.",
       "Verify independently using a trusted contact or official website.",
     ],
     presence:
       "Whenever something feels off, ScanScam is here to help you check.",
-    again: "Scan another message",
-    close: "Close",
-    geoTitle: "Help us understand where scams happen (optional)",
+    backHome: "Back to home",
+    geoTitle: "Help protect people near you",
+    geoHelper: "Help warn people near you about this scam. (Optional)",
+    geoButton: "Share location",
+    geoButtonReassurance: "Anonymous. No personal identifiers.",
     country: "Country",
     province: "Province",
     city: "City",
@@ -45,6 +53,12 @@ const copy = {
       medium: "Risque moyen",
       high: "Risque élevé",
     },
+    riskLevelLabel: "Niveau de risque :",
+    riskLevel: {
+      low: "Faible",
+      medium: "Moyen",
+      high: "Élevé",
+    },
     defaultSummary: {
       low: "Ce message ne présente pas de signes clairs de manipulation frauduleuse.",
       medium:
@@ -52,16 +66,18 @@ const copy = {
       high:
         "Ce message ressemble fortement à des techniques de fraude connues et pourrait chercher à vous manipuler.",
     },
-    guidanceTitle: "Avant d'agir",
+    actionTitle: "Que faire maintenant",
     guidance: [
       "Prenez un moment avant de répondre — les services légitimes n'exigent pas d'action immédiate.",
       "Vérifiez de manière indépendante via un contact fiable ou un site officiel.",
     ],
     presence:
       "Si quelque chose vous semble étrange, ScanScam est là pour vous aider à vérifier.",
-    again: "Analyser un autre message",
-    close: "Fermer",
-    geoTitle: "Aidez-nous à comprendre où les fraudes se produisent (facultatif)",
+    backHome: "Retour à l'accueil",
+    geoTitle: "Aidez à protéger les gens près de vous",
+    geoHelper: "Aidez à prévenir les gens près de chez vous. (Optionnel)",
+    geoButton: "Partager ma ville",
+    geoButtonReassurance: "Anonyme. Aucun identifiant personnel.",
     country: "Pays",
     province: "Province",
     city: "Ville",
@@ -99,6 +115,46 @@ const CA_PROVINCES = [
   { code: "SK", label: "Saskatchewan" },
   { code: "YT", label: "Yukon" },
 ];
+
+/* ---------- Risk Meter ---------- */
+
+const RISK_CONFIG = {
+  low: { percent: 30, color: "#16A34A", bgColor: "#F0FDF4" },
+  medium: { percent: 60, color: "#D97706", bgColor: "#FFFBEB" },
+  high: { percent: 90, color: "#DC2626", bgColor: "#FEF2F2" },
+};
+
+function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"; label: string; levelText: string }) {
+  const config = RISK_CONFIG[risk];
+
+  return (
+    <div style={styles.meterContainer} role="meter" aria-valuenow={config.percent} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+      <div style={styles.meterTrack}>
+        <div
+          style={{
+            ...styles.meterFillWrapper,
+            width: `${config.percent}%`,
+          }}
+        >
+          <div
+            style={{
+              ...styles.meterFill,
+              backgroundColor: config.color,
+            }}
+          />
+          <div
+            style={{
+              ...styles.meterMarker,
+              backgroundColor: config.color,
+              borderColor: "#FFFFFF",
+            }}
+          />
+        </div>
+      </div>
+      <div style={styles.riskLevelLine}>{levelText}</div>
+    </div>
+  );
+}
 
 export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
@@ -206,13 +262,29 @@ export default function ResultPage() {
   const showProvinces = countryCode === "CA";
   const scanId = result?.scan_id;
 
+  const riskBlockStyle = {
+    ...styles.riskBlock,
+    backgroundColor: RISK_CONFIG[risk].bgColor,
+  };
+
   return (
     <main style={styles.container}>
       <section style={styles.card}>
-        <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
+        {/* ---------- Top Nav ---------- */}
+        <div style={styles.topNav}>
+          <a href={`/?lang=${lang}`} style={styles.backLink}>
+            {t.backHome}
+          </a>
+        </div>
 
-        <p style={styles.summary}>{summary}</p>
+        {/* ---------- A) Risk Block ---------- */}
+        <div style={riskBlockStyle}>
+          <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
+          <RiskMeter risk={risk} label={t.tier[risk]} levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`} />
+          <p style={styles.summary}>{summary}</p>
+        </div>
 
+        {/* ---------- Reasons (if any) ---------- */}
         {reasons.length > 0 && (
           <ul style={styles.reasons}>
             {reasons.map((r, i) => (
@@ -221,18 +293,18 @@ export default function ResultPage() {
           </ul>
         )}
 
-        <div style={styles.guidance}>
-          <div style={styles.guidanceTitle}>{t.guidanceTitle}</div>
-          <ul>
+        {/* ---------- B) Action Block ---------- */}
+        <div style={styles.actionBlock}>
+          <div style={styles.actionTitle}>{t.actionTitle}</div>
+          <ul style={styles.actionList}>
             {t.guidance.map((g, i) => (
               <li key={i}>{g}</li>
             ))}
           </ul>
+          <p style={styles.presence}>{t.presence}</p>
         </div>
 
-        <p style={styles.presence}>{t.presence}</p>
-
-        {/* ---------- Optional geo section ---------- */}
+        {/* ---------- C) Geo Block ---------- */}
         {scanId && (
           <div style={styles.geoSection}>
             <div style={styles.geoHeader}>
@@ -244,6 +316,8 @@ export default function ResultPage() {
                 <span style={styles.geoStatusSaved}>{t.saved}</span>
               )}
             </div>
+
+            <p style={styles.geoHelper}>{t.geoHelper}</p>
 
             <div style={styles.geoRow}>
               <label style={styles.geoLabel}>
@@ -297,17 +371,20 @@ export default function ResultPage() {
                 />
               </label>
             </div>
+
+            <div style={styles.geoButtonWrapper}>
+              <button
+                type="button"
+                style={styles.geoButton}
+                onClick={() => saveGeo(scanId, countryCode, regionCode, city)}
+                disabled={geoStatus === "saving"}
+              >
+                {t.geoButton}
+              </button>
+              <p style={styles.geoButtonReassurance}>{t.geoButtonReassurance}</p>
+            </div>
           </div>
         )}
-
-        <div style={styles.endActions}>
-          <a href={`/scan?lang=${lang}`} style={styles.link}>
-            {t.again}
-          </a>
-          <a href="/" style={styles.linkSecondary}>
-            {t.close}
-          </a>
-        </div>
       </section>
     </main>
   );
@@ -318,61 +395,156 @@ export default function ResultPage() {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: "100vh",
-    backgroundColor: "#F7F8FA",
+    backgroundColor: "#E5E7EB",
     display: "flex",
     justifyContent: "center",
-    padding: "16px",
+    padding: "12px 16px",
   },
   card: {
     width: "100%",
-    maxWidth: "560px",
+    maxWidth: "600px",
     backgroundColor: "#FFFFFF",
-    borderRadius: "16px",
-    padding: "28px",
+    borderRadius: "14px",
+    padding: "14px 22px 20px",
     display: "flex",
     flexDirection: "column",
-    gap: "18px",
-    boxShadow: "0 12px 36px rgba(11,18,32,0.08)",
+    gap: "14px",
+    boxShadow: "0 12px 40px rgba(11,18,32,0.14)",
+    alignSelf: "flex-start",
   },
-  tier_low: { fontSize: 22, fontWeight: 600, color: "#065F46" },
-  tier_medium: { fontSize: 22, fontWeight: 600, color: "#92400E" },
-  tier_high: { fontSize: 22, fontWeight: 600, color: "#7F1D1D" },
-  summary: { fontSize: 15, color: "#111827" },
-  reasons: { paddingLeft: 18, fontSize: 15, color: "#111827" },
-  guidance: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 16,
+
+  topNav: {
+    display: "flex",
+    justifyContent: "flex-end",
+  },
+  backLink: {
+    color: "#2563EB",
+    textDecoration: "none",
     fontSize: 14,
+    fontWeight: 500,
+  },
+
+  riskBlock: {
+    borderRadius: 12,
+    padding: "14px 14px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+  tier_low: { fontSize: 24, fontWeight: 700, color: "#15803D", textAlign: "center" },
+  tier_medium: { fontSize: 24, fontWeight: 700, color: "#B45309", textAlign: "center" },
+  tier_high: { fontSize: 24, fontWeight: 700, color: "#B91C1C", textAlign: "center" },
+
+  meterContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 6,
+  },
+  meterTrack: {
+    width: "100%",
+    height: 18,
+    backgroundColor: "#9CA3AF",
+    borderRadius: 9,
+    border: "1px solid #6B7280",
+    position: "relative",
+    overflow: "visible",
+    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.1)",
+  },
+  meterFillWrapper: {
+    height: "100%",
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  meterFill: {
+    height: "100%",
+    borderRadius: 9,
+    width: "100%",
+  },
+  meterMarker: {
+    position: "absolute",
+    right: -6,
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: 14,
+    height: 14,
+    borderRadius: "50%",
+    border: "2px solid #FFFFFF",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+  },
+  riskLevelLine: {
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  summary: {
+    fontSize: 16,
+    color: "#1F2937",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  reasons: {
+    paddingLeft: 20,
+    fontSize: 15,
+    color: "#1F2937",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  actionBlock: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: "14px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  actionTitle: {
+    fontWeight: 700,
+    fontSize: 16,
     color: "#111827",
   },
-  guidanceTitle: { fontWeight: 600, marginBottom: 6 },
-  presence: { fontSize: 13, color: "#374151" },
-  endActions: {
-    marginTop: 8,
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 14,
+  actionList: {
+    margin: 0,
+    paddingLeft: 18,
+    fontSize: 15,
+    color: "#1F2937",
+    lineHeight: 1.6,
   },
-  link: { color: "#2563EB", textDecoration: "none", fontWeight: 500 },
-  linkSecondary: { color: "#374151", textDecoration: "none" },
+  presence: {
+    fontSize: 14,
+    color: "#4B5563",
+    margin: 0,
+    marginTop: 4,
+  },
 
   geoSection: {
-    borderTop: "1px solid #E5E7EB",
-    paddingTop: 16,
+    backgroundColor: "#EFF6FF",
+    border: "2px solid #BFDBFE",
+    borderRadius: 12,
+    padding: "14px 16px",
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 10,
   },
   geoHeader: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   geoTitle: {
-    fontSize: 13,
-    color: "#6B7280",
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#1E40AF",
     margin: 0,
+  },
+  geoHelper: {
+    fontSize: 14,
+    color: "#374151",
+    margin: 0,
+    lineHeight: 1.5,
   },
   geoStatusSaving: {
     fontSize: 12,
@@ -381,7 +553,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   geoStatusSaved: {
     fontSize: 12,
-    color: "#065F46",
+    color: "#16A34A",
     fontWeight: 500,
   },
   geoRow: {
@@ -395,12 +567,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 4,
     fontSize: 13,
     color: "#374151",
-    flex: "1 1 140px",
+    flex: "1 1 130px",
   },
   geoSelect: {
     padding: "8px 10px",
     fontSize: 14,
-    borderRadius: 8,
+    borderRadius: 6,
     border: "1px solid #D1D5DB",
     backgroundColor: "#FFFFFF",
     color: "#111827",
@@ -408,9 +580,32 @@ const styles: Record<string, React.CSSProperties> = {
   geoInput: {
     padding: "8px 10px",
     fontSize: 14,
-    borderRadius: 8,
+    borderRadius: 6,
     border: "1px solid #D1D5DB",
     backgroundColor: "#FFFFFF",
     color: "#111827",
+  },
+  geoButtonWrapper: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  geoButton: {
+    backgroundColor: "#2563EB",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: 8,
+    padding: "12px 28px",
+    fontSize: 16,
+    fontWeight: 600,
+    cursor: "pointer",
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
+  },
+  geoButtonReassurance: {
+    fontSize: 12,
+    color: "#6B7280",
+    margin: 0,
   },
 };
