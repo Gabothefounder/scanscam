@@ -167,7 +167,7 @@ export default function ResultPage() {
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
-  const conversionFiredRef = useRef(false);
+  const conversionFiredForScanRef = useRef<string | null>(null);
 
   /* ---------- load scan result ---------- */
 
@@ -185,8 +185,10 @@ export default function ResultPage() {
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         logScanEvent("scan_shown", { tier: riskTier });
 
-        if (!conversionFiredRef.current) {
-          conversionFiredRef.current = true;
+        const scanId = parsed.scan_id;
+        const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
+        if (hasValidResult && conversionFiredForScanRef.current !== scanId) {
+          conversionFiredForScanRef.current = scanId || "no-id";
           trackConversion("AW-16787240010/-lHQCNrulP0bEMro48Q-");
         }
       }
