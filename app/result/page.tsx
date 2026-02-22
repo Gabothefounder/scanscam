@@ -30,6 +30,14 @@ const copy = {
       "Whenever something feels off, ScanScam is here to help you check.",
     again: "Scan another message",
     close: "Close",
+    geoTitle: "Help us understand where scams happen (optional)",
+    country: "Country",
+    province: "Province",
+    city: "City",
+    save: "Save",
+    saved: "Saved",
+    selectCountry: "Select country",
+    selectProvince: "Select province",
   },
   fr: {
     tier: {
@@ -53,12 +61,54 @@ const copy = {
       "Si quelque chose vous semble étrange, ScanScam est là pour vous aider à vérifier.",
     again: "Analyser un autre message",
     close: "Fermer",
+    geoTitle: "Aidez-nous à comprendre où les fraudes se produisent (facultatif)",
+    country: "Pays",
+    province: "Province",
+    city: "Ville",
+    save: "Enregistrer",
+    saved: "Enregistré",
+    selectCountry: "Sélectionner un pays",
+    selectProvince: "Sélectionner une province",
   },
 };
+
+/* ---------- data ---------- */
+
+const COUNTRIES = [
+  { code: "CA", label: "Canada" },
+  { code: "US", label: "United States" },
+  { code: "GB", label: "United Kingdom" },
+  { code: "FR", label: "France" },
+  { code: "DE", label: "Germany" },
+  { code: "AU", label: "Australia" },
+  { code: "OTHER", label: "Other" },
+];
+
+const CA_PROVINCES = [
+  { code: "AB", label: "Alberta" },
+  { code: "BC", label: "British Columbia" },
+  { code: "MB", label: "Manitoba" },
+  { code: "NB", label: "New Brunswick" },
+  { code: "NL", label: "Newfoundland and Labrador" },
+  { code: "NS", label: "Nova Scotia" },
+  { code: "NT", label: "Northwest Territories" },
+  { code: "NU", label: "Nunavut" },
+  { code: "ON", label: "Ontario" },
+  { code: "PE", label: "Prince Edward Island" },
+  { code: "QC", label: "Quebec" },
+  { code: "SK", label: "Saskatchewan" },
+  { code: "YT", label: "Yukon" },
+];
 
 export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
+
+  const [countryCode, setCountryCode] = useState("");
+  const [regionCode, setRegionCode] = useState("");
+  const [city, setCity] = useState("");
+  const [geoSaved, setGeoSaved] = useState(false);
+  const [geoSaving, setGeoSaving] = useState(false);
 
   /* ---------- load scan result ---------- */
 
@@ -81,6 +131,33 @@ export default function ResultPage() {
     }
   }, []);
 
+  /* ---------- geo save handler ---------- */
+
+  const handleSaveGeo = async () => {
+    const scanId = result?.scan_id;
+    if (!scanId || geoSaving || geoSaved) return;
+
+    setGeoSaving(true);
+
+    try {
+      await fetch("/api/scan/geo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scan_id: scanId,
+          country_code: countryCode || null,
+          region_code: regionCode || null,
+          city: city.trim() || null,
+        }),
+      });
+      setGeoSaved(true);
+    } catch {
+      // Silent failure
+    } finally {
+      setGeoSaving(false);
+    }
+  };
+
   if (!result) return null;
 
   const t = copy[lang];
@@ -96,6 +173,9 @@ export default function ResultPage() {
 
   const summary =
     result.summary_sentence || t.defaultSummary[risk];
+
+  const showProvinces = countryCode === "CA";
+  const scanId = result?.scan_id;
 
   return (
     <main style={styles.container}>
@@ -122,6 +202,81 @@ export default function ResultPage() {
         </div>
 
         <p style={styles.presence}>{t.presence}</p>
+
+        {/* ---------- Optional geo section ---------- */}
+        {scanId && (
+          <div style={styles.geoSection}>
+            <p style={styles.geoTitle}>{t.geoTitle}</p>
+
+            <div style={styles.geoRow}>
+              <label style={styles.geoLabel}>
+                {t.country}
+                <select
+                  style={styles.geoSelect}
+                  value={countryCode}
+                  onChange={(e) => {
+                    setCountryCode(e.target.value);
+                    setRegionCode("");
+                    setGeoSaved(false);
+                  }}
+                  disabled={geoSaved}
+                >
+                  <option value="">{t.selectCountry}</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {showProvinces && (
+                <label style={styles.geoLabel}>
+                  {t.province}
+                  <select
+                    style={styles.geoSelect}
+                    value={regionCode}
+                    onChange={(e) => {
+                      setRegionCode(e.target.value);
+                      setGeoSaved(false);
+                    }}
+                    disabled={geoSaved}
+                  >
+                    <option value="">{t.selectProvince}</option>
+                    {CA_PROVINCES.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label style={styles.geoLabel}>
+                {t.city}
+                <input
+                  type="text"
+                  style={styles.geoInput}
+                  value={city}
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                    setGeoSaved(false);
+                  }}
+                  disabled={geoSaved}
+                  placeholder=""
+                />
+              </label>
+            </div>
+
+            <button
+              style={geoSaved ? styles.geoButtonSaved : styles.geoButton}
+              onClick={handleSaveGeo}
+              disabled={geoSaving || geoSaved || !countryCode}
+            >
+              {geoSaved ? t.saved : geoSaving ? "..." : t.save}
+            </button>
+          </div>
+        )}
 
         <div style={styles.endActions}>
           <a href={`/scan?lang=${lang}`} style={styles.link}>
@@ -179,4 +334,68 @@ const styles: Record<string, React.CSSProperties> = {
   },
   link: { color: "#2563EB", textDecoration: "none", fontWeight: 500 },
   linkSecondary: { color: "#374151", textDecoration: "none" },
+
+  geoSection: {
+    borderTop: "1px solid #E5E7EB",
+    paddingTop: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  geoTitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    margin: 0,
+  },
+  geoRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  geoLabel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    fontSize: 13,
+    color: "#374151",
+    flex: "1 1 140px",
+  },
+  geoSelect: {
+    padding: "8px 10px",
+    fontSize: 14,
+    borderRadius: 8,
+    border: "1px solid #D1D5DB",
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+  },
+  geoInput: {
+    padding: "8px 10px",
+    fontSize: 14,
+    borderRadius: 8,
+    border: "1px solid #D1D5DB",
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+  },
+  geoButton: {
+    alignSelf: "flex-start",
+    padding: "8px 16px",
+    fontSize: 13,
+    borderRadius: 8,
+    border: "none",
+    backgroundColor: "#2563EB",
+    color: "#FFFFFF",
+    cursor: "pointer",
+    fontWeight: 500,
+  },
+  geoButtonSaved: {
+    alignSelf: "flex-start",
+    padding: "8px 16px",
+    fontSize: 13,
+    borderRadius: 8,
+    border: "1px solid #D1D5DB",
+    backgroundColor: "#F3F4F6",
+    color: "#6B7280",
+    cursor: "default",
+    fontWeight: 500,
+  },
 };
