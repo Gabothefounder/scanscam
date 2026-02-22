@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ClientShell from "@/app/components/ClientShell";
+import Footer from "@/app/components/Footer";
 import "./globals.css";
 
 /* ---------------- Fonts ---------------- */
@@ -38,6 +39,7 @@ export default function RootLayout({
       >
         <ClientShell>
           <main style={{ paddingTop: "8px" }}>{children}</main>
+          <Footer />
         </ClientShell>
       </body>
     </html>

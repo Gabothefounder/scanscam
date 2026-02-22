@@ -16,6 +16,7 @@ export default function ScanPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [rawOptIn, setRawOptIn] = useState(false);
 
   /* ---------- resolve language after mount ---------- */
 
@@ -42,6 +43,16 @@ export default function ScanPage() {
       lang === "fr"
         ? "L’analyse est anonyme. Rien n’est lié à vous."
         : "Analysis is anonymous. Nothing is linked to you.",
+    compliance:
+      lang === "fr"
+        ? "ScanScam collecte des métadonnées anonymes et non identifiantes sur les schémas de fraude afin d'améliorer la prévention."
+        : "ScanScam collects anonymous, non-identifying fraud-pattern metadata to improve scam prevention.",
+    howItWorks:
+      lang === "fr" ? "Comment ça marche" : "How it works",
+    optInLabel:
+      lang === "fr"
+        ? "Partager anonymement le texte de ce message pour améliorer la détection (suppression automatique après 30 jours)."
+        : "Share this message text anonymously to improve detection (auto-deleted after 30 days).",
   };
 
   /* ---------- helpers ---------- */
@@ -69,7 +80,7 @@ export default function ScanPage() {
     setLoading(true);
 
     try {
-      const payload: any = { lang };
+      const payload: any = { lang, raw_opt_in: rawOptIn };
 
       if (imageFile) {
         payload.image = await fileToBase64(imageFile);
@@ -150,6 +161,24 @@ export default function ScanPage() {
         </div>
 
         {error && <p style={styles.error}>{error}</p>}
+
+        <div style={styles.complianceSection}>
+          <p style={styles.complianceText}>{t.compliance}</p>
+          <a href={`/how-it-works?lang=${lang}`} style={styles.complianceLink}>
+            {t.howItWorks}
+          </a>
+        </div>
+
+        <label style={styles.optInLabel}>
+          <input
+            type="checkbox"
+            checked={rawOptIn}
+            onChange={(e) => setRawOptIn(e.target.checked)}
+            disabled={loading}
+            style={styles.optInCheckbox}
+          />
+          <span>{t.optInLabel}</span>
+        </label>
 
         <button
           onClick={handleScan}
@@ -250,7 +279,40 @@ const styles: Record<string, React.CSSProperties> = {
 
   microcopy: {
     fontSize: "13px",
-    color: "#374151",            // FIX
+    color: "#374151",
     textAlign: "center",
+  },
+
+  complianceSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+
+  complianceText: {
+    fontSize: "12px",
+    color: "#6B7280",
+    margin: 0,
+  },
+
+  complianceLink: {
+    fontSize: "12px",
+    color: "#2E6BFF",
+    textDecoration: "none",
+    width: "fit-content",
+  },
+
+  optInLabel: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "8px",
+    fontSize: "13px",
+    color: "#374151",
+    cursor: "pointer",
+  },
+
+  optInCheckbox: {
+    marginTop: "2px",
+    cursor: "pointer",
   },
 };

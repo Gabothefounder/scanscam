@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 /* ---------- copy ---------- */
@@ -23,20 +23,21 @@ const copy = {
     },
     guidanceTitle: "Before acting",
     guidance: [
-      "Pause before responding — legitimate services don’t require immediate action.",
+      "Pause before responding — legitimate services don't require immediate action.",
       "Verify independently using a trusted contact or official website.",
     ],
     presence:
       "Whenever something feels off, ScanScam is here to help you check.",
-    consentTitle: "Help improve scam detection (optional)",
-    consentText:
-      "Allow us to keep this anonymous signal to help protect others.",
-    allow: "Allow",
-    deny: "No thanks",
-    thankYou:
-      "Thank you. This anonymous signal helps identify emerging scam patterns.",
     again: "Scan another message",
     close: "Close",
+    geoTitle: "Help us understand where scams happen (optional)",
+    country: "Country",
+    province: "Province",
+    city: "City",
+    selectCountry: "Select country",
+    selectProvince: "Select province",
+    saving: "Saving…",
+    saved: "Saved",
   },
   fr: {
     tier: {
@@ -51,30 +52,65 @@ const copy = {
       high:
         "Ce message ressemble fortement à des techniques de fraude connues et pourrait chercher à vous manipuler.",
     },
-    guidanceTitle: "Avant d’agir",
+    guidanceTitle: "Avant d'agir",
     guidance: [
-      "Prenez un moment avant de répondre — les services légitimes n’exigent pas d’action immédiate.",
+      "Prenez un moment avant de répondre — les services légitimes n'exigent pas d'action immédiate.",
       "Vérifiez de manière indépendante via un contact fiable ou un site officiel.",
     ],
     presence:
       "Si quelque chose vous semble étrange, ScanScam est là pour vous aider à vérifier.",
-    consentTitle: "Aider à améliorer la détection (facultatif)",
-    consentText:
-      "Autorisez la conservation de ce signal anonyme pour protéger davantage de personnes.",
-    allow: "Autoriser",
-    deny: "Non merci",
-    thankYou:
-      "Merci. Ce signal anonyme aide à détecter de nouvelles formes de fraude.",
     again: "Analyser un autre message",
     close: "Fermer",
+    geoTitle: "Aidez-nous à comprendre où les fraudes se produisent (facultatif)",
+    country: "Pays",
+    province: "Province",
+    city: "Ville",
+    selectCountry: "Sélectionner un pays",
+    selectProvince: "Sélectionner une province",
+    saving: "Enregistrement…",
+    saved: "Enregistré",
   },
 };
+
+/* ---------- data ---------- */
+
+const COUNTRIES = [
+  { code: "CA", label: "Canada" },
+  { code: "US", label: "United States" },
+  { code: "GB", label: "United Kingdom" },
+  { code: "FR", label: "France" },
+  { code: "DE", label: "Germany" },
+  { code: "AU", label: "Australia" },
+  { code: "OTHER", label: "Other" },
+];
+
+const CA_PROVINCES = [
+  { code: "AB", label: "Alberta" },
+  { code: "BC", label: "British Columbia" },
+  { code: "MB", label: "Manitoba" },
+  { code: "NB", label: "New Brunswick" },
+  { code: "NL", label: "Newfoundland and Labrador" },
+  { code: "NS", label: "Nova Scotia" },
+  { code: "NT", label: "Northwest Territories" },
+  { code: "NU", label: "Nunavut" },
+  { code: "ON", label: "Ontario" },
+  { code: "PE", label: "Prince Edward Island" },
+  { code: "QC", label: "Quebec" },
+  { code: "SK", label: "Saskatchewan" },
+  { code: "YT", label: "Yukon" },
+];
 
 export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
-  const [consented, setConsented] = useState<boolean | null>(null);
-  const [consentSent, setConsentSent] = useState(false);
+
+  const [countryCode, setCountryCode] = useState("");
+  const [regionCode, setRegionCode] = useState("");
+  const [city, setCity] = useState("");
+  const [geoStatus, setGeoStatus] = useState<"idle" | "saving" | "saved">("idle");
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(true);
 
   /* ---------- load scan result ---------- */
 
@@ -89,7 +125,6 @@ export default function ResultPage() {
         const parsed = JSON.parse(stored);
         setResult(parsed);
         
-        // E2: Log scan result shown
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         logScanEvent("scan_shown", { tier: riskTier });
       }
@@ -98,24 +133,59 @@ export default function ResultPage() {
     }
   }, []);
 
-  /* ---------- consent side-effect (ALLOW + DENY) ---------- */
+  /* ---------- auto-save geo with debounce ---------- */
+
+  const saveGeo = useCallback(async (scanId: string, country: string, region: string, cityVal: string) => {
+    if (!scanId) return;
+
+    setGeoStatus("saving");
+
+    try {
+      await fetch("/api/scan/geo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scan_id: scanId,
+          country_code: country || null,
+          region_code: country === "CA" ? (region || null) : null,
+          city: cityVal.trim() || null,
+        }),
+      });
+      setGeoStatus("saved");
+    } catch {
+      setGeoStatus("idle");
+    }
+  }, []);
 
   useEffect(() => {
-    if (consented === null || !result || consentSent) return;
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
 
-    setConsentSent(true);
+    const scanId = result?.scan_id;
+    if (!scanId) return;
 
-    fetch("/api/consent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        consent: consented, // 🔑 true OR false
-        scan_result: result, // 🔑 canonical payload
-      }),
-    }).catch(() => {
-      // silent by design
-    });
-  }, [consented, result, consentSent]);
+    if (!countryCode && !city.trim()) {
+      return;
+    }
+
+    setGeoStatus("idle");
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      saveGeo(scanId, countryCode, regionCode, city);
+    }, 800);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [countryCode, regionCode, city, result?.scan_id, saveGeo]);
 
   if (!result) return null;
 
@@ -132,6 +202,9 @@ export default function ResultPage() {
 
   const summary =
     result.summary_sentence || t.defaultSummary[risk];
+
+  const showProvinces = countryCode === "CA";
+  const scanId = result?.scan_id;
 
   return (
     <main style={styles.container}>
@@ -159,40 +232,73 @@ export default function ResultPage() {
 
         <p style={styles.presence}>{t.presence}</p>
 
-        <div style={styles.consent}>
-          {consented === null && (
-            <>
-              <div style={styles.consentTitle}>{t.consentTitle}</div>
-              <p style={styles.consentText}>{t.consentText}</p>
-              <div style={styles.consentActions}>
-                <button
-                  style={styles.allow}
-                  onClick={() => {
-                    setConsented(true);
-                    // E3: Log consent allow
-                    logScanEvent("scan_consent", { decision: "allow" });
-                  }}
-                >
-                  {t.allow}
-                </button>
-                <button
-                  style={styles.deny}
-                  onClick={() => {
-                    setConsented(false);
-                    // E3: Log consent deny
-                    logScanEvent("scan_consent", { decision: "deny" });
-                  }}
-                >
-                  {t.deny}
-                </button>
-              </div>
-            </>
-          )}
+        {/* ---------- Optional geo section ---------- */}
+        {scanId && (
+          <div style={styles.geoSection}>
+            <div style={styles.geoHeader}>
+              <p style={styles.geoTitle}>{t.geoTitle}</p>
+              {geoStatus === "saving" && (
+                <span style={styles.geoStatusSaving}>{t.saving}</span>
+              )}
+              {geoStatus === "saved" && (
+                <span style={styles.geoStatusSaved}>{t.saved}</span>
+              )}
+            </div>
 
-          {consented === true && (
-            <p style={styles.thankYou}>{t.thankYou}</p>
-          )}
-        </div>
+            <div style={styles.geoRow}>
+              <label style={styles.geoLabel}>
+                {t.country}
+                <select
+                  style={styles.geoSelect}
+                  value={countryCode}
+                  onChange={(e) => {
+                    const newCountry = e.target.value;
+                    setCountryCode(newCountry);
+                    if (newCountry !== "CA") {
+                      setRegionCode("");
+                    }
+                  }}
+                >
+                  <option value="">{t.selectCountry}</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {showProvinces && (
+                <label style={styles.geoLabel}>
+                  {t.province}
+                  <select
+                    style={styles.geoSelect}
+                    value={regionCode}
+                    onChange={(e) => setRegionCode(e.target.value)}
+                  >
+                    <option value="">{t.selectProvince}</option>
+                    {CA_PROVINCES.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label style={styles.geoLabel}>
+                {t.city}
+                <input
+                  type="text"
+                  style={styles.geoInput}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder=""
+                />
+              </label>
+            </div>
+          </div>
+        )}
 
         <div style={styles.endActions}>
           <a href={`/scan?lang=${lang}`} style={styles.link}>
@@ -242,28 +348,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   guidanceTitle: { fontWeight: 600, marginBottom: 6 },
   presence: { fontSize: 13, color: "#374151" },
-  consent: { borderTop: "1px solid #E5E7EB", paddingTop: 16 },
-  consentTitle: { fontWeight: 600 },
-  consentText: { color: "#1F2937", marginBottom: 12 },
-  consentActions: { display: "flex", gap: 12 },
-  allow: {
-    backgroundColor: "#2563EB",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: 10,
-    padding: "10px 14px",
-    cursor: "pointer",
-    fontWeight: 600,
-  },
-  deny: {
-    background: "none",
-    border: "1px solid #D1D5DB",
-    borderRadius: 10,
-    padding: "10px 14px",
-    cursor: "pointer",
-    color: "#111827",
-  },
-  thankYou: { fontSize: 14, color: "#111827" },
   endActions: {
     marginTop: 8,
     display: "flex",
@@ -272,4 +356,61 @@ const styles: Record<string, React.CSSProperties> = {
   },
   link: { color: "#2563EB", textDecoration: "none", fontWeight: 500 },
   linkSecondary: { color: "#374151", textDecoration: "none" },
+
+  geoSection: {
+    borderTop: "1px solid #E5E7EB",
+    paddingTop: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  geoHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  geoTitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    margin: 0,
+  },
+  geoStatusSaving: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontStyle: "italic",
+  },
+  geoStatusSaved: {
+    fontSize: 12,
+    color: "#065F46",
+    fontWeight: 500,
+  },
+  geoRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  geoLabel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    fontSize: 13,
+    color: "#374151",
+    flex: "1 1 140px",
+  },
+  geoSelect: {
+    padding: "8px 10px",
+    fontSize: 14,
+    borderRadius: 8,
+    border: "1px solid #D1D5DB",
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+  },
+  geoInput: {
+    padding: "8px 10px",
+    fontSize: 14,
+    borderRadius: 8,
+    border: "1px solid #D1D5DB",
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+  },
 };
