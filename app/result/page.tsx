@@ -23,18 +23,11 @@ const copy = {
     },
     guidanceTitle: "Before acting",
     guidance: [
-      "Pause before responding — legitimate services don’t require immediate action.",
+      "Pause before responding — legitimate services don't require immediate action.",
       "Verify independently using a trusted contact or official website.",
     ],
     presence:
       "Whenever something feels off, ScanScam is here to help you check.",
-    consentTitle: "Help improve scam detection (optional)",
-    consentText:
-      "Allow us to keep this anonymous signal to help protect others.",
-    allow: "Allow",
-    deny: "No thanks",
-    thankYou:
-      "Thank you. This anonymous signal helps identify emerging scam patterns.",
     again: "Scan another message",
     close: "Close",
   },
@@ -51,20 +44,13 @@ const copy = {
       high:
         "Ce message ressemble fortement à des techniques de fraude connues et pourrait chercher à vous manipuler.",
     },
-    guidanceTitle: "Avant d’agir",
+    guidanceTitle: "Avant d'agir",
     guidance: [
-      "Prenez un moment avant de répondre — les services légitimes n’exigent pas d’action immédiate.",
+      "Prenez un moment avant de répondre — les services légitimes n'exigent pas d'action immédiate.",
       "Vérifiez de manière indépendante via un contact fiable ou un site officiel.",
     ],
     presence:
       "Si quelque chose vous semble étrange, ScanScam est là pour vous aider à vérifier.",
-    consentTitle: "Aider à améliorer la détection (facultatif)",
-    consentText:
-      "Autorisez la conservation de ce signal anonyme pour protéger davantage de personnes.",
-    allow: "Autoriser",
-    deny: "Non merci",
-    thankYou:
-      "Merci. Ce signal anonyme aide à détecter de nouvelles formes de fraude.",
     again: "Analyser un autre message",
     close: "Fermer",
   },
@@ -73,8 +59,6 @@ const copy = {
 export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
-  const [consented, setConsented] = useState<boolean | null>(null);
-  const [consentSent, setConsentSent] = useState(false);
 
   /* ---------- load scan result ---------- */
 
@@ -89,7 +73,6 @@ export default function ResultPage() {
         const parsed = JSON.parse(stored);
         setResult(parsed);
         
-        // E2: Log scan result shown
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         logScanEvent("scan_shown", { tier: riskTier });
       }
@@ -97,25 +80,6 @@ export default function ResultPage() {
       setResult(null);
     }
   }, []);
-
-  /* ---------- consent side-effect (ALLOW + DENY) ---------- */
-
-  useEffect(() => {
-    if (consented === null || !result || consentSent) return;
-
-    setConsentSent(true);
-
-    fetch("/api/consent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        consent: consented, // 🔑 true OR false
-        scan_result: result, // 🔑 canonical payload
-      }),
-    }).catch(() => {
-      // silent by design
-    });
-  }, [consented, result, consentSent]);
 
   if (!result) return null;
 
@@ -158,41 +122,6 @@ export default function ResultPage() {
         </div>
 
         <p style={styles.presence}>{t.presence}</p>
-
-        <div style={styles.consent}>
-          {consented === null && (
-            <>
-              <div style={styles.consentTitle}>{t.consentTitle}</div>
-              <p style={styles.consentText}>{t.consentText}</p>
-              <div style={styles.consentActions}>
-                <button
-                  style={styles.allow}
-                  onClick={() => {
-                    setConsented(true);
-                    // E3: Log consent allow
-                    logScanEvent("scan_consent", { decision: "allow" });
-                  }}
-                >
-                  {t.allow}
-                </button>
-                <button
-                  style={styles.deny}
-                  onClick={() => {
-                    setConsented(false);
-                    // E3: Log consent deny
-                    logScanEvent("scan_consent", { decision: "deny" });
-                  }}
-                >
-                  {t.deny}
-                </button>
-              </div>
-            </>
-          )}
-
-          {consented === true && (
-            <p style={styles.thankYou}>{t.thankYou}</p>
-          )}
-        </div>
 
         <div style={styles.endActions}>
           <a href={`/scan?lang=${lang}`} style={styles.link}>
@@ -242,28 +171,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   guidanceTitle: { fontWeight: 600, marginBottom: 6 },
   presence: { fontSize: 13, color: "#374151" },
-  consent: { borderTop: "1px solid #E5E7EB", paddingTop: 16 },
-  consentTitle: { fontWeight: 600 },
-  consentText: { color: "#1F2937", marginBottom: 12 },
-  consentActions: { display: "flex", gap: 12 },
-  allow: {
-    backgroundColor: "#2563EB",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: 10,
-    padding: "10px 14px",
-    cursor: "pointer",
-    fontWeight: 600,
-  },
-  deny: {
-    background: "none",
-    border: "1px solid #D1D5DB",
-    borderRadius: 10,
-    padding: "10px 14px",
-    cursor: "pointer",
-    color: "#111827",
-  },
-  thankYou: { fontSize: 14, color: "#111827" },
   endActions: {
     marginTop: 8,
     display: "flex",
