@@ -45,7 +45,8 @@ const copy = {
     ],
 
     contactTitle: "Contact",
-    contact: "For privacy or deletion questions: hello@scanscam.ai",
+    contactLabel: "For privacy or deletion requests:",
+    contactEmail: "privacy@scanscam.ca",
   },
   fr: {
     title: "Comment fonctionne ScanScam",
@@ -87,7 +88,8 @@ const copy = {
     ],
 
     contactTitle: "Contact",
-    contact: "Pour les questions de confidentialité ou de suppression : hello@scanscam.ai",
+    contactLabel: "Pour les demandes liées à la confidentialité ou suppression :",
+    contactEmail: "privacy@scanscam.ca",
   },
 };
 
@@ -158,7 +160,12 @@ export default function HowItWorksPage() {
 
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>{t.contactTitle}</h2>
-          <p style={styles.contactText}>{t.contact}</p>
+          <p style={styles.contactText}>
+            {t.contactLabel}{" "}
+            <a href={`mailto:${t.contactEmail}`} style={styles.emailLink}>
+              {t.contactEmail}
+            </a>
+          </p>
         </section>
 
         <a href={`/scan?lang=${lang}`} style={styles.backLink}>
@@ -211,6 +218,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     color: "#374151",
     margin: 0,
+  },
+  emailLink: {
+    color: "#2563EB",
+    textDecoration: "none",
   },
   backLink: {
     display: "inline-block",
