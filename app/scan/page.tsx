@@ -112,9 +112,10 @@ export default function ScanPage() {
 
   if (!mounted) return null;
 
-  const textareaStyle = {
+  const textareaStyle: React.CSSProperties = {
     ...styles.textarea,
-    ...(textareaFocused ? styles.textareaFocused : {}),
+    border: textareaFocused ? "1px solid #2563EB" : "1px solid #6B7280",
+    boxShadow: textareaFocused ? "0 0 0 3px rgba(37, 99, 235, 0.12)" : undefined,
   };
 
   return (
@@ -282,11 +283,6 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "border-color 0.15s, box-shadow 0.15s",
   },
 
-  textareaFocused: {
-    borderColor: "#2563EB",
-    boxShadow: "0 0 0 3px rgba(37, 99, 235, 0.12)",
-    backgroundColor: "#FFFFFF",
-  },
 
   divider: {
     textAlign: "center",
