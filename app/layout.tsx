@@ -35,10 +35,10 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ margin: 0, background: "#F7F8FA" }}
+        style={{ margin: 0, background: "#E2E4E9", minHeight: "100vh", display: "flex", flexDirection: "column" }}
       >
         <ClientShell>
-          <main style={{ paddingTop: "8px" }}>{children}</main>
+          <main style={{ paddingTop: "8px", flex: 1 }}>{children}</main>
           <Footer />
         </ClientShell>
       </body>

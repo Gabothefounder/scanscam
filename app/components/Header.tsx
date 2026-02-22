@@ -48,12 +48,13 @@ export default function Header() {
 
 const styles: any = {
   header: {
-    maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "20px 16px",
+    width: "100%",
+    padding: "20px 24px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    boxSizing: "border-box",
   },
 
   brand: {

@@ -152,14 +152,14 @@ const styles = {
 
   secondaryButton: {
     padding: "14px 24px",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#FFFFFF",
     color: "#1F2937",
     textAlign: "center" as const,
     borderRadius: "12px",
     textDecoration: "none",
     fontWeight: 600,
     fontSize: "17px",
-    border: "1px solid #6B7280",
+    border: "1px solid #94A3B8",
   },
 
   secondarySubtext: {

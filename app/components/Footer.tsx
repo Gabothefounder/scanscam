@@ -11,11 +11,13 @@ export default function Footer() {
 
 const styles: Record<string, React.CSSProperties> = {
   footer: {
+    width: "100%",
     textAlign: "center",
     fontSize: 12,
     color: "#6B7280",
-    opacity: 0.8,
-    padding: "16px 16px",
+    padding: "16px 24px",
+    backgroundColor: "#FFFFFF",
+    boxSizing: "border-box",
   },
   link: {
     color: "#6B7280",
