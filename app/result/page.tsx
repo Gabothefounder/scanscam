@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 /* ---------- copy ---------- */
@@ -34,10 +34,10 @@ const copy = {
     country: "Country",
     province: "Province",
     city: "City",
-    save: "Save",
-    saved: "Saved",
     selectCountry: "Select country",
     selectProvince: "Select province",
+    saving: "Saving…",
+    saved: "Saved",
   },
   fr: {
     tier: {
@@ -65,10 +65,10 @@ const copy = {
     country: "Pays",
     province: "Province",
     city: "Ville",
-    save: "Enregistrer",
-    saved: "Enregistré",
     selectCountry: "Sélectionner un pays",
     selectProvince: "Sélectionner une province",
+    saving: "Enregistrement…",
+    saved: "Enregistré",
   },
 };
 
@@ -107,8 +107,10 @@ export default function ResultPage() {
   const [countryCode, setCountryCode] = useState("");
   const [regionCode, setRegionCode] = useState("");
   const [city, setCity] = useState("");
-  const [geoSaved, setGeoSaved] = useState(false);
-  const [geoSaving, setGeoSaving] = useState(false);
+  const [geoStatus, setGeoStatus] = useState<"idle" | "saving" | "saved">("idle");
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(true);
 
   /* ---------- load scan result ---------- */
 
@@ -131,13 +133,12 @@ export default function ResultPage() {
     }
   }, []);
 
-  /* ---------- geo save handler ---------- */
+  /* ---------- auto-save geo with debounce ---------- */
 
-  const handleSaveGeo = async () => {
-    const scanId = result?.scan_id;
-    if (!scanId || geoSaving || geoSaved) return;
+  const saveGeo = useCallback(async (scanId: string, country: string, region: string, cityVal: string) => {
+    if (!scanId) return;
 
-    setGeoSaving(true);
+    setGeoStatus("saving");
 
     try {
       await fetch("/api/scan/geo", {
@@ -145,18 +146,46 @@ export default function ResultPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scan_id: scanId,
-          country_code: countryCode || null,
-          region_code: regionCode || null,
-          city: city.trim() || null,
+          country_code: country || null,
+          region_code: country === "CA" ? (region || null) : null,
+          city: cityVal.trim() || null,
         }),
       });
-      setGeoSaved(true);
+      setGeoStatus("saved");
     } catch {
-      // Silent failure
-    } finally {
-      setGeoSaving(false);
+      setGeoStatus("idle");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+
+    const scanId = result?.scan_id;
+    if (!scanId) return;
+
+    if (!countryCode && !city.trim()) {
+      return;
+    }
+
+    setGeoStatus("idle");
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      saveGeo(scanId, countryCode, regionCode, city);
+    }, 800);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [countryCode, regionCode, city, result?.scan_id, saveGeo]);
 
   if (!result) return null;
 
@@ -206,7 +235,15 @@ export default function ResultPage() {
         {/* ---------- Optional geo section ---------- */}
         {scanId && (
           <div style={styles.geoSection}>
-            <p style={styles.geoTitle}>{t.geoTitle}</p>
+            <div style={styles.geoHeader}>
+              <p style={styles.geoTitle}>{t.geoTitle}</p>
+              {geoStatus === "saving" && (
+                <span style={styles.geoStatusSaving}>{t.saving}</span>
+              )}
+              {geoStatus === "saved" && (
+                <span style={styles.geoStatusSaved}>{t.saved}</span>
+              )}
+            </div>
 
             <div style={styles.geoRow}>
               <label style={styles.geoLabel}>
@@ -215,11 +252,12 @@ export default function ResultPage() {
                   style={styles.geoSelect}
                   value={countryCode}
                   onChange={(e) => {
-                    setCountryCode(e.target.value);
-                    setRegionCode("");
-                    setGeoSaved(false);
+                    const newCountry = e.target.value;
+                    setCountryCode(newCountry);
+                    if (newCountry !== "CA") {
+                      setRegionCode("");
+                    }
                   }}
-                  disabled={geoSaved}
                 >
                   <option value="">{t.selectCountry}</option>
                   {COUNTRIES.map((c) => (
@@ -236,11 +274,7 @@ export default function ResultPage() {
                   <select
                     style={styles.geoSelect}
                     value={regionCode}
-                    onChange={(e) => {
-                      setRegionCode(e.target.value);
-                      setGeoSaved(false);
-                    }}
-                    disabled={geoSaved}
+                    onChange={(e) => setRegionCode(e.target.value)}
                   >
                     <option value="">{t.selectProvince}</option>
                     {CA_PROVINCES.map((p) => (
@@ -258,23 +292,11 @@ export default function ResultPage() {
                   type="text"
                   style={styles.geoInput}
                   value={city}
-                  onChange={(e) => {
-                    setCity(e.target.value);
-                    setGeoSaved(false);
-                  }}
-                  disabled={geoSaved}
+                  onChange={(e) => setCity(e.target.value)}
                   placeholder=""
                 />
               </label>
             </div>
-
-            <button
-              style={geoSaved ? styles.geoButtonSaved : styles.geoButton}
-              onClick={handleSaveGeo}
-              disabled={geoSaving || geoSaved || !countryCode}
-            >
-              {geoSaved ? t.saved : geoSaving ? "..." : t.save}
-            </button>
           </div>
         )}
 
@@ -342,10 +364,25 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: 12,
   },
+  geoHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
   geoTitle: {
     fontSize: 13,
     color: "#6B7280",
     margin: 0,
+  },
+  geoStatusSaving: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontStyle: "italic",
+  },
+  geoStatusSaved: {
+    fontSize: 12,
+    color: "#065F46",
+    fontWeight: 500,
   },
   geoRow: {
     display: "flex",
@@ -375,27 +412,5 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #D1D5DB",
     backgroundColor: "#FFFFFF",
     color: "#111827",
-  },
-  geoButton: {
-    alignSelf: "flex-start",
-    padding: "8px 16px",
-    fontSize: 13,
-    borderRadius: 8,
-    border: "none",
-    backgroundColor: "#2563EB",
-    color: "#FFFFFF",
-    cursor: "pointer",
-    fontWeight: 500,
-  },
-  geoButtonSaved: {
-    alignSelf: "flex-start",
-    padding: "8px 16px",
-    fontSize: 13,
-    borderRadius: 8,
-    border: "1px solid #D1D5DB",
-    backgroundColor: "#F3F4F6",
-    color: "#6B7280",
-    cursor: "default",
-    fontWeight: 500,
   },
 };
