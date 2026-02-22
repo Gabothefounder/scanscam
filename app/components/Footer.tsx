@@ -15,7 +15,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "#6B7280",
     opacity: 0.8,
-    padding: "24px 16px",
+    padding: "16px 16px",
   },
   link: {
     color: "#6B7280",

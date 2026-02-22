@@ -6,22 +6,24 @@ import { useEffect, useState } from "react";
 
 const copy = {
   en: {
-    title: "Spot scams early. Protect yourself and others.",
-    subtext: "Quickly analyze suspicious messages — or report them to help make the world a little safer for everyone.",
-    primaryCta: "Scan a Scam",
-    primarySubtext: "Instant, anonymous analysis.",
+    title: "Is this a scam?",
+    subtext: "Paste the message or upload a screenshot to check instantly.",
+    primaryCta: "Check Now",
+    primarySubtext: "Anonymous. Immediate. No account required.",
     secondaryCta: "Report a Scam",
-    secondarySubtext: "Take 3 minutes. Turn what happened to you into a warning for others.",
-    footer: "This tool highlights warning signs only.",
+    secondarySubtext: "Already affected? Take 3 minutes to help warn others.",
+    compliance:
+      "By using ScanScam, you agree to anonymous collection of non-identifying fraud-pattern metadata to improve scam prevention.",
   },
   fr: {
-    title: "Repérez les arnaques plus tôt. Protégez-vous et les autres.",
-    subtext: "Analysez rapidement les messages suspects ou signalez-les pour éviter qu'ils se répètent.",
-    primaryCta: "Analyser une arnaque",
-    primarySubtext: "Analyse instantanée et anonyme.",
+    title: "Est-ce une arnaque ?",
+    subtext: "Collez le message ou téléversez une capture d'écran pour vérifier instantanément.",
+    primaryCta: "Vérifier maintenant",
+    primarySubtext: "Anonyme. Immédiat. Aucun compte requis.",
     secondaryCta: "Signaler une arnaque",
-    secondarySubtext: "Prenez 3 minutes. Transformez ce que vous avez vécu en avertissement pour les autres.",
-    footer: "Cet outil met en évidence des signes d'alerte seulement.",
+    secondarySubtext: "Déjà touché(e) ? Prenez 3 minutes pour aider à prévenir les autres.",
+    compliance:
+      "En utilisant ScanScam, vous acceptez la collecte anonyme de métadonnées non identifiantes sur les schémas de fraude afin d'améliorer la prévention.",
   },
 };
 
@@ -56,17 +58,18 @@ export default function Home() {
           <a href={`/scan?lang=${lang}`} style={styles.primaryButton}>
             {t.primaryCta}
           </a>
-          <p style={styles.buttonSubtext}>{t.primarySubtext}</p>
+          <p style={styles.primarySubtext}>{t.primarySubtext}</p>
 
-          <a href={`/report?lang=${lang}`} style={styles.primaryButton}>
+          <div style={styles.divider} />
+
+          <a href={`/report?lang=${lang}`} style={styles.secondaryButton}>
             {t.secondaryCta}
           </a>
-          <p style={styles.buttonSubtext}>{t.secondarySubtext}</p>
+          <p style={styles.secondarySubtext}>{t.secondarySubtext}</p>
+
+          <p style={styles.compliance}>{t.compliance}</p>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer style={styles.footer}>{t.footer}</footer>
     </main>
   );
 }
@@ -75,69 +78,102 @@ export default function Home() {
 
 const styles = {
   container: {
-    minHeight: "100vh",
+    height: "calc(100vh - 156px)",
     display: "flex",
-    flexDirection: "column" as const,
-    backgroundColor: "#F7F8FA",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E2E4E9",
     color: "#0B1220",
     fontFamily: "Inter, system-ui, sans-serif",
   },
 
   main: {
-    flex: 1,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "32px",
+    paddingLeft: "16px",
+    paddingRight: "16px",
+    width: "100%",
   },
 
   card: {
     width: "100%",
-    maxWidth: "520px",
+    maxWidth: "600px",
     backgroundColor: "#FFFFFF",
-    borderRadius: "16px",
-    padding: "36px",
+    borderRadius: "14px",
+    padding: "32px 28px",
     display: "flex",
     flexDirection: "column" as const,
-    gap: "20px",
-    boxShadow: "0 12px 36px rgba(11,18,32,0.08)",
+    gap: "16px",
+    boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
+    border: "1px solid #D1D5DB",
   },
 
   title: {
-    fontSize: "30px",
-    lineHeight: 1.25,
-    fontWeight: 600,
-    letterSpacing: "-0.3px",
+    fontSize: "36px",
+    lineHeight: 1.15,
+    fontWeight: 700,
+    letterSpacing: "-0.4px",
+    textAlign: "center" as const,
   },
 
   subtext: {
-    fontSize: "17px",
-    lineHeight: 1.55,
-    color: "#5F6670",
+    fontSize: "18px",
+    lineHeight: 1.5,
+    color: "#374151",
+    textAlign: "center" as const,
   },
 
   primaryButton: {
-    marginTop: "10px",
-    padding: "16px 18px",
-    backgroundColor: "#2E6BFF",
+    marginTop: "4px",
+    padding: "14px 24px",
+    backgroundColor: "#2563EB",
     color: "#FFFFFF",
     textAlign: "center" as const,
     borderRadius: "12px",
     textDecoration: "none",
-    fontWeight: 600,
-    fontSize: "16px",
+    fontWeight: 700,
+    fontSize: "17px",
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
   },
 
-  buttonSubtext: {
-    marginTop: "8px",
+  primarySubtext: {
+    marginTop: "4px",
     fontSize: "14px",
-    color: "#8A8F98",
+    color: "#4B5563",
+    textAlign: "center" as const,
   },
 
-  footer: {
-    padding: "18px",
+  divider: {
+    height: "1px",
+    backgroundColor: "#E5E7EB",
+    margin: "4px 0",
+  },
+
+  secondaryButton: {
+    padding: "14px 24px",
+    backgroundColor: "#F9FAFB",
+    color: "#1F2937",
+    textAlign: "center" as const,
+    borderRadius: "12px",
+    textDecoration: "none",
+    fontWeight: 600,
+    fontSize: "17px",
+    border: "1px solid #6B7280",
+  },
+
+  secondarySubtext: {
+    marginTop: "4px",
+    fontSize: "14px",
+    color: "#374151",
+    textAlign: "center" as const,
+  },
+
+  compliance: {
+    marginTop: "8px",
     fontSize: "13px",
-    color: "#8A8F98",
+    lineHeight: 1.4,
+    color: "#4B5563",
     textAlign: "center" as const,
   },
 };
