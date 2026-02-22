@@ -119,9 +119,9 @@ const CA_PROVINCES = [
 /* ---------- Risk Meter ---------- */
 
 const RISK_CONFIG = {
-  low: { percent: 30, color: "#16A34A", bgColor: "#F0FDF4" },
-  medium: { percent: 60, color: "#D97706", bgColor: "#FFFBEB" },
-  high: { percent: 90, color: "#DC2626", bgColor: "#FEF2F2" },
+  low: { percent: 30, color: "#16A34A", bgColor: "#E8F5EC" },
+  medium: { percent: 60, color: "#D97706", bgColor: "#FDF6E8" },
+  high: { percent: 90, color: "#DC2626", bgColor: "#FBEAEA" },
 };
 
 function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"; label: string; levelText: string }) {
@@ -494,7 +494,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   actionBlock: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "#D9DCDF",
     borderRadius: 12,
     padding: "14px 16px",
     display: "flex",
@@ -521,8 +521,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   geoSection: {
-    backgroundColor: "#EFF6FF",
-    border: "2px solid #BFDBFE",
+    backgroundColor: "#E0EDFF",
+    border: "2px solid #93C5FD",
     borderRadius: 12,
     padding: "14px 16px",
     display: "flex",
@@ -573,7 +573,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 10px",
     fontSize: 14,
     borderRadius: 6,
-    border: "1px solid #D1D5DB",
+    border: "1px solid #9CA3AF",
     backgroundColor: "#FFFFFF",
     color: "#111827",
   },
@@ -581,7 +581,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 10px",
     fontSize: 14,
     borderRadius: 6,
-    border: "1px solid #D1D5DB",
+    border: "1px solid #9CA3AF",
     backgroundColor: "#FFFFFF",
     color: "#111827",
   },
