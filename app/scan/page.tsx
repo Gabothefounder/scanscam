@@ -15,9 +15,9 @@ const copy = {
     uploadLabel: "📷 Upload a screenshot",
     button: "Scan",
     buttonLoading: "Analyzing…",
-    reassurance: "Anonymous. No login. No personal profile.",
-    policy1: "Messages may be stored securely for up to 30 days to improve detection.",
-    policy2: "No personal tracking or behavioral profiling.",
+    reassurance: "No login. Instant results. No personal profile.",
+    disclaimer:
+      "By using ScanScam, you agree that messages may be securely stored for up to 30 days to improve detection. No accounts or personal profiles are created.",
     howItWorks: "How it works",
     privacyLink: "Privacy & Data Use",
     errorGeneric: "Something went wrong. Please try again.",
@@ -30,9 +30,9 @@ const copy = {
     uploadLabel: "📷 Téléverser une capture d'écran",
     button: "Analyser",
     buttonLoading: "Analyse en cours…",
-    reassurance: "Anonyme. Aucune connexion. Aucun profil personnel.",
-    policy1: "Les messages peuvent être stockés de manière sécurisée jusqu'à 30 jours pour améliorer la détection.",
-    policy2: "Aucun suivi personnel ni profilage comportemental.",
+    reassurance: "Aucune connexion. Résultats instantanés. Aucun profil personnel.",
+    disclaimer:
+      "En utilisant ScanScam, vous acceptez que les messages puissent être stockés de manière sécurisée jusqu'à 30 jours pour améliorer la détection. Aucun compte ni profil personnel n'est créé.",
     howItWorks: "Comment ça marche",
     privacyLink: "Confidentialité et utilisation des données",
     errorGeneric: "Une erreur est survenue. Veuillez réessayer.",
@@ -78,7 +78,7 @@ export default function ScanPage() {
     setLoading(true);
 
     try {
-      const payload: any = { lang, raw_opt_in: false };
+      const payload: any = { lang, raw_opt_in: true };
 
       if (imageFile) {
         payload.image = await fileToBase64(imageFile);
@@ -185,21 +185,18 @@ export default function ScanPage() {
           {loading ? t.buttonLoading : t.button}
         </button>
 
-        {/* ---------- Reassurance + policy + links ---------- */}
+        {/* ---------- Reassurance + disclaimer + links ---------- */}
         <p style={styles.reassurance}>{t.reassurance}</p>
-        <div style={styles.policyBlock}>
-          <p style={styles.policyText}>{t.policy1}</p>
-          <p style={styles.policyText}>{t.policy2}</p>
-          <p style={styles.policyLinks}>
-            <a href={`/how-it-works?lang=${lang}`} style={styles.policyLink}>
-              {t.howItWorks}
-            </a>
-            {" · "}
-            <a href={`/privacy?lang=${lang}`} style={styles.policyLink}>
-              {t.privacyLink}
-            </a>
-          </p>
-        </div>
+        <p style={styles.disclaimer}>{t.disclaimer}</p>
+        <p style={styles.footerLinks}>
+          <a href={`/how-it-works?lang=${lang}`} style={styles.footerLink}>
+            {t.howItWorks}
+          </a>
+          {" · "}
+          <a href={`/privacy?lang=${lang}`} style={styles.footerLink}>
+            {t.privacyLink}
+          </a>
+        </p>
       </section>
     </main>
   );
@@ -348,32 +345,29 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   reassurance: {
-    fontSize: 14,
-    color: "#4B5563",
+    fontSize: 15,
+    fontWeight: 500,
+    color: "#374151",
     textAlign: "center",
     margin: 0,
   },
 
-  policyBlock: {
-    marginTop: 4,
-  },
-
-  policyText: {
-    margin: "0 0 4px",
+  disclaimer: {
     fontSize: 12,
     color: "#9CA3AF",
     textAlign: "center",
-    lineHeight: 1.4,
+    lineHeight: 1.5,
+    margin: "4px 0 0",
   },
 
-  policyLinks: {
+  footerLinks: {
     margin: "8px 0 0",
     fontSize: 12,
     color: "#9CA3AF",
     textAlign: "center",
   },
 
-  policyLink: {
+  footerLink: {
     color: "#2563EB",
     textDecoration: "none",
   },
