@@ -6,7 +6,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 
-const firedRenderEvents = new Set<string>();
+const firedOnce = new Set<string>();
 
 /* ---------- copy ---------- */
 
@@ -187,8 +187,8 @@ export default function ResultPage() {
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         const scanId = parsed.scan_id;
         const key = scanId ? `scan_shown:${scanId}` : null;
-        if (scanId && key && !firedRenderEvents.has(key)) {
-          firedRenderEvents.add(key);
+        if (scanId && key && !firedOnce.has(key)) {
+          firedOnce.add(key);
           logScanEvent("scan_shown", {
             scan_id: scanId,
             props: { risk_tier: riskTier },
