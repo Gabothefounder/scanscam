@@ -44,6 +44,7 @@ const ALLOWED_PROPS = [
   "error_code",
   "build_id",
   "input_length",
+  "attempt_id",
 ] as const;
 
 const BANNED_KEYS = [

@@ -185,12 +185,13 @@ export default function ResultPage() {
 
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         const scanId = parsed.scan_id;
+        const attempt_id = sessionStorage.getItem("scan_attempt_id");
         const scanKey = scanId ?? "no-id";
         if (scanShownFiredForRef.current !== scanKey) {
           scanShownFiredForRef.current = scanKey;
           logScanEvent("scan_shown", {
             scan_id: scanId ?? undefined,
-            props: { risk_tier: riskTier },
+            props: { risk_tier: riskTier, ...(attempt_id && { attempt_id }) },
           });
         }
         const hasValidResult = scanId || parsed.risk || parsed.risk_tier;

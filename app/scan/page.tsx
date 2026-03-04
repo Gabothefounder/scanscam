@@ -74,8 +74,10 @@ export default function ScanPage() {
 
   const handleScan = async () => {
     setError(null);
+    const attempt_id = crypto.randomUUID();
+    sessionStorage.setItem("scan_attempt_id", attempt_id);
     logScanEvent("scan_attempt", {
-      props: { input_length: text.length },
+      props: { input_length: text.length, attempt_id },
     });
     setLoading(true);
 
@@ -106,7 +108,7 @@ export default function ScanPage() {
       if (scanId) {
         logScanEvent("scan_created", {
           scan_id: scanId,
-          props: { input_length: text.length },
+          props: { attempt_id, input_length: text.length },
         });
       }
       sessionStorage.setItem("scanResult", JSON.stringify(data.result));
