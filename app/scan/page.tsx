@@ -74,7 +74,7 @@ export default function ScanPage() {
 
   const handleScan = async () => {
     setError(null);
-    logScanEvent("scan_attempt", { length: text.length });
+    logScanEvent("scan_attempt");
     setLoading(true);
 
     try {
@@ -95,6 +95,9 @@ export default function ScanPage() {
       const data = await res.json();
 
       if (!data.ok) {
+        logScanEvent("scan_error", {
+          props: { error_code: (data?.code as string) ?? "api_error" },
+        });
         setError(data.message);
         setLoading(false);
         return;
@@ -103,6 +106,7 @@ export default function ScanPage() {
       sessionStorage.setItem("scanResult", JSON.stringify(data.result));
       router.push(`/result?lang=${lang}`);
     } catch {
+      logScanEvent("scan_error", { props: { error_code: "network_error" } });
       setError(t.errorGeneric);
       setLoading(false);
     }

@@ -181,11 +181,13 @@ export default function ResultPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         setResult(parsed);
-        
-        const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
-        logScanEvent("scan_shown", { tier: riskTier });
 
+        const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         const scanId = parsed.scan_id;
+        logScanEvent("scan_shown", {
+          scan_id: scanId ?? undefined,
+          props: { risk_tier: riskTier },
+        });
         const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
         if (hasValidResult && conversionFiredForScanRef.current !== scanId) {
           conversionFiredForScanRef.current = scanId || "no-id";
