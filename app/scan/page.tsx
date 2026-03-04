@@ -15,11 +15,11 @@ const copy = {
     uploadLabel: "📷 Upload a screenshot",
     button: "Scan",
     buttonLoading: "Analyzing…",
-    reassurance: "Anonymous. Nothing is linked to you.",
-    toggle: "Help improve scam detection (optional)",
-    checkbox: "Share this message anonymously (deleted after 30 days)",
-    smallNote: "We store pattern data only. No personal identifiers.",
+    reassurance: "Anonymous. No login. No personal profile.",
+    policy1: "Messages may be stored securely for up to 30 days to improve detection.",
+    policy2: "No personal tracking or behavioral profiling.",
     howItWorks: "How it works",
+    privacyLink: "Privacy & Data Use",
     errorGeneric: "Something went wrong. Please try again.",
   },
   fr: {
@@ -30,11 +30,11 @@ const copy = {
     uploadLabel: "📷 Téléverser une capture d'écran",
     button: "Analyser",
     buttonLoading: "Analyse en cours…",
-    reassurance: "Analyse anonyme. Rien n'est lié à vous.",
-    toggle: "Aider à améliorer la détection (optionnel)",
-    checkbox: "Partager ce message anonymement (supprimé après 30 jours)",
-    smallNote: "Nous conservons seulement des données de détection, sans information personnelle.",
+    reassurance: "Anonyme. Aucune connexion. Aucun profil personnel.",
+    policy1: "Les messages peuvent être stockés de manière sécurisée jusqu'à 30 jours pour améliorer la détection.",
+    policy2: "Aucun suivi personnel ni profilage comportemental.",
     howItWorks: "Comment ça marche",
+    privacyLink: "Confidentialité et utilisation des données",
     errorGeneric: "Une erreur est survenue. Veuillez réessayer.",
   },
 };
@@ -49,8 +49,6 @@ export default function ScanPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [rawOptIn, setRawOptIn] = useState(false);
-  const [optInOpen, setOptInOpen] = useState(false);
   const [textareaFocused, setTextareaFocused] = useState(false);
 
   useEffect(() => {
@@ -80,7 +78,7 @@ export default function ScanPage() {
     setLoading(true);
 
     try {
-      const payload: any = { lang, raw_opt_in: rawOptIn };
+      const payload: any = { lang, raw_opt_in: false };
 
       if (imageFile) {
         payload.image = await fileToBase64(imageFile);
@@ -187,38 +185,20 @@ export default function ScanPage() {
           {loading ? t.buttonLoading : t.button}
         </button>
 
-        {/* ---------- Reassurance ---------- */}
+        {/* ---------- Reassurance + policy + links ---------- */}
         <p style={styles.reassurance}>{t.reassurance}</p>
-
-        {/* ---------- Collapsible Opt-In Section (below primary action) ---------- */}
-        <div style={styles.optInSection}>
-          <button
-            type="button"
-            onClick={() => setOptInOpen(!optInOpen)}
-            style={styles.optInToggle}
-            aria-expanded={optInOpen}
-          >
-            {optInOpen ? "▼" : "▶"} {t.toggle}
-          </button>
-
-          {optInOpen && (
-            <div style={styles.optInContent}>
-              <label style={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={rawOptIn}
-                  onChange={(e) => setRawOptIn(e.target.checked)}
-                  disabled={loading}
-                  style={styles.checkbox}
-                />
-                <span>{t.checkbox}</span>
-              </label>
-              <p style={styles.smallNote}>{t.smallNote}</p>
-              <a href={`/how-it-works?lang=${lang}`} style={styles.howItWorksLink}>
-                {t.howItWorks}
-              </a>
-            </div>
-          )}
+        <div style={styles.policyBlock}>
+          <p style={styles.policyText}>{t.policy1}</p>
+          <p style={styles.policyText}>{t.policy2}</p>
+          <p style={styles.policyLinks}>
+            <a href={`/how-it-works?lang=${lang}`} style={styles.policyLink}>
+              {t.howItWorks}
+            </a>
+            {" · "}
+            <a href={`/privacy?lang=${lang}`} style={styles.policyLink}>
+              {t.privacyLink}
+            </a>
+          </p>
         </div>
       </section>
     </main>
@@ -374,62 +354,27 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
   },
 
-  optInSection: {
-    borderTop: "1px solid #E5E7EB",
-    paddingTop: 18,
-    marginTop: 8,
+  policyBlock: {
+    marginTop: 4,
   },
 
-  optInToggle: {
-    background: "none",
-    border: "none",
-    fontSize: 15,
-    fontWeight: 500,
-    color: "#475569",
-    cursor: "pointer",
-    padding: 0,
-    textAlign: "left",
-    width: "100%",
-    transition: "color 0.15s",
+  policyText: {
+    margin: "0 0 4px",
+    fontSize: 12,
+    color: "#9CA3AF",
+    textAlign: "center",
+    lineHeight: 1.4,
   },
 
-  optInContent: {
-    marginTop: 12,
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    paddingLeft: 4,
+  policyLinks: {
+    margin: "8px 0 0",
+    fontSize: 12,
+    color: "#9CA3AF",
+    textAlign: "center",
   },
 
-  checkboxLabel: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 10,
-    fontSize: 15,
-    color: "#374151",
-    cursor: "pointer",
-    lineHeight: 1.5,
-  },
-
-  checkbox: {
-    marginTop: 3,
-    width: 18,
-    height: 18,
-    cursor: "pointer",
-  },
-
-  smallNote: {
-    fontSize: 13,
-    color: "#4B5563",
-    margin: 0,
-    paddingLeft: 28,
-  },
-
-  howItWorksLink: {
-    fontSize: 13,
+  policyLink: {
     color: "#2563EB",
     textDecoration: "none",
-    paddingLeft: 28,
-    fontWeight: 500,
   },
 };

@@ -10,8 +10,9 @@ const copy = {
     subtext: "Paste a suspicious message or upload a screenshot to check instantly.",
     primaryCta: "Check Now",
     reassurance: "No login required. Instant results. No personal profile.",
-    policy1: "Messages may be securely stored for up to 30 days to improve detection.",
-    policy2: "Approximate region (city-level) may be used for local scam trends.",
+    policy1: "Messages may be stored securely for up to 30 days to improve detection.",
+    policy2: "Approximate region (city-level) may be used to detect local scam trends.",
+    policy3: "No accounts. No personal tracking or profiling.",
     howItWorks: "How it works",
     privacyLink: "Privacy & Data Use",
     helpOthersLabel: "Help others (optional)",
@@ -23,7 +24,8 @@ const copy = {
     primaryCta: "Vérifier maintenant",
     reassurance: "Aucune connexion requise. Résultats instantanés. Aucun profil personnel.",
     policy1: "Les messages peuvent être stockés de manière sécurisée jusqu'à 30 jours pour améliorer la détection.",
-    policy2: "La région approximative (niveau ville) peut être utilisée pour les tendances locales.",
+    policy2: "La région approximative (niveau ville) peut être utilisée pour détecter les tendances locales.",
+    policy3: "Aucun compte. Aucun suivi personnel ni profilage.",
     howItWorks: "Comment ça marche",
     privacyLink: "Confidentialité et utilisation des données",
     helpOthersLabel: "Aider les autres (optionnel)",
@@ -74,6 +76,7 @@ export default function Home() {
           <div style={styles.policyBlock}>
             <p style={styles.policyText}>{t.policy1}</p>
             <p style={styles.policyText}>{t.policy2}</p>
+            <p style={styles.policyText}>{t.policy3}</p>
             <p style={styles.policyLinks}>
               <a href={`/how-it-works?lang=${lang}`} style={styles.policyLink}>
                 {t.howItWorks}
