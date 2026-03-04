@@ -81,6 +81,7 @@ function hasBannedKeys(obj: any, bannedKeys: readonly string[]): boolean {
 function extractSafePayload(body: any): {
   event_type: string;
   session_id?: string;
+  scan_id?: string;
   route?: string;
   props?: Record<string, any>;
 } | null {
@@ -93,6 +94,9 @@ function extractSafePayload(body: any): {
   const safePayload: any = { event_type };
 
   if (typeof body.session_id === "string") safePayload.session_id = body.session_id;
+  if (typeof body.scan_id === "string" && body.scan_id.length > 10) {
+    safePayload.scan_id = body.scan_id;
+  }
   if (typeof body.route === "string") safePayload.route = body.route;
 
   if (body.props && typeof body.props === "object") {
@@ -143,6 +147,12 @@ export async function POST(req: Request) {
     return new Response(null, { status: 204 });
   }
 
+  console.log("[telemetry] incoming", {
+    event: body.event ?? body.event_type,
+    has_scan_id: typeof body.scan_id === "string",
+    scan_id: body.scan_id,
+  });
+
   const safePayload = extractSafePayload(body);
   if (!safePayload) {
     const received = body.event_type ?? body.event;
@@ -171,9 +181,10 @@ export async function POST(req: Request) {
   const canonicalEvent =
     LEGACY_EVENT_MAP[safePayload.event_type] ?? safePayload.event_type;
   const context: Record<string, any> = {
-    session_id: safePayload.session_id,
-    route: safePayload.route,
     ...(safePayload.props ?? {}),
+    session_id: safePayload.session_id ?? null,
+    scan_id: safePayload.scan_id ?? null,
+    route: safePayload.route ?? null,
   };
   if (canonicalEvent !== safePayload.event_type) {
     context.original_event = safePayload.event_type;

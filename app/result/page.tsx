@@ -168,6 +168,7 @@ export default function ResultPage() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
   const conversionFiredForScanRef = useRef<string | null>(null);
+  const scanShownFiredForRef = useRef<string | null>(null);
 
   /* ---------- load scan result ---------- */
 
@@ -181,13 +182,17 @@ export default function ResultPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         setResult(parsed);
-        
+
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         const scanId = parsed.scan_id;
-        logScanEvent("scan_shown", {
-          scan_id: scanId ?? undefined,
-          props: { risk_tier: riskTier },
-        });
+        const scanKey = scanId ?? "no-id";
+        if (scanShownFiredForRef.current !== scanKey) {
+          scanShownFiredForRef.current = scanKey;
+          logScanEvent("scan_shown", {
+            scan_id: scanId ?? undefined,
+            props: { risk_tier: riskTier },
+          });
+        }
         const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
         if (hasValidResult && conversionFiredForScanRef.current !== scanId) {
           conversionFiredForScanRef.current = scanId || "no-id";
