@@ -102,6 +102,13 @@ export default function ScanPage() {
         return;
       }
 
+      const scanId = data.result?.scan_id;
+      if (scanId) {
+        logScanEvent("scan_created", {
+          scan_id: scanId,
+          props: { input_length: text.length },
+        });
+      }
       sessionStorage.setItem("scanResult", JSON.stringify(data.result));
       router.push(`/result?lang=${lang}`);
     } catch {

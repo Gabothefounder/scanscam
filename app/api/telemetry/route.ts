@@ -21,6 +21,7 @@ const ALLOWED_EVENTS = [
   "scan_consent_clicked_allow",
   "scan_consent_clicked_deny",
   "scan_error",
+  "scan_created",
   "report_cta_viewed",
   "report_cta_clicked",
   "report_mission_viewed",
@@ -42,6 +43,7 @@ const ALLOWED_PROPS = [
   "latency_ms",
   "error_code",
   "build_id",
+  "input_length",
 ] as const;
 
 const BANNED_KEYS = [
@@ -61,6 +63,7 @@ const BANNED_KEYS = [
 const LEGACY_EVENT_MAP: Record<string, string> = {
   scan_attempt: "scan_submit_clicked",
   scan_shown: "scan_result_rendered",
+  scan_created: "scan_api_success",
 };
 
 function hasBannedKeys(obj: any, bannedKeys: readonly string[]): boolean {
