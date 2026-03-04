@@ -1,21 +1,31 @@
 /**
  * Client-side telemetry logging for scan events.
  * Fire-and-forget: never blocks UI, never throws.
+ * Strict payload: event, session_id, scan_id?, props?
  */
+import { getSessionId } from "@/lib/telemetry/session";
+
 export function logScanEvent(
-  eventName: "scan_attempt" | "scan_shown" | "scan_consent",
-  data?: Record<string, any>
+  eventName: "scan_attempt" | "scan_shown" | "scan_consent" | "scan_error",
+  data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;
 
-  // Fire and forget - never await
+  const payload: Record<string, unknown> = {
+    event: eventName,
+    session_id: getSessionId(),
+  };
+  if (data?.scan_id && typeof data.scan_id === "string") {
+    payload.scan_id = data.scan_id;
+  }
+  if (data?.props && typeof data.props === "object" && Object.keys(data.props).length > 0) {
+    payload.props = data.props;
+  }
+
   fetch("/api/telemetry", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      event: eventName,
-      ...data,
-    }),
+    body: JSON.stringify(payload),
   }).catch(() => {
     // Silent failure - telemetry must never break the app
   });
