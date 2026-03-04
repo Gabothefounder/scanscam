@@ -6,6 +6,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 
+const firedRenderEvents = new Set<string>();
+
 /* ---------- copy ---------- */
 
 const copy = {
@@ -168,7 +170,6 @@ export default function ResultPage() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
   const conversionFiredForScanRef = useRef<string | null>(null);
-  const scanShownFiredForRef = useRef<string | null>(null);
 
   /* ---------- load scan result ---------- */
 
@@ -185,15 +186,15 @@ export default function ResultPage() {
 
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         const scanId = parsed.scan_id;
-        const scanKey = scanId ?? "no-id";
-        const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
-        if (hasValidResult && scanShownFiredForRef.current !== scanKey) {
-          scanShownFiredForRef.current = scanKey;
+        const key = scanId ? `scan_shown:${scanId}` : null;
+        if (scanId && key && !firedRenderEvents.has(key)) {
+          firedRenderEvents.add(key);
           logScanEvent("scan_shown", {
-            scan_id: scanId ?? undefined,
+            scan_id: scanId,
             props: { risk_tier: riskTier },
           });
         }
+        const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
         if (hasValidResult && conversionFiredForScanRef.current !== scanId) {
           conversionFiredForScanRef.current = scanId || "no-id";
           trackConversion("AW-16787240010/-lHQCNrulP0bEMro48Q-");
