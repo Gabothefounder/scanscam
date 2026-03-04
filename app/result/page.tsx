@@ -185,16 +185,15 @@ export default function ResultPage() {
 
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
         const scanId = parsed.scan_id;
-        const attempt_id = sessionStorage.getItem("scan_attempt_id");
         const scanKey = scanId ?? "no-id";
-        if (scanShownFiredForRef.current !== scanKey) {
+        const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
+        if (hasValidResult && scanShownFiredForRef.current !== scanKey) {
           scanShownFiredForRef.current = scanKey;
           logScanEvent("scan_shown", {
             scan_id: scanId ?? undefined,
-            props: { risk_tier: riskTier, ...(attempt_id && { attempt_id }) },
+            props: { risk_tier: riskTier },
           });
         }
-        const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
         if (hasValidResult && conversionFiredForScanRef.current !== scanId) {
           conversionFiredForScanRef.current = scanId || "no-id";
           trackConversion("AW-16787240010/-lHQCNrulP0bEMro48Q-");
