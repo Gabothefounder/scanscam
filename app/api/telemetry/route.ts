@@ -102,12 +102,19 @@ function extractSafePayload(body: any): {
   }
   if (typeof body.route === "string") safePayload.route = body.route;
 
-  if (body.props && typeof body.props === "object") {
+  if (
+    body.props &&
+    typeof body.props === "object" &&
+    !Array.isArray(body.props) &&
+    Object.getPrototypeOf(body.props) === Object.prototype
+  ) {
     const safeProps: Record<string, any> = {};
     for (const key of ALLOWED_PROPS) {
       if (key in body.props) safeProps[key] = body.props[key];
     }
-    if (Object.keys(safeProps).length > 0) safePayload.props = safeProps;
+    if (Object.keys(safeProps).length > 0) {
+      safePayload.props = safeProps;
+    }
   }
 
   return safePayload;
@@ -184,10 +191,10 @@ export async function POST(req: Request) {
   const canonicalEvent =
     LEGACY_EVENT_MAP[safePayload.event_type] ?? safePayload.event_type;
   const context: Record<string, any> = {
-    ...(safePayload.props ?? {}),
     session_id: safePayload.session_id ?? null,
     scan_id: safePayload.scan_id ?? null,
     route: safePayload.route ?? null,
+    props: safePayload.props ?? null,
   };
   if (canonicalEvent !== safePayload.event_type) {
     context.original_event = safePayload.event_type;
