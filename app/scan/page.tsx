@@ -74,7 +74,9 @@ export default function ScanPage() {
 
   const handleScan = async () => {
     setError(null);
-    logScanEvent("scan_attempt", { length: text.length });
+    logScanEvent("scan_attempt", {
+      props: { input_length: text.length },
+    });
     setLoading(true);
 
     try {
