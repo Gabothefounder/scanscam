@@ -13,36 +13,26 @@ const copy = {
     whatScanDoes: [
       "Returns a risk tier (low / medium / high) with a short explanation.",
       "Provides recommended actions based on detected patterns.",
-      "Returns guidance only — not legal advice.",
+      "Guidance only — not legal advice.",
     ],
 
-    metadataTitle: "What metadata is stored",
-    metadata: [
-      "Anonymous, non-identifying fraud-pattern fields.",
-      "Behavioral signals such as urgency, authority claims, payment requests, suspicious links, etc.",
-      "No way to trace data back to you.",
+    dataTitle: "What data is stored",
+    data: [
+      "Anonymous usage identifier (random ID stored in your browser) to measure repeat use and improve the product.",
+      "Fraud-pattern fields (non-identifying): urgency, authority claims, payment requests, suspicious links, etc.",
+      "Approximate region (city-level) may be used to detect local scam trends.",
+      "Raw message text may be stored securely for up to 30 days for system quality and improvement, then deleted automatically.",
     ],
 
     notCollectedTitle: "What is NOT collected",
     notCollected: [
-      "No identity or account login.",
-      "No personal tracking or profiling.",
-      "No cookies for advertising.",
+      "No name, email, account login, or personal profile.",
+      "No sale of personal data.",
+      "No ad retargeting or behavioral profiling.",
     ],
 
-    rawOptInTitle: "Optional raw message sharing",
-    rawOptIn: [
-      "Only if you check the box on the scan page.",
-      "Used to improve detection models.",
-      "Auto-deleted after 30 days.",
-    ],
-
-    geoTitle: "Optional location after results",
-    geo: [
-      "Country / Province (Canada) / City — all optional.",
-      "Provided after you see your scan results.",
-      "Helps us understand regional scam patterns.",
-    ],
+    privacyTitle: "Privacy",
+    privacyText: "See Privacy & Data Use for details and deletion requests.",
 
     contactTitle: "Contact",
     contactLabel: "For privacy or deletion requests:",
@@ -56,39 +46,29 @@ const copy = {
     whatScanDoes: [
       "Retourne un niveau de risque (faible / moyen / élevé) avec une courte explication.",
       "Fournit des actions recommandées basées sur les schémas détectés.",
-      "Retourne des conseils uniquement — pas de conseil juridique.",
+      "Conseils uniquement — pas de conseil juridique.",
     ],
 
-    metadataTitle: "Quelles métadonnées sont stockées",
-    metadata: [
-      "Champs anonymes et non identifiants sur les schémas de fraude.",
-      "Signaux comportementaux tels que l'urgence, les revendications d'autorité, les demandes de paiement, les liens suspects, etc.",
-      "Aucun moyen de relier les données à vous.",
+    dataTitle: "Quelles données sont stockées",
+    data: [
+      "Identifiant d'utilisation anonyme (ID aléatoire stocké dans votre navigateur) pour mesurer la réutilisation et améliorer le produit.",
+      "Champs de schémas de fraude (non identifiants) : urgence, revendications d'autorité, demandes de paiement, liens suspects, etc.",
+      "Région approximative (niveau ville) peut être utilisée pour détecter les tendances de fraude locales.",
+      "Le texte brut du message peut être stocké de manière sécurisée pendant 30 jours pour la qualité et l'amélioration du système, puis supprimé automatiquement.",
     ],
 
     notCollectedTitle: "Ce qui n'est PAS collecté",
     notCollected: [
-      "Aucune identité ni connexion de compte.",
-      "Aucun suivi personnel ni profilage.",
-      "Aucun cookie publicitaire.",
+      "Aucun nom, courriel, connexion de compte ou profil personnel.",
+      "Aucune vente de données personnelles.",
+      "Aucun reciblage publicitaire ou profilage comportemental.",
     ],
 
-    rawOptInTitle: "Partage optionnel du texte",
-    rawOptIn: [
-      "Uniquement si vous cochez la case sur la page d'analyse.",
-      "Utilisé pour améliorer les modèles de détection.",
-      "Suppression automatique après 30 jours.",
-    ],
-
-    geoTitle: "Localisation optionnelle après les résultats",
-    geo: [
-      "Pays / Province (Canada) / Ville — tout est optionnel.",
-      "Fourni après avoir vu vos résultats d'analyse.",
-      "Nous aide à comprendre les schémas de fraude régionaux.",
-    ],
+    privacyTitle: "Confidentialité",
+    privacyText: "Voir Confidentialité et utilisation des données pour les détails et les demandes de suppression.",
 
     contactTitle: "Contact",
-    contactLabel: "Pour les demandes liées à la confidentialité ou suppression :",
+    contactLabel: "Pour les demandes liées à la confidentialité ou à la suppression :",
     contactEmail: "privacy@scanscam.ca",
   },
 };
@@ -123,9 +103,9 @@ export default function HowItWorksPage() {
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>{t.metadataTitle}</h2>
+          <h2 style={styles.sectionTitle}>{t.dataTitle}</h2>
           <ul style={styles.list}>
-            {t.metadata.map((item, i) => (
+            {t.data.map((item, i) => (
               <li key={i}>{item}</li>
             ))}
           </ul>
@@ -141,21 +121,10 @@ export default function HowItWorksPage() {
         </section>
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>{t.rawOptInTitle}</h2>
-          <ul style={styles.list}>
-            {t.rawOptIn.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </section>
-
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>{t.geoTitle}</h2>
-          <ul style={styles.list}>
-            {t.geo.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
+          <h2 style={styles.sectionTitle}>{t.privacyTitle}</h2>
+          <p style={styles.paragraph}>
+            <a href={`/privacy?lang=${lang}`} style={styles.inlineLink}>{t.privacyText}</a>
+          </p>
         </section>
 
         <section style={styles.section}>
@@ -213,6 +182,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#374151",
     lineHeight: 1.6,
     margin: 0,
+  },
+  paragraph: {
+    fontSize: 14,
+    color: "#374151",
+    margin: 0,
+    lineHeight: 1.6,
+  },
+  inlineLink: {
+    color: "#2563EB",
+    textDecoration: "none",
   },
   contactText: {
     fontSize: 14,

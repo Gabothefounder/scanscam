@@ -7,23 +7,27 @@ import { useEffect, useState } from "react";
 const copy = {
   en: {
     title: "Is this a scam?",
-    subtext: "Paste the message or upload a screenshot to check instantly.",
+    subtext: "Paste a suspicious message or upload a screenshot to check instantly.",
     primaryCta: "Check Now",
-    primarySubtext: "Anonymous. Immediate. No account required.",
-    secondaryCta: "Report a Scam",
-    secondarySubtext: "Already affected? Take 3 minutes to help warn others.",
-    compliance:
-      "By using ScanScam, you agree to anonymous collection of non-identifying fraud-pattern metadata to improve scam prevention.",
+    reassurance: "No login required. Instant results. No personal profile.",
+    policy1: "Messages may be securely stored for up to 30 days to improve detection.",
+    policy2: "Approximate region (city-level) may be used for local scam trends.",
+    howItWorks: "How it works",
+    privacyLink: "Privacy & Data Use",
+    helpOthersLabel: "Help others (optional)",
+    submitScam: "Submit a confirmed scam sample",
   },
   fr: {
     title: "Est-ce une arnaque ?",
-    subtext: "Collez le message ou téléversez une capture d'écran pour vérifier instantanément.",
+    subtext: "Collez un message suspect ou téléversez une capture d'écran pour vérifier instantanément.",
     primaryCta: "Vérifier maintenant",
-    primarySubtext: "Anonyme. Immédiat. Aucun compte requis.",
-    secondaryCta: "Signaler une arnaque",
-    secondarySubtext: "Déjà touché(e) ? Prenez 3 minutes pour aider à prévenir les autres.",
-    compliance:
-      "En utilisant ScanScam, vous acceptez la collecte anonyme de métadonnées non identifiantes sur les schémas de fraude afin d'améliorer la prévention.",
+    reassurance: "Aucune connexion requise. Résultats instantanés. Aucun profil personnel.",
+    policy1: "Les messages peuvent être stockés de manière sécurisée jusqu'à 30 jours pour améliorer la détection.",
+    policy2: "La région approximative (niveau ville) peut être utilisée pour les tendances locales.",
+    howItWorks: "Comment ça marche",
+    privacyLink: "Confidentialité et utilisation des données",
+    helpOthersLabel: "Aider les autres (optionnel)",
+    submitScam: "Soumettre un échantillon d'arnaque confirmée",
   },
 };
 
@@ -58,16 +62,28 @@ export default function Home() {
           <a href={`/scan?lang=${lang}`} style={styles.primaryButton}>
             {t.primaryCta}
           </a>
-          <p style={styles.primarySubtext}>{t.primarySubtext}</p>
+          <p style={styles.reassurance}>{t.reassurance}</p>
 
-          <div style={styles.divider} />
+          <div style={styles.secondarySection}>
+            <p style={styles.helpOthersLabel}>{t.helpOthersLabel}</p>
+            <a href={`/report?lang=${lang}`} style={styles.secondaryButton}>
+              {t.submitScam}
+            </a>
+          </div>
 
-          <a href={`/report?lang=${lang}`} style={styles.secondaryButton}>
-            {t.secondaryCta}
-          </a>
-          <p style={styles.secondarySubtext}>{t.secondarySubtext}</p>
-
-          <p style={styles.compliance}>{t.compliance}</p>
+          <div style={styles.policyBlock}>
+            <p style={styles.policyText}>{t.policy1}</p>
+            <p style={styles.policyText}>{t.policy2}</p>
+            <p style={styles.policyLinks}>
+              <a href={`/how-it-works?lang=${lang}`} style={styles.policyLink}>
+                {t.howItWorks}
+              </a>
+              {" · "}
+              <a href={`/privacy?lang=${lang}`} style={styles.policyLink}>
+                {t.privacyLink}
+              </a>
+            </p>
+          </div>
         </div>
       </section>
     </main>
@@ -104,7 +120,7 @@ const styles = {
     padding: "32px 28px",
     display: "flex",
     flexDirection: "column" as const,
-    gap: "16px",
+    gap: "12px",
     boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
     border: "1px solid #D1D5DB",
   },
@@ -137,43 +153,70 @@ const styles = {
     boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
   },
 
-  primarySubtext: {
+  reassurance: {
     marginTop: "4px",
-    fontSize: "14px",
-    color: "#4B5563",
-    textAlign: "center" as const,
-  },
-
-  divider: {
-    height: "1px",
-    backgroundColor: "#E5E7EB",
-    margin: "4px 0",
-  },
-
-  secondaryButton: {
-    padding: "14px 24px",
-    backgroundColor: "#FFFFFF",
-    color: "#1F2937",
-    textAlign: "center" as const,
-    borderRadius: "12px",
-    textDecoration: "none",
-    fontWeight: 600,
-    fontSize: "17px",
-    border: "1px solid #94A3B8",
-  },
-
-  secondarySubtext: {
-    marginTop: "4px",
-    fontSize: "14px",
+    marginBottom: 0,
+    fontSize: "16px",
+    fontWeight: 500,
     color: "#374151",
     textAlign: "center" as const,
   },
 
-  compliance: {
+  secondarySection: {
     marginTop: "8px",
-    fontSize: "13px",
-    lineHeight: 1.4,
-    color: "#4B5563",
+    paddingTop: "8px",
+    borderTop: "1px solid rgba(0,0,0,0.06)",
+    display: "flex",
+    flexDirection: "column" as const,
+    alignItems: "center",
+    gap: "6px",
+  },
+
+  helpOthersLabel: {
+    margin: 0,
+    fontSize: "12px",
+    fontWeight: 500,
+    color: "#9CA3AF",
     textAlign: "center" as const,
+  },
+
+  secondaryButton: {
+    display: "inline-block",
+    width: "auto",
+    padding: "8px 16px",
+    backgroundColor: "transparent",
+    color: "#6B7280",
+    textAlign: "center" as const,
+    borderRadius: "8px",
+    textDecoration: "none",
+    fontWeight: 500,
+    fontSize: "14px",
+    border: "1px solid #D1D5DB",
+  },
+
+  policyBlock: {
+    marginTop: "12px",
+    paddingTop: "10px",
+    borderTop: "1px solid rgba(0,0,0,0.06)",
+  },
+
+  policyText: {
+    margin: "0 0 4px",
+    fontSize: "12px",
+    color: "#9CA3AF",
+    textAlign: "center" as const,
+    lineHeight: 1.4,
+  },
+
+  policyLinks: {
+    margin: "6px 0 0",
+    fontSize: "12px",
+    color: "#9CA3AF",
+    textAlign: "center" as const,
+  },
+
+  policyLink: {
+    color: "#2563EB",
+    textDecoration: "none",
   },
 };
