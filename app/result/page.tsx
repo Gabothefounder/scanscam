@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 
@@ -38,17 +38,11 @@ const copy = {
     presence:
       "Whenever something feels off, ScanScam is here to help you check.",
     backHome: "Back to home",
-    geoTitle: "Help protect people near you",
-    geoHelper: "Help warn people near you about this scam. (Optional)",
-    geoButton: "Share location",
-    geoButtonReassurance: "Anonymous. No personal identifiers.",
-    country: "Country",
-    province: "Province",
-    city: "City",
-    selectCountry: "Select country",
-    selectProvince: "Select province",
-    saving: "Saving…",
-    saved: "Saved",
+    scanAnother: "Scan another message",
+    quickToolTitle: "Make this your quick scam check tool",
+    quickToolText:
+      "ScanScam analyzes manipulation patterns used in phishing, impersonation, and urgency-based scams. Bookmark this page so you can verify suspicious messages anytime.",
+    footerMuted: "The most effective protection is pausing before reacting.",
   },
   fr: {
     tier: {
@@ -77,47 +71,13 @@ const copy = {
     presence:
       "Si quelque chose vous semble étrange, ScanScam est là pour vous aider à vérifier.",
     backHome: "Retour à l'accueil",
-    geoTitle: "Aidez à protéger les gens près de vous",
-    geoHelper: "Aidez à prévenir les gens près de chez vous. (Optionnel)",
-    geoButton: "Partager ma ville",
-    geoButtonReassurance: "Anonyme. Aucun identifiant personnel.",
-    country: "Pays",
-    province: "Province",
-    city: "Ville",
-    selectCountry: "Sélectionner un pays",
-    selectProvince: "Sélectionner une province",
-    saving: "Enregistrement…",
-    saved: "Enregistré",
+    scanAnother: "Analyser un autre message",
+    quickToolTitle: "Utilisez ScanScam comme outil de vérification rapide",
+    quickToolText:
+      "ScanScam analyse les schémas de manipulation utilisés dans le phishing, l'usurpation d'identité et les arnaques par urgence. Ajoutez cette page à vos favoris pour vérifier les messages suspects à tout moment.",
+    footerMuted: "La meilleure protection est de prendre une pause avant de réagir.",
   },
 };
-
-/* ---------- data ---------- */
-
-const COUNTRIES = [
-  { code: "CA", label: "Canada" },
-  { code: "US", label: "United States" },
-  { code: "GB", label: "United Kingdom" },
-  { code: "FR", label: "France" },
-  { code: "DE", label: "Germany" },
-  { code: "AU", label: "Australia" },
-  { code: "OTHER", label: "Other" },
-];
-
-const CA_PROVINCES = [
-  { code: "AB", label: "Alberta" },
-  { code: "BC", label: "British Columbia" },
-  { code: "MB", label: "Manitoba" },
-  { code: "NB", label: "New Brunswick" },
-  { code: "NL", label: "Newfoundland and Labrador" },
-  { code: "NS", label: "Nova Scotia" },
-  { code: "NT", label: "Northwest Territories" },
-  { code: "NU", label: "Nunavut" },
-  { code: "ON", label: "Ontario" },
-  { code: "PE", label: "Prince Edward Island" },
-  { code: "QC", label: "Quebec" },
-  { code: "SK", label: "Saskatchewan" },
-  { code: "YT", label: "Yukon" },
-];
 
 /* ---------- Risk Meter ---------- */
 
@@ -161,14 +121,6 @@ function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"
 export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
-
-  const [countryCode, setCountryCode] = useState("");
-  const [regionCode, setRegionCode] = useState("");
-  const [city, setCity] = useState("");
-  const [geoStatus, setGeoStatus] = useState<"idle" | "saving" | "saved">("idle");
-
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const initialLoadRef = useRef(true);
   const conversionFiredForScanRef = useRef<string | null>(null);
 
   /* ---------- load scan result ---------- */
@@ -205,60 +157,6 @@ export default function ResultPage() {
     }
   }, []);
 
-  /* ---------- auto-save geo with debounce ---------- */
-
-  const saveGeo = useCallback(async (scanId: string, country: string, region: string, cityVal: string) => {
-    if (!scanId) return;
-
-    setGeoStatus("saving");
-
-    try {
-      await fetch("/api/scan/geo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scan_id: scanId,
-          country_code: country || null,
-          region_code: country === "CA" ? (region || null) : null,
-          city: cityVal.trim() || null,
-        }),
-      });
-      setGeoStatus("saved");
-    } catch {
-      setGeoStatus("idle");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (initialLoadRef.current) {
-      initialLoadRef.current = false;
-      return;
-    }
-
-    const scanId = result?.scan_id;
-    if (!scanId) return;
-
-    if (!countryCode && !city.trim()) {
-      return;
-    }
-
-    setGeoStatus("idle");
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    debounceRef.current = setTimeout(() => {
-      saveGeo(scanId, countryCode, regionCode, city);
-    }, 800);
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, [countryCode, regionCode, city, result?.scan_id, saveGeo]);
-
   if (!result) return null;
 
   const t = copy[lang];
@@ -274,9 +172,6 @@ export default function ResultPage() {
 
   const summary =
     result.summary_sentence || t.defaultSummary[risk];
-
-  const showProvinces = countryCode === "CA";
-  const scanId = result?.scan_id;
 
   const riskBlockStyle = {
     ...styles.riskBlock,
@@ -320,87 +215,19 @@ export default function ResultPage() {
           <p style={styles.presence}>{t.presence}</p>
         </div>
 
-        {/* ---------- C) Geo Block ---------- */}
-        {scanId && (
-          <div style={styles.geoSection}>
-            <div style={styles.geoHeader}>
-              <p style={styles.geoTitle}>{t.geoTitle}</p>
-              {geoStatus === "saving" && (
-                <span style={styles.geoStatusSaving}>{t.saving}</span>
-              )}
-              {geoStatus === "saved" && (
-                <span style={styles.geoStatusSaved}>{t.saved}</span>
-              )}
-            </div>
+        {/* ---------- C) Scan Another CTA ---------- */}
+        <a href={`/scan?lang=${lang}`} style={styles.scanAnotherButton}>
+          {t.scanAnother}
+        </a>
 
-            <p style={styles.geoHelper}>{t.geoHelper}</p>
+        {/* ---------- D) Quick Tool Info ---------- */}
+        <div style={styles.quickToolBlock}>
+          <div style={styles.quickToolTitle}>{t.quickToolTitle}</div>
+          <p style={styles.quickToolText}>{t.quickToolText}</p>
+        </div>
 
-            <div style={styles.geoRow}>
-              <label style={styles.geoLabel}>
-                {t.country}
-                <select
-                  style={styles.geoSelect}
-                  value={countryCode}
-                  onChange={(e) => {
-                    const newCountry = e.target.value;
-                    setCountryCode(newCountry);
-                    if (newCountry !== "CA") {
-                      setRegionCode("");
-                    }
-                  }}
-                >
-                  <option value="">{t.selectCountry}</option>
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {showProvinces && (
-                <label style={styles.geoLabel}>
-                  {t.province}
-                  <select
-                    style={styles.geoSelect}
-                    value={regionCode}
-                    onChange={(e) => setRegionCode(e.target.value)}
-                  >
-                    <option value="">{t.selectProvince}</option>
-                    {CA_PROVINCES.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              <label style={styles.geoLabel}>
-                {t.city}
-                <input
-                  type="text"
-                  style={styles.geoInput}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder=""
-                />
-              </label>
-            </div>
-
-            <div style={styles.geoButtonWrapper}>
-              <button
-                type="button"
-                style={styles.geoButton}
-                onClick={() => saveGeo(scanId, countryCode, regionCode, city)}
-                disabled={geoStatus === "saving"}
-              >
-                {t.geoButton}
-              </button>
-              <p style={styles.geoButtonReassurance}>{t.geoButtonReassurance}</p>
-            </div>
-          </div>
-        )}
+        {/* ---------- E) Footer Muted ---------- */}
+        <p style={styles.footerMuted}>{t.footerMuted}</p>
       </section>
     </main>
   );
@@ -537,92 +364,44 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 2,
   },
 
-  geoSection: {
-    backgroundColor: "#E0EDFF",
-    border: "1px solid #93C5FD",
-    borderRadius: 10,
-    padding: "12px 14px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  geoHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-  },
-  geoTitle: {
-    fontSize: 15,
+  scanAnotherButton: {
+    display: "block",
+    padding: "14px 24px",
+    fontSize: 17,
     fontWeight: 700,
-    color: "#1E40AF",
-    margin: 0,
-  },
-  geoHelper: {
-    fontSize: 14,
-    color: "#374151",
-    margin: 0,
-    lineHeight: 1.5,
-  },
-  geoStatusSaving: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontStyle: "italic",
-  },
-  geoStatusSaved: {
-    fontSize: 12,
-    color: "#16A34A",
-    fontWeight: 500,
-  },
-  geoRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  geoLabel: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    fontSize: 13,
-    color: "#374151",
-    flex: "1 1 130px",
-  },
-  geoSelect: {
-    padding: "8px 10px",
-    fontSize: 14,
-    borderRadius: 6,
-    border: "1px solid #9CA3AF",
-    backgroundColor: "#FFFFFF",
-    color: "#111827",
-  },
-  geoInput: {
-    padding: "8px 10px",
-    fontSize: 14,
-    borderRadius: 6,
-    border: "1px solid #9CA3AF",
-    backgroundColor: "#FFFFFF",
-    color: "#111827",
-  },
-  geoButtonWrapper: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
-  },
-  geoButton: {
-    backgroundColor: "#2563EB",
-    color: "#FFFFFF",
+    borderRadius: 12,
     border: "none",
-    borderRadius: 8,
-    padding: "10px 24px",
-    fontSize: 15,
-    fontWeight: 600,
+    background: "#2563EB",
+    color: "#FFFFFF",
     cursor: "pointer",
+    width: "100%",
+    textAlign: "center" as const,
+    textDecoration: "none",
     boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
   },
-  geoButtonReassurance: {
-    fontSize: 11,
+
+  quickToolBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  quickToolTitle: {
+    fontSize: 13,
+    fontWeight: 600,
     color: "#6B7280",
     margin: 0,
+  },
+  quickToolText: {
+    fontSize: 14,
+    color: "#4B5563",
+    lineHeight: 1.55,
+    margin: 0,
+  },
+
+  footerMuted: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    textAlign: "center" as const,
+    margin: "4px 0 0",
   },
 };
