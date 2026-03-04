@@ -215,6 +215,15 @@ export async function POST(req: Request) {
     return reject("rate_limited", "Too many requests.", 429);
   }
 
+  /* ---------- Vercel geo headers (coarse, no IP/UA stored) ---------- */
+  const h = new Headers(req.headers);
+  const rawCountry = h.get("x-vercel-ip-country")?.trim() ?? "";
+  const rawRegion = h.get("x-vercel-ip-country-region")?.trim() ?? "";
+  const rawCity = h.get("x-vercel-ip-city")?.trim() ?? "";
+  const vercel_country_code = rawCountry ? rawCountry.toUpperCase() : null;
+  const vercel_region_code = rawRegion || null;
+  const vercel_city = rawCity || null;
+
   /* ---------- Parse body (JSON or FormData) ---------- */
   const contentType = req.headers.get("content-type") ?? "";
   console.log("[scan_debug]", { contentType });
@@ -408,7 +417,7 @@ export async function POST(req: Request) {
     const userVerdict = riskTier === "high" ? "scam" : riskTier === "medium" ? "suspicious" : "safe";
 
     /* ---------- Insert into scans (ALWAYS) ---------- */
-    const scanRow = {
+    const scanRow: Record<string, any> = {
       risk_tier: riskTier,
       summary_sentence: result.summary_sentence ?? null,
       signals: result.signals ?? [],
@@ -418,10 +427,10 @@ export async function POST(req: Request) {
       used_fallback: false,
       intel_features,
       raw_opt_in: rawOptIn,
-      country_code: typeof country_code === "string" ? country_code : null,
-      region_code: typeof region_code === "string" ? region_code : null,
-      city: typeof city === "string" ? city : null,
     };
+    if (vercel_country_code) scanRow.country_code = vercel_country_code;
+    if (vercel_region_code) scanRow.region_code = vercel_region_code;
+    if (vercel_city) scanRow.city = vercel_city;
 
     const { data: scanData, error: scanError } = await supabase
       .from("scans")
