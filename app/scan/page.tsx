@@ -10,6 +10,8 @@ const copy = {
   en: {
     title: "Paste the suspicious message below",
     subline: "Or upload a screenshot instead.",
+    helperText:
+      "Works with suspicious messages, emails, links, screenshot text, or call transcripts. Paste the full message when possible — not just the link — for better analysis.",
     placeholder: "Paste the message here…",
     divider: "— OR —",
     uploadLabel: "📷 Upload a screenshot",
@@ -25,6 +27,8 @@ const copy = {
   fr: {
     title: "Collez le message suspect ci-dessous",
     subline: "Ou téléversez une capture d'écran.",
+    helperText:
+      "Messages suspects, courriels, liens, texte de captures d'écran ou transcriptions d'appels. Collez le message complet lorsque possible — pas seulement le lien — pour une meilleure analyse.",
     placeholder: "Collez le message ici…",
     divider: "— OU —",
     uploadLabel: "📷 Téléverser une capture d'écran",
@@ -99,6 +103,9 @@ export default function ScanPage() {
       const data = await res.json();
 
       if (!data.ok) {
+        logScanEvent("scan_error", {
+          props: { error_code: (data?.code as string) ?? "api_error" },
+        });
         setError(data.message);
         setLoading(false);
         return;
@@ -114,6 +121,7 @@ export default function ScanPage() {
       sessionStorage.setItem("scanResult", JSON.stringify(data.result));
       router.push(`/result?lang=${lang}`);
     } catch {
+      logScanEvent("scan_error", { props: { error_code: "network_error" } });
       setError(t.errorGeneric);
       setLoading(false);
     }
@@ -134,6 +142,7 @@ export default function ScanPage() {
         <div style={styles.header}>
           <h1 style={styles.title}>{t.title}</h1>
           <p style={styles.subline}>{t.subline}</p>
+          <p style={styles.helperText}>{t.helperText}</p>
         </div>
 
         {/* ---------- Textarea ---------- */}
@@ -255,6 +264,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     color: "#4B5563",
     margin: 0,
+  },
+
+  helperText: {
+    fontSize: 13,
+    color: "#6B7280",
+    margin: "8px 0 0",
+    lineHeight: 1.5,
+    textAlign: "center",
   },
 
   textarea: {

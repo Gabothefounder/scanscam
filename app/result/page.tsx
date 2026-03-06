@@ -32,17 +32,50 @@ const copy = {
     },
     actionTitle: "What to do next",
     guidance: [
-      "Pause before responding — legitimate services don't require immediate action.",
-      "Verify independently using a trusted contact or official website.",
+      { action: "Pause before responding", explanation: "Legitimate services don't require immediate action." },
+      { action: "Verify through the official website", explanation: "Use the official website instead of the link in the message." },
     ],
-    presence:
-      "Whenever something feels off, ScanScam is here to help you check.",
     backHome: "Back to home",
     scanAnother: "Scan another message",
-    quickToolTitle: "Make this your quick scam check tool",
-    quickToolText:
-      "ScanScam analyzes manipulation patterns used in phishing, impersonation, and urgency-based scams. Bookmark this page so you can verify suspicious messages anytime.",
-    footerMuted: "The most effective protection is pausing before reacting.",
+    footerAdvisory:
+      "ScanScam provides a pattern-based risk assessment. When in doubt, verify through the official source.",
+    whySuspicious: "Why it looks suspicious",
+    signalLabels: {
+      urgency: "urgency language",
+      payment_request: "payment request",
+      delivery_scam: "delivery scam pattern",
+      authority_impersonation: "authority impersonation",
+      threat: "threat or consequences",
+      link_or_credential: "link or credential request",
+      impersonation: "impersonation",
+      prize_or_winner: "prize or winner claim",
+      employment: "employment scam pattern",
+      tech_support: "tech support scam pattern",
+      government: "government impersonation",
+      financial_phishing: "financial phishing pattern",
+      romance: "romance scam pattern",
+      investment: "investment fraud pattern",
+    } as Record<string, string>,
+    narrativeGuidance: {
+      delivery_scam:
+        "Parcel and delivery scams often ask for fees or personal details. Verify tracking through the official carrier website or app.",
+      employment_scam:
+        "Job scams may request personal information or payments upfront. Confirm job offers through the company's official channels.",
+      government_impersonation:
+        "Government agencies do not threaten by email or SMS. Never share your SIN, passwords, or banking details with unsolicited contacts.",
+      financial_phishing:
+        "Avoid clicking links in the message. Log in only through the official website or app you know.",
+      prize_scam:
+        "Real prizes do not require upfront fees. Be cautious of unexpected winnings or offers.",
+      tech_support:
+        "Legitimate tech support does not cold-call or pop up uninvited. Ignore unsolicited calls or alerts.",
+      romance_scam:
+        "Be cautious of requests for money or personal details from people you have not met in person.",
+      investment_fraud:
+        "Verify investment opportunities through official sources. Be wary of guaranteed returns or pressure to act quickly.",
+      unknown:
+        "Pause before responding. Verify through a trusted contact or official source when something feels off.",
+    },
   },
   fr: {
     tier: {
@@ -65,17 +98,50 @@ const copy = {
     },
     actionTitle: "Que faire maintenant",
     guidance: [
-      "Prenez un moment avant de répondre — les services légitimes n'exigent pas d'action immédiate.",
-      "Vérifiez de manière indépendante via un contact fiable ou un site officiel.",
+      { action: "Prenez un moment avant de répondre", explanation: "Les services légitimes n'exigent pas d'action immédiate." },
+      { action: "Vérifiez via le site officiel", explanation: "Utilisez le site officiel plutôt que le lien dans le message." },
     ],
-    presence:
-      "Si quelque chose vous semble étrange, ScanScam est là pour vous aider à vérifier.",
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
-    quickToolTitle: "Utilisez ScanScam comme outil de vérification rapide",
-    quickToolText:
-      "ScanScam analyse les schémas de manipulation utilisés dans le phishing, l'usurpation d'identité et les arnaques par urgence. Ajoutez cette page à vos favoris pour vérifier les messages suspects à tout moment.",
-    footerMuted: "La meilleure protection est de prendre une pause avant de réagir.",
+    footerAdvisory:
+      "ScanScam fournit une évaluation du risque basée sur des modèles de fraude connus. En cas de doute, vérifiez auprès de la source officielle.",
+    whySuspicious: "Pourquoi cela paraît suspect",
+    signalLabels: {
+      urgency: "langage d'urgence",
+      payment_request: "demande de paiement",
+      delivery_scam: "schéma d'arnaque aux colis",
+      authority_impersonation: "usurpation d'autorité",
+      threat: "menace ou conséquences",
+      link_or_credential: "demande de lien ou identifiants",
+      impersonation: "usurpation d'identité",
+      prize_or_winner: "promesse de gain ou prix",
+      employment: "schéma d'arnaque à l'emploi",
+      tech_support: "schéma d'assistance technique",
+      government: "usurpation gouvernementale",
+      financial_phishing: "schéma de phishing financier",
+      romance: "schéma d'arnaque sentimentale",
+      investment: "schéma de fraude à l'investissement",
+    } as Record<string, string>,
+    narrativeGuidance: {
+      delivery_scam:
+        "Les arnaques aux colis demandent souvent des frais ou des renseignements personnels. Vérifiez le suivi sur le site ou l'app officielle du transporteur.",
+      employment_scam:
+        "Les arnaques à l'emploi peuvent demander des renseignements personnels ou des paiements. Confirmez les offres via les canaux officiels de l'entreprise.",
+      government_impersonation:
+        "Les organismes gouvernementaux ne menacent pas par courriel ou SMS. Ne partagez jamais votre NAS, mots de passe ou informations bancaires.",
+      financial_phishing:
+        "Évitez de cliquer sur les liens. Connectez-vous uniquement via le site ou l'app officiels que vous connaissez.",
+      prize_scam:
+        "Les vrais prix ne demandent pas de frais à l'avance. Méfiez-vous des gains ou offres inattendus.",
+      tech_support:
+        "Le support technique légitime ne vous appelle pas sans raison. Ignorez les appels ou fenêtres non sollicités.",
+      romance_scam:
+        "Méfiez-vous des demandes d'argent ou de renseignements personnels de personnes que vous n'avez jamais rencontrées.",
+      investment_fraud:
+        "Vérifiez les opportunités d'investissement auprès de sources officielles. Méfiez-vous des rendements garantis ou de la pression.",
+      unknown:
+        "Prenez une pause avant de répondre. Vérifiez auprès d'un contact fiable ou d'une source officielle si quelque chose vous semble étrange.",
+    },
   },
 };
 
@@ -146,9 +212,8 @@ export default function ResultPage() {
             props: { risk_tier: riskTier },
           });
         }
-        const hasValidResult = scanId || parsed.risk || parsed.risk_tier;
-        if (hasValidResult && conversionFiredForScanRef.current !== scanId) {
-          conversionFiredForScanRef.current = scanId || "no-id";
+        if (scanId && conversionFiredForScanRef.current !== scanId) {
+          conversionFiredForScanRef.current = scanId;
           trackConversion("AW-16787240010/-lHQCNrulP0bEMro48Q-");
         }
       }
@@ -164,11 +229,22 @@ export default function ResultPage() {
   const risk: "low" | "medium" | "high" =
     result.risk ?? result.risk_tier ?? "low";
 
-  const reasons: string[] = Array.isArray(result.reasons)
-    ? result.reasons
-    : Array.isArray(result.signals)
-    ? result.signals.map((s: any) => s.description)
-    : [];
+  const signalCues: string[] = (() => {
+    const signals = Array.isArray(result.signals) ? result.signals : [];
+    if (signals.length === 0) return [];
+    const labels = copy[lang].signalLabels;
+    const seen = new Set<string>();
+    return signals
+      .map((s: { type?: string }) => {
+        const typeKey = (s.type ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+        if (!typeKey) return null;
+        const label = labels[typeKey] ?? typeKey.replace(/_/g, " ");
+        if (seen.has(label)) return null;
+        seen.add(label);
+        return label.charAt(0).toUpperCase() + label.slice(1);
+      })
+      .filter((r: string | null): r is string => !!r);
+  })();
 
   const summary =
     result.summary_sentence || t.defaultSummary[risk];
@@ -195,24 +271,29 @@ export default function ResultPage() {
           <p style={styles.summary}>{summary}</p>
         </div>
 
-        {/* ---------- Reasons (if any) ---------- */}
-        {reasons.length > 0 && (
-          <ul style={styles.reasons}>
-            {reasons.map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
+        {/* ---------- Why it looks suspicious (signals only) ---------- */}
+        {signalCues.length > 0 && (
+          <div style={styles.reasonsBlock}>
+            <div style={styles.whySuspicious}>{t.whySuspicious}</div>
+            <ul style={styles.reasons}>
+              {signalCues.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          </div>
         )}
 
-        {/* ---------- B) Action Block ---------- */}
+        {/* ---------- B) Action Block (max 3 bullets) ---------- */}
         <div style={styles.actionBlock}>
           <div style={styles.actionTitle}>{t.actionTitle}</div>
           <ul style={styles.actionList}>
             {t.guidance.map((g, i) => (
-              <li key={i}>{g}</li>
+              <li key={i} style={styles.actionItem}>
+                <strong>{g.action}</strong>
+                <span style={styles.actionExplanation}>{g.explanation}</span>
+              </li>
             ))}
           </ul>
-          <p style={styles.presence}>{t.presence}</p>
         </div>
 
         {/* ---------- C) Scan Another CTA ---------- */}
@@ -220,14 +301,8 @@ export default function ResultPage() {
           {t.scanAnother}
         </a>
 
-        {/* ---------- D) Quick Tool Info ---------- */}
-        <div style={styles.quickToolBlock}>
-          <div style={styles.quickToolTitle}>{t.quickToolTitle}</div>
-          <p style={styles.quickToolText}>{t.quickToolText}</p>
-        </div>
-
-        {/* ---------- E) Footer Muted ---------- */}
-        <p style={styles.footerMuted}>{t.footerMuted}</p>
+        {/* ---------- Footer (single advisory) ---------- */}
+        <p style={styles.footerAdvisory}>{t.footerAdvisory}</p>
       </section>
     </main>
   );
@@ -323,15 +398,26 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
   },
   summary: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1F2937",
     lineHeight: 1.5,
     margin: 0,
   },
 
+  reasonsBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  whySuspicious: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#6B7280",
+    margin: 0,
+  },
   reasons: {
     paddingLeft: 18,
-    fontSize: 14,
+    fontSize: 16,
     color: "#1F2937",
     lineHeight: 1.5,
     margin: 0,
@@ -347,23 +433,26 @@ const styles: Record<string, React.CSSProperties> = {
   },
   actionTitle: {
     fontWeight: 700,
-    fontSize: 15,
+    fontSize: 18,
     color: "#111827",
   },
   actionList: {
     margin: 0,
     paddingLeft: 16,
-    fontSize: 14,
+    fontSize: 16,
     color: "#1F2937",
     lineHeight: 1.5,
+    listStyle: "disc",
   },
-  presence: {
-    fontSize: 13,
-    color: "#4B5563",
-    margin: 0,
-    marginTop: 2,
+  actionItem: {
+    marginBottom: 12,
   },
-
+  actionExplanation: {
+    display: "block",
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: 400,
+  },
   scanAnotherButton: {
     display: "block",
     padding: "14px 24px",
@@ -380,28 +469,11 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
   },
 
-  quickToolBlock: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  quickToolTitle: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#6B7280",
-    margin: 0,
-  },
-  quickToolText: {
-    fontSize: 14,
-    color: "#4B5563",
-    lineHeight: 1.55,
-    margin: 0,
-  },
-
-  footerMuted: {
-    fontSize: 12,
+  footerAdvisory: {
+    fontSize: 11,
     color: "#9CA3AF",
     textAlign: "center" as const,
-    margin: "4px 0 0",
+    margin: "2px 0 0",
+    lineHeight: 1.4,
   },
 };

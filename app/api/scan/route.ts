@@ -487,7 +487,9 @@ export async function POST(req: Request) {
         /* Frontend compatibility (legacy) */
         risk: result.risk_tier,
         reasons: Array.isArray(result.signals)
-          ? result.signals.map((s: any) => s.description)
+          ? result.signals
+              .map((s: any) => s.evidence ?? s.description ?? "")
+              .filter((r: string) => r.trim())
           : [],
 
         /* vNext fields */
