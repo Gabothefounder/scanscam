@@ -24,16 +24,25 @@ const supabase = createClient(
    Intel features extraction
 -------------------------------------------------- */
 
-const REQUIRED_INTEL_KEYS = [
-  "narrative_category",
-  "authority_type",
-  "brand_mentions",
+/** Minimum keys every intel_features must have. Missing values default to "unknown". */
+const MINIMUM_INTEL_KEYS = [
   "channel_type",
+  "authority_type",
+  "narrative_category",
+  "payment_method",
   "escalation_pattern",
+] as const;
+
+const DEFAULT_INTEL = Object.fromEntries(
+  MINIMUM_INTEL_KEYS.map((k) => [k, "unknown"])
+) as Record<string, any>;
+
+const FULL_INTEL_KEYS = [
+  ...MINIMUM_INTEL_KEYS,
+  "brand_mentions",
   "urgency_score",
   "threat_score",
   "payment_request",
-  "payment_method",
   "credential_request",
   "link_present",
   "callback_number_present",
@@ -46,6 +55,14 @@ function extractIntelFeatures(
   result: any,
   messageText: string
 ): { intel_features: Record<string, any>; mode: "full" | "extraction_failed" } {
+  const ensureMinimumShape = (base: Record<string, any>): Record<string, any> => {
+    const out = { ...DEFAULT_INTEL, ...base };
+    for (const k of MINIMUM_INTEL_KEYS) {
+      if (out[k] === undefined || out[k] === null) out[k] = "unknown";
+    }
+    return out;
+  };
+
   try {
     const text = messageText.toLowerCase();
 
@@ -67,18 +84,24 @@ function extractIntelFeatures(
       risk_score_numeric: riskTierToNumeric(result.risk_tier ?? result.risk ?? "low"),
     };
 
-    const missingKeys = REQUIRED_INTEL_KEYS.filter((k) => intel[k] === undefined);
-    if (missingKeys.length > 0) {
+    const missingMinimum = MINIMUM_INTEL_KEYS.filter((k) => intel[k] === undefined || intel[k] === null);
+    if (missingMinimum.length > 0) {
       return {
-        intel_features: { extraction_failed: true, reason: `missing_keys: ${missingKeys.join(",")}` },
+        intel_features: ensureMinimumShape({
+          extraction_failed: true,
+          reason: `missing_keys: ${missingMinimum.join(",")}`,
+        }),
         mode: "extraction_failed",
       };
     }
 
-    return { intel_features: intel, mode: "full" };
+    return { intel_features: ensureMinimumShape(intel), mode: "full" };
   } catch (err: any) {
     return {
-      intel_features: { extraction_failed: true, reason: err?.message ?? "unknown_error" },
+      intel_features: ensureMinimumShape({
+        extraction_failed: true,
+        reason: err?.message ?? "unknown_error",
+      }),
       mode: "extraction_failed",
     };
   }
@@ -194,6 +217,21 @@ function looksLikeConversation(text: string): boolean {
   ];
   const lower = text.toLowerCase();
   return markers.some((m) => lower.includes(m));
+}
+
+function classifyInputQuality(text: string): {
+  url_only: boolean;
+  very_short: boolean;
+  message_like: boolean;
+} {
+  const trimmed = text.trim();
+  const len = trimmed.length;
+  const isSingleUrl = /^(https?:\/\/\S+|www\.\S+)$/i.test(trimmed);
+  return {
+    url_only: isSingleUrl,
+    very_short: len >= MIN_LENGTH && len < 100,
+    message_like: !looksLikeConversation(text),
+  };
 }
 
 /* -------------------------------------------------
@@ -378,17 +416,6 @@ export async function POST(req: Request) {
     }
   }
 
-  /* ---------- Non-message detection ---------- */
-  if (looksLikeConversation(contentText)) {
-    logEvent("non_message_input", "info", "scan_api");
-    return reject(
-      "conversation_detected",
-      language === "fr"
-        ? "Veuillez fournir le message exact reçu."
-        : "Please provide the exact received message."
-    );
-  }
-
   /* ---------- Duplicate suppression ---------- */
   if (isRepeatedScan(ip, contentText)) {
     logEvent("duplicate_scan", "info", "scan_api");
@@ -412,6 +439,9 @@ export async function POST(req: Request) {
     /* ---------- Extract intel features ---------- */
     const { intel_features, mode: intelMode } = extractIntelFeatures(result, contentText);
 
+    /* ---------- Input quality classification ---------- */
+    const inputQuality = classifyInputQuality(contentText);
+
     /* ---------- Derive user_verdict from risk_tier ---------- */
     const riskTier = result.risk_tier ?? "low";
     const userVerdict = riskTier === "high" ? "scam" : riskTier === "medium" ? "suspicious" : "safe";
@@ -423,7 +453,12 @@ export async function POST(req: Request) {
       signals: result.signals ?? [],
       language,
       source,
-      data_quality: { is_message_like: true },
+      data_quality: {
+        ...(result.data_quality || {}),
+        is_message_like: inputQuality.message_like,
+        url_only: inputQuality.url_only,
+        very_short: inputQuality.very_short,
+      },
       used_fallback: false,
       intel_features,
       raw_opt_in: rawOptIn,
@@ -439,9 +474,9 @@ export async function POST(req: Request) {
       .single();
 
     const persisted = !scanError;
-    const scanId = persisted ? (scanData?.id ?? null) : null;
+    let scanId = persisted ? (scanData?.id ?? null) : null;
 
-    /* ---------- Insert raw_messages if opted in ---------- */
+    /* ---------- Insert raw_messages if opted in (atomic: rollback scan on failure) ---------- */
     let rawMessageError: string | null = null;
     if (rawOptIn && scanId) {
       const { error: rawError } = await supabase.from("raw_messages").insert({
@@ -452,6 +487,11 @@ export async function POST(req: Request) {
       });
       if (rawError) {
         rawMessageError = rawError.message;
+        const { error: delErr } = await supabase.from("scans").delete().eq("id", scanId);
+        if (!delErr) {
+          scanId = null;
+          logEvent("scan_rollback_raw_failed", "warning", "scan_api", { reason: rawError.message });
+        }
       }
     }
 
@@ -471,17 +511,21 @@ export async function POST(req: Request) {
      * - vNext: scan_id, user_verdict, intel_features
      */
 
+    const { data_quality: _aiDataQuality, ...restResult } = result;
     return NextResponse.json({
       ok: true,
       result: {
-        /* AI output (as-is) */
-        ...result,
+        /* AI output (as-is, minus data_quality) */
+        ...restResult,
 
         /* Server truth */
         language,
         source,
         data_quality: {
-          is_message_like: true,
+          ...(_aiDataQuality || {}),
+          is_message_like: inputQuality.message_like,
+          url_only: inputQuality.url_only,
+          very_short: inputQuality.very_short,
         },
 
         /* Frontend compatibility (legacy) */

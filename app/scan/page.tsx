@@ -84,6 +84,7 @@ export default function ScanPage() {
       props: { input_length: text.length, attempt_id },
     });
     setLoading(true);
+    logScanEvent("scan_processing", { props: { attempt_id } });
 
     try {
       const payload: any = { lang, raw_opt_in: true };
