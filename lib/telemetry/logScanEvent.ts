@@ -6,7 +6,7 @@
 import { getSessionId } from "@/lib/telemetry/session";
 
 export function logScanEvent(
-  eventName: "scan_attempt" | "scan_shown" | "scan_consent" | "scan_error" | "scan_created",
+  eventName: "scan_attempt" | "scan_processing" | "scan_shown" | "scan_consent" | "scan_error" | "scan_created",
   data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;

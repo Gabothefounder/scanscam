@@ -10,6 +10,7 @@ import { logEvent } from "@/lib/observability";
 
 const ALLOWED_EVENTS = [
   "scan_attempt",
+  "scan_processing",
   "scan_shown",
   "scan_consent",
   "scan_viewed",
