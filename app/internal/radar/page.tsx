@@ -66,6 +66,14 @@ type Geography = {
   top_cities: GeoCity[];
 };
 
+type RecentSignal = {
+  created_at: string;
+  summary_sentence: string | null;
+  risk_tier: string;
+  city: string | null;
+  province: string | null;
+};
+
 type RadarData = {
   week_start: string;
   generated_at: string;
@@ -73,6 +81,7 @@ type RadarData = {
   fraud_landscape?: FraudLandscape;
   emerging_patterns?: EmergingPattern[];
   geography?: Geography;
+  recent_signals?: RecentSignal[];
 };
 
 /** For values already 0–100 (e.g. signal_yield_pct, signal_coverage_pct) */
@@ -105,6 +114,118 @@ function formatGeneratedAt(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+/** Compact human-readable time for signal rows */
+function formatSignalTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("en-CA", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+const SUMMARY_MAX_LEN = 80;
+
+function truncateSummary(s: string | null): string {
+  if (!s?.trim()) return "No summary available";
+  const t = s.trim();
+  return t.length <= SUMMARY_MAX_LEN ? t : t.slice(0, SUMMARY_MAX_LEN) + "…";
+}
+
+function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const limit = 5;
+  const displayRows = expanded ? signals : signals.slice(0, limit);
+  const remaining = signals.length - limit;
+
+  return (
+    <>
+      <div style={styles.signalsTableWrap}>
+        <table style={styles.signalsTable}>
+          <thead>
+            <tr>
+              <th style={styles.signalsTh}>Time</th>
+              <th style={styles.signalsTh}>Risk</th>
+              <th style={styles.signalsTh}>City</th>
+              <th style={styles.signalsTh}>Province</th>
+              <th style={styles.signalsTh}>Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((row, i) => (
+              <tr key={i}>
+                <td style={styles.signalsTd}>{formatSignalTime(row.created_at)}</td>
+                <td
+                  style={{
+                    ...styles.signalsTd,
+                    ...getRiskTierStyle(row.risk_tier),
+                  }}
+                >
+                  {formatRiskTierLabel(row.risk_tier)}
+                </td>
+                <td
+                  style={{
+                    ...styles.signalsTd,
+                    ...(row.city ? {} : styles.signalsTdMuted),
+                  }}
+                >
+                  {row.city ?? "—"}
+                </td>
+                <td
+                  style={{
+                    ...styles.signalsTd,
+                    ...(row.province ? {} : styles.signalsTdMuted),
+                  }}
+                >
+                  {row.province ?? "—"}
+                </td>
+                <td
+                  style={{
+                    ...styles.signalsTd,
+                    ...(row.summary_sentence?.trim()
+                      ? {}
+                      : styles.signalsTdMuted),
+                  }}
+                >
+                  {truncateSummary(row.summary_sentence)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {signals.length > limit && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          style={styles.signalsToggle}
+        >
+          {expanded ? "Show less" : `Show ${remaining} more`}
+        </button>
+      )}
+    </>
+  );
+}
+
+function formatRiskTierLabel(tier: string): string {
+  const s = String(tier ?? "").trim().toLowerCase();
+  if (!s) return "—";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function getRiskTierStyle(tier: string): React.CSSProperties {
+  const s = String(tier ?? "").trim().toLowerCase();
+  if (s === "high") return { color: "#e6edf3", fontWeight: 500 };
+  if (s === "medium") return { color: "#8b949e" };
+  return { color: "#6e7681" };
 }
 
 const LABEL_MAP: Record<string, string> = {
@@ -558,6 +679,18 @@ export default function RadarPage() {
                 </div>
               )}
             </section>
+
+            <section style={{ ...styles.section, marginTop: "24px" }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Recent Signals</h2>
+              <p style={styles.sectionSubtitle}>
+                Latest scan examples feeding the current intelligence picture.
+              </p>
+              {!data.recent_signals?.length ? (
+                <p style={styles.signalsEmpty}>No recent scan signals available for this period.</p>
+              ) : (
+                <RecentSignalsContent signals={data.recent_signals} />
+              )}
+            </section>
           </>
         )}
       </div>
@@ -814,6 +947,43 @@ const styles: Record<string, React.CSSProperties> = {
   geoCityMeta: {
     color: "#6e7681",
     marginLeft: "auto",
+  },
+  signalsEmpty: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#6e7681",
+  },
+  signalsTableWrap: {
+    overflowX: "auto",
+  },
+  signalsTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "12px",
+  },
+  signalsTh: {
+    textAlign: "left",
+    padding: "8px 14px 8px 0",
+    fontWeight: 600,
+    color: "#6e7681",
+    borderBottom: "1px solid #30363d",
+  },
+  signalsTd: {
+    padding: "8px 14px 8px 0",
+    color: "#8b949e",
+    borderBottom: "1px solid #21262d",
+  },
+  signalsTdMuted: {
+    color: "#6e7681",
+  },
+  signalsToggle: {
+    marginTop: "8px",
+    padding: "4px 0",
+    border: "none",
+    background: "none",
+    color: "#6e7681",
+    fontSize: "12px",
+    cursor: "pointer",
   },
   metrics: {
     display: "grid",
