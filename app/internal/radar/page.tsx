@@ -777,10 +777,11 @@ function FraudLandscapeCard({
                   fontSize: "11px",
                 }}
                 labelStyle={{ color: "#e6edf3" }}
-                formatter={(value: number, _n, props: { payload: (typeof rows)[0] }) => [
-                  `${Number(value).toFixed(1)}% (${props.payload.count} scans)`,
-                  "",
-                ]}
+                formatter={(value, _name, item) => {
+                  const numericValue = Number(value ?? 0);
+                  const count = Number(item?.payload?.count ?? 0);
+                  return [`${numericValue.toFixed(1)}% (${count} scans)`, ""];
+                }}
               />
               <Bar dataKey="share" fill="#388bfd" radius={[0, 2, 2, 0]} maxBarSize={16} />
             </BarChart>
@@ -935,10 +936,14 @@ export default function RadarPage() {
                             fontSize: "11px",
                           }}
                           labelFormatter={(v) => `Week of ${formatWeek(v)}`}
-                          formatter={(value: number, _n, props: { payload: WeeklyTimelineRow }) => [
-                            `${value.toLocaleString()} scans${props.payload.scan_delta_wow != null ? ` (WoW ${formatWowDelta(props.payload.scan_delta_wow)})` : ""}`,
-                            "Scans",
-                          ]}
+                          formatter={(value, _name, item) => {
+                            const numericValue = Number(value ?? 0);
+                            const delta = item?.payload?.scan_delta_wow;
+                            return [
+                              `${numericValue.toLocaleString()} scans${delta != null ? ` (WoW ${formatWowDelta(delta)})` : ""}`,
+                              "Scans",
+                            ];
+                          }}
                         />
                         <Line
                           type="monotone"
@@ -985,10 +990,10 @@ export default function RadarPage() {
                             fontSize: "11px",
                           }}
                           labelFormatter={(v) => `Week of ${formatWeek(v)}`}
-                          formatter={(_v: number, _n, props: { payload: WeeklyTimelineRow }) => {
-                            const cov = props.payload.signal_coverage_pct;
-                            const delta = props.payload.coverage_delta_wow;
-                            const pct = cov != null ? `${cov.toFixed(1)}%` : "—";
+                          formatter={(_value, _name, item) => {
+                            const cov = item?.payload?.signal_coverage_pct;
+                            const delta = item?.payload?.coverage_delta_wow;
+                            const pct = cov != null ? `${Number(cov).toFixed(1)}%` : "—";
                             const deltaStr = delta != null ? ` (WoW ${formatWowChange(delta)})` : "";
                             return [`${pct}${deltaStr}`, "Coverage"];
                           }}
@@ -1055,7 +1060,10 @@ export default function RadarPage() {
                           const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
                           return d.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
                         }}
-                        formatter={(value: number) => [`${value} scans`, "Scan count"]}
+                        formatter={(value, _name, item) => {
+                          const numericValue = Number(value ?? 0);
+                          return [`${numericValue} scans`, "Scan count"];
+                        }}
                       />
                       <Area
                         type="monotone"
