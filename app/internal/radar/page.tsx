@@ -31,11 +31,25 @@ type FraudLandscape = {
   authority_types: FraudLandscapeItem[];
 };
 
+type EmergingPattern = {
+  dimension: string;
+  value: string;
+  this_week_count: number;
+  this_week_share: number;
+  last_week_count: number;
+  last_week_share: number;
+  count_delta_wow: number;
+  share_delta_wow: number;
+  emerging_rank: number;
+  is_meaningful: boolean;
+};
+
 type RadarData = {
   week_start: string;
   generated_at: string;
   system_health: SystemHealth;
   fraud_landscape?: FraudLandscape;
+  emerging_patterns?: EmergingPattern[];
 };
 
 /** For values already 0–100 (e.g. signal_yield_pct, signal_coverage_pct) */
@@ -88,6 +102,31 @@ function formatLandscapeLabel(raw: string): string {
 /** share_of_week from API is 0–1; convert to 0–100 for display */
 function toDisplayShare(share: number): number {
   return share <= 1 ? share * 100 : share;
+}
+
+const DIMENSION_LABELS: Record<string, string> = {
+  narrative_category: "Narrative",
+  channel_type: "Channel",
+  payment_method: "Payment Method",
+  authority_type: "Authority Type",
+};
+
+function formatDimensionLabel(dim: string): string {
+  return DIMENSION_LABELS[dim] ?? dim.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Share 0–1 to X.X% */
+function formatSharePct(share: number): string {
+  const pct = share <= 1 ? share * 100 : share;
+  return `${Number(pct).toFixed(1)}%`;
+}
+
+/** share_delta_wow as signed percentage, e.g. +6.0% */
+function formatWowChange(delta: number): string {
+  const pct = delta <= 1 && delta >= -1 ? delta * 100 : delta;
+  const s = Number(pct).toFixed(1);
+  if (Number(s) > 0) return `+${s}%`;
+  return `${s}%`;
 }
 
 function FraudLandscapeCard({
@@ -270,6 +309,55 @@ export default function RadarPage() {
                 />
               </div>
             </section>
+
+            <section style={{ ...styles.section, marginTop: "24px" }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Emerging Techniques</h2>
+              <p style={styles.sectionSubtitle}>
+                Signals gaining share versus last week.
+              </p>
+              {(!data.emerging_patterns || data.emerging_patterns.length === 0) ? (
+                <div style={styles.emergingEmpty}>
+                  <p style={styles.emergingEmptyMain}>
+                    No emerging techniques met the current threshold this week.
+                  </p>
+                  <p style={styles.emergingEmptySub}>
+                    Threshold: at least 3 scans and +5% share change week over week.
+                  </p>
+                </div>
+              ) : (
+                <div style={styles.emergingTableWrap}>
+                  <table style={styles.emergingTable}>
+                    <thead>
+                      <tr>
+                        <th style={styles.emergingTh}>Dimension</th>
+                        <th style={styles.emergingTh}>Value</th>
+                        <th style={styles.emergingTh}>This Week</th>
+                        <th style={styles.emergingTh}>Share</th>
+                        <th style={styles.emergingTh}>WoW Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.emerging_patterns.map((row, i) => (
+                        <tr key={i}>
+                          <td style={styles.emergingTd}>{formatDimensionLabel(row.dimension)}</td>
+                          <td style={styles.emergingTd}>{formatLandscapeLabel(row.value)}</td>
+                          <td style={styles.emergingTd}>{row.this_week_count.toLocaleString()}</td>
+                          <td style={styles.emergingTd}>{formatSharePct(row.this_week_share)}</td>
+                          <td
+                            style={{
+                              ...styles.emergingTd,
+                              ...(row.share_delta_wow > 0 ? styles.emergingTdPositive : {}),
+                            }}
+                          >
+                            {formatWowChange(row.share_delta_wow)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
           </>
         )}
       </div>
@@ -376,6 +464,42 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: "12px",
     color: "#6e7681",
+  },
+  emergingEmpty: {
+    padding: "24px 0",
+  },
+  emergingEmptyMain: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#8b949e",
+  },
+  emergingEmptySub: {
+    margin: "6px 0 0",
+    fontSize: "12px",
+    color: "#6e7681",
+  },
+  emergingTableWrap: {
+    overflowX: "auto",
+  },
+  emergingTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "13px",
+  },
+  emergingTh: {
+    textAlign: "left",
+    padding: "10px 16px 10px 0",
+    fontWeight: 600,
+    color: "#8b949e",
+    borderBottom: "1px solid #30363d",
+  },
+  emergingTd: {
+    padding: "10px 16px 10px 0",
+    color: "#e6edf3",
+    borderBottom: "1px solid #21262d",
+  },
+  emergingTdPositive: {
+    color: "#7ee787",
   },
   metrics: {
     display: "grid",
