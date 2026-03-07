@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CA_PROVINCE_PATHS } from "./canada-paths";
 import {
   Bar,
   BarChart,
@@ -44,12 +45,34 @@ type EmergingPattern = {
   is_meaningful: boolean;
 };
 
+type GeoProvince = {
+  province: string;
+  scan_count: number;
+  wow_scan_delta: number;
+  high_risk_count: number;
+  high_risk_ratio: number | null;
+  is_meaningful: boolean;
+};
+
+type GeoCity = {
+  city: string;
+  province: string;
+  scan_count: number;
+  high_risk_count: number;
+};
+
+type Geography = {
+  provinces: GeoProvince[];
+  top_cities: GeoCity[];
+};
+
 type RadarData = {
   week_start: string;
   generated_at: string;
   system_health: SystemHealth;
   fraud_landscape?: FraudLandscape;
   emerging_patterns?: EmergingPattern[];
+  geography?: Geography;
 };
 
 /** For values already 0–100 (e.g. signal_yield_pct, signal_coverage_pct) */
@@ -127,6 +150,110 @@ function formatWowChange(delta: number): string {
   const s = Number(pct).toFixed(1);
   if (Number(s) > 0) return `+${s}%`;
   return `${s}%`;
+}
+
+/** WoW scan delta as signed, e.g. +12 or -3 */
+function formatWowDelta(delta: number): string {
+  if (delta > 0) return `+${delta}`;
+  return String(delta);
+}
+
+/** Risk ratio 0–1 to X.X% */
+function formatRiskRatio(ratio: number | null): string {
+  if (ratio == null) return "—";
+  const pct = ratio <= 1 ? ratio * 100 : ratio;
+  return `${Number(pct).toFixed(1)}%`;
+}
+
+function getChoroplethFill(scanCount: number, maxCount: number): string {
+  if (scanCount <= 0) return "#21262d";
+  if (maxCount <= 0) return "#21262d";
+  const t = Math.min(1, scanCount / Math.max(maxCount, 1));
+  const opacity = 0.25 + t * 0.6;
+  return `rgba(56, 139, 253, ${opacity.toFixed(2)})`;
+}
+
+function CanadaChoropleth({ provinces }: { provinces: GeoProvince[] }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  const byCode = Object.fromEntries(
+    provinces.map((p) => [String(p.province).toUpperCase(), p]),
+  );
+  const maxScan = Math.max(0, ...provinces.map((p) => p.scan_count));
+  const tooltipProv = hovered ? byCode[hovered] : null;
+
+  return (
+    <div style={styles.choroWrap}>
+      <svg
+        viewBox="0 0 900 520"
+        style={styles.choroSvg}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {Object.entries(CA_PROVINCE_PATHS).map(([code, d]) => {
+          const p = byCode[code] ?? {
+            province: code,
+            scan_count: 0,
+            wow_scan_delta: 0,
+            high_risk_count: 0,
+            high_risk_ratio: null,
+            is_meaningful: false,
+          };
+          const fill = getChoroplethFill(p.scan_count, maxScan);
+          return (
+            <path
+              key={code}
+              d={d}
+              fill={fill}
+              stroke="#30363d"
+              strokeWidth={0.8}
+              opacity={hovered && hovered !== code ? 0.6 : 1}
+              onMouseEnter={() => setHovered(code)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ cursor: "default" }}
+            />
+          );
+        })}
+        {Object.entries(CA_PROVINCE_PATHS).map(([code]) => (
+          <text
+            key={`${code}-label`}
+            x={getProvinceLabelX(code)}
+            y={getProvinceLabelY(code)}
+            fill="#6e7681"
+            fontSize={10}
+            textAnchor="middle"
+            style={{ pointerEvents: "none" }}
+          >
+            {code}
+          </text>
+        ))}
+      </svg>
+      {tooltipProv && (
+        <div style={styles.choroTooltip}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{tooltipProv.province}</div>
+          <div style={styles.choroTooltipRow}>Scans: {tooltipProv.scan_count.toLocaleString()}</div>
+          <div style={styles.choroTooltipRow}>High-risk: {tooltipProv.high_risk_count}</div>
+          <div style={styles.choroTooltipRow}>Risk ratio: {formatRiskRatio(tooltipProv.high_risk_ratio)}</div>
+          <div style={styles.choroTooltipRow}>WoW Δ: {formatWowDelta(tooltipProv.wow_scan_delta)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getProvinceLabelX(code: string): number {
+  const x: Record<string, number> = {
+    YT: 100, NT: 325, NU: 675,
+    BC: 70, AB: 205, SK: 330, MB: 450, ON: 615, QC: 810,
+    NB: 757, NS: 757, PE: 825, NL: 877,
+  };
+  return x[code] ?? 450;
+}
+function getProvinceLabelY(code: string): number {
+  const y: Record<string, number> = {
+    YT: 35, NT: 35, NU: 35,
+    BC: 210, AB: 190, SK: 180, MB: 190, ON: 200, QC: 210,
+    NB: 382, NS: 467, PE: 457, NL: 435,
+  };
+  return y[code] ?? 260;
 }
 
 function FraudLandscapeCard({
@@ -358,6 +485,79 @@ export default function RadarPage() {
                 </div>
               )}
             </section>
+
+            <section style={{ ...styles.section, marginTop: "24px" }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Canada Concentration</h2>
+              <p style={styles.sectionSubtitle}>
+                Where activity is concentrating and shifting across Canada.
+              </p>
+              {!data.geography?.provinces?.length && !data.geography?.top_cities?.length ? (
+                <p style={styles.geoEmpty}>No geographic concentration data available for this period.</p>
+              ) : (
+                <div style={styles.geoLayout}>
+                  <div style={styles.geoLeft}>
+                    <CanadaChoropleth provinces={data.geography?.provinces ?? []} />
+                  </div>
+                  <div style={styles.geoRight}>
+                    <div style={styles.geoLeaderboard}>
+                      <h3 style={styles.geoCardTitle}>Province Leaderboard</h3>
+                      {(!data.geography?.provinces || data.geography.provinces.length === 0) ? (
+                        <p style={styles.geoLeaderEmpty}>No province data</p>
+                      ) : (
+                        <table style={styles.geoLeaderTable}>
+                          <thead>
+                            <tr>
+                              <th style={styles.geoLeaderTh}>Province</th>
+                              <th style={styles.geoLeaderTh}>Scans</th>
+                              <th style={styles.geoLeaderTh}>WoW Δ</th>
+                              <th style={styles.geoLeaderTh}>High-Risk</th>
+                              <th style={styles.geoLeaderTh}>Risk Ratio</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {data.geography!.provinces.map((p, i) => (
+                              <tr key={i}>
+                                <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
+                                  {p.province}
+                                </td>
+                                <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
+                                  {p.scan_count.toLocaleString()}
+                                </td>
+                                <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
+                                  {formatWowDelta(p.wow_scan_delta)}
+                                </td>
+                                <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
+                                  {p.high_risk_count}
+                                </td>
+                                <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
+                                  {formatRiskRatio(p.high_risk_ratio)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                    <div style={styles.geoCities}>
+                      <h3 style={styles.geoCardTitle}>Top 3 Cities</h3>
+                      {(!data.geography?.top_cities || data.geography.top_cities.length === 0) ? (
+                        <p style={styles.geoLeaderEmpty}>No city data</p>
+                      ) : (
+                        data.geography.top_cities.map((c, i) => (
+                          <div key={i} style={styles.geoCityRow}>
+                            <span style={styles.geoCityName}>{c.city}</span>
+                            <span style={styles.geoCityProv}>{c.province}</span>
+                            <span style={styles.geoCityMeta}>
+                              {c.scan_count} scans · {c.high_risk_count} high-risk
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
           </>
         )}
       </div>
@@ -500,6 +700,120 @@ const styles: Record<string, React.CSSProperties> = {
   },
   emergingTdPositive: {
     color: "#7ee787",
+  },
+  geoEmpty: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#6e7681",
+  },
+  geoLayout: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "24px",
+    alignItems: "flex-start",
+  },
+  geoLeft: {
+    flex: "1 1 380px",
+    minWidth: 0,
+  },
+  geoRight: {
+    flex: "1 1 300px",
+    minWidth: "280px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+  },
+  choroWrap: {
+    position: "relative",
+    backgroundColor: "#1c2128",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "12px",
+    maxWidth: "100%",
+  },
+  choroSvg: {
+    width: "100%",
+    maxHeight: "280px",
+    display: "block",
+  },
+  choroTooltip: {
+    position: "absolute",
+    top: "12px",
+    right: "12px",
+    backgroundColor: "#21262d",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    padding: "10px 12px",
+    fontSize: "11px",
+    color: "#e6edf3",
+    minWidth: "140px",
+  },
+  choroTooltipRow: {
+    marginTop: 2,
+  },
+  geoLeaderboard: {
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "16px",
+  },
+  geoCardTitle: {
+    margin: "0 0 12px",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#e6edf3",
+  },
+  geoLeaderEmpty: {
+    margin: 0,
+    fontSize: "12px",
+    color: "#6e7681",
+  },
+  geoLeaderTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "12px",
+  },
+  geoLeaderTh: {
+    textAlign: "left",
+    padding: "6px 10px 6px 0",
+    fontWeight: 600,
+    color: "#8b949e",
+    borderBottom: "1px solid #30363d",
+  },
+  geoLeaderTd: {
+    padding: "6px 10px 6px 0",
+    color: "#e6edf3",
+    borderBottom: "1px solid #21262d",
+  },
+  geoLeaderTdMuted: {
+    color: "#6e7681",
+  },
+  geoCities: {
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "16px",
+  },
+  geoCityRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "baseline",
+    gap: "8px",
+    padding: "6px 0",
+    borderBottom: "1px solid #21262d",
+    fontSize: "12px",
+  },
+  geoCityName: {
+    fontWeight: 600,
+    color: "#e6edf3",
+  },
+  geoCityProv: {
+    color: "#8b949e",
+    fontSize: "11px",
+  },
+  geoCityMeta: {
+    color: "#6e7681",
+    marginLeft: "auto",
   },
   metrics: {
     display: "grid",
