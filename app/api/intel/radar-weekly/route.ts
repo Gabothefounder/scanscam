@@ -67,6 +67,14 @@ export type RadarWeeklyResponse = {
     city: string | null;
     province: string | null;
   }[];
+  weekly_timeline?: {
+    week_start: string;
+    scan_count: number;
+    scan_delta_wow: number | null;
+    signal_coverage_pct: number | null;
+    coverage_delta_wow: number | null;
+  }[];
+  daily_volume_timeline?: { day: string; scan_count: number }[];
 };
 
 const CA_PROVINCE_CODES = new Set(
@@ -92,6 +100,8 @@ const emptyResponse = (weekStart: string): RadarWeeklyResponse => ({
   emerging_patterns: [],
   geography: { provinces: [], top_cities: [] },
   recent_signals: [],
+  weekly_timeline: [],
+  daily_volume_timeline: [],
 });
 
 /* -------------------------------------------------
@@ -156,7 +166,14 @@ export async function GET(req: NextRequest) {
     prevWeekStart.setDate(prevWeekStart.getDate() - 7);
     const prevWeekStr = prevWeekStart.toISOString().slice(0, 10);
 
-    const [coreRes, signalYieldRes, behavioralRes, patternRes, geoRes, recentRes] = await Promise.all([
+    const today = new Date();
+    const dayEnd = today.toISOString().slice(0, 10);
+    const dayStart = new Date(today);
+    dayStart.setDate(dayStart.getDate() - 13);
+    const dayStartStr = dayStart.toISOString().slice(0, 10);
+
+    const [coreRes, signalYieldRes, behavioralRes, patternRes, geoRes, recentRes, timelineRes, dailyVolumeRes] =
+      await Promise.all([
       supabase.from("intel_weekly_core" as any).select("*").eq("week_start", weekStart).maybeSingle(),
       /* intel_signal_yield is daily; column assumed "date"; adjust if view uses "day" */
       supabase
@@ -184,14 +201,27 @@ export async function GET(req: NextRequest) {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(50),
+      supabase
+        .from("intel_weekly_timeline" as any)
+        .select("*")
+        .order("week_start", { ascending: true })
+        .limit(16),
+      supabase
+        .from("scans")
+        .select("created_at")
+        .gte("created_at", dayStartStr + "T00:00:00.000Z")
+        .lte("created_at", dayEnd + "T23:59:59.999Z")
+        .limit(10000),
     ]);
 
     const core = (coreRes.data ?? null) as Record<string, any> | null;
     const signalYieldRows = (signalYieldRes.data ?? []) as Record<string, any>[];
+    const dailyVolumeRows = (dailyVolumeRes.data ?? []) as Record<string, any>[];
     const behavioralRows = (behavioralRes.data ?? []) as Record<string, any>[];
     const patternRows = (patternRes.data ?? []) as Record<string, any>[];
     const geoRows = (geoRes.data ?? []) as Record<string, any>[];
     let recentRows = (recentRes.data ?? []) as Record<string, any>[];
+    const timelineRows = (timelineRes.data ?? []) as Record<string, any>[];
 
     let scanCount = 0;
     let submitToRenderRate: number | null = null;
@@ -328,6 +358,30 @@ export async function GET(req: NextRequest) {
     }
     recentRows = recentRows.slice(0, 20);
 
+    const byDay = new Map<string, number>();
+    for (const r of dailyVolumeRows) {
+      const raw = r.created_at ?? "";
+      const d = typeof raw === "string" ? raw.slice(0, 10) : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      byDay.set(d, (byDay.get(d) ?? 0) + 1);
+    }
+    const dailyVolumeTimeline = Array.from(byDay.entries())
+      .map(([day, scan_count]) => ({ day, scan_count }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+
+    const weeklyTimeline = timelineRows.map((r) => ({
+      week_start: String(r.week_start ?? ""),
+      scan_count: Number(r.scan_count) ?? 0,
+      scan_delta_wow: r.scan_delta_wow != null ? Number(r.scan_delta_wow) : null,
+      signal_coverage_pct: r.signal_coverage_pct != null ? Number(r.signal_coverage_pct) : null,
+      coverage_delta_wow:
+        r.coverage_delta_wow != null
+          ? Number(r.coverage_delta_wow)
+          : r.signal_coverage_delta_wow != null
+            ? Number(r.signal_coverage_delta_wow)
+            : null,
+    }));
+
     const recentSignals = recentRows.map((r) => ({
       created_at: String(r.created_at ?? ""),
       summary_sentence: (() => {
@@ -354,6 +408,8 @@ export async function GET(req: NextRequest) {
       emerging_patterns: emergingPatterns,
       geography: { provinces, top_cities: topCities },
       recent_signals: recentSignals,
+      weekly_timeline: weeklyTimeline,
+      daily_volume_timeline: dailyVolumeTimeline,
     };
 
     return NextResponse.json(payload, { status: 200 });

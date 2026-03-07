@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import { CA_PROVINCE_PATHS } from "./canada-paths";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -74,6 +78,19 @@ type RecentSignal = {
   province: string | null;
 };
 
+type WeeklyTimelineRow = {
+  week_start: string;
+  scan_count: number;
+  scan_delta_wow: number | null;
+  signal_coverage_pct: number | null;
+  coverage_delta_wow: number | null;
+};
+
+type DailyVolumeRow = {
+  day: string;
+  scan_count: number;
+};
+
 type RadarData = {
   week_start: string;
   generated_at: string;
@@ -82,6 +99,8 @@ type RadarData = {
   emerging_patterns?: EmergingPattern[];
   geography?: Geography;
   recent_signals?: RecentSignal[];
+  weekly_timeline?: WeeklyTimelineRow[];
+  daily_volume_timeline?: DailyVolumeRow[];
 };
 
 /** For values already 0–100 (e.g. signal_yield_pct, signal_coverage_pct) */
@@ -579,6 +598,35 @@ function formatWowDelta(delta: number): string {
   return String(delta);
 }
 
+/** Get current week row from weekly_timeline for WoW deltas */
+function getCurrentWeekRow(data: RadarData): WeeklyTimelineRow | null {
+  if (!data?.week_start || !data?.weekly_timeline?.length) return null;
+  return data.weekly_timeline.find((r) => r.week_start === data.week_start) ?? null;
+}
+
+/** Render WoW movement indicator: arrow + formatted delta. Returns null if delta missing. */
+function MetricWoWIndicator({
+  delta,
+  format,
+  invertColors,
+}: {
+  delta: number | null | undefined;
+  format: "count" | "pct";
+  invertColors?: boolean;
+}) {
+  if (delta == null) return null;
+  const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+  const text = format === "count" ? formatWowDelta(delta) : formatWowChange(delta);
+  const color =
+    delta > 0 ? (invertColors ? "#f0883e" : "#3fb950") : delta < 0 ? (invertColors ? "#3fb950" : "#f0883e") : "#6e7681";
+  return (
+    <span style={{ ...styles.metricWoW, color }}>
+      {" "}
+      {arrow} {text}
+    </span>
+  );
+}
+
 /** Risk ratio 0–1 to X.X% */
 function formatRiskRatio(ratio: number | null): string {
   if (ratio == null) return "—";
@@ -809,27 +857,26 @@ export default function RadarPage() {
             <section style={styles.section}>
               <h2 style={styles.sectionTitle}>System Health</h2>
               <div style={styles.metrics}>
-                <div style={styles.metric}>
+                <div style={styles.metric} title="Total number of scans analyzed during the current weekly window.">
                   <span style={styles.metricLabel}>Scans This Week</span>
                   <span style={styles.metricValue}>
-                    {sh?.scan_count != null
-                      ? sh.scan_count.toLocaleString()
-                      : "—"}
+                    {sh?.scan_count != null ? sh.scan_count.toLocaleString() : "—"}
+                    <MetricWoWIndicator delta={getCurrentWeekRow(data)?.scan_delta_wow ?? null} format="count" />
                   </span>
                 </div>
-                <div style={styles.metric}>
+                <div style={styles.metric} title="Percentage of scan attempts that reached a rendered result page.">
                   <span style={styles.metricLabel}>Scan Completion</span>
                   <span style={styles.metricValue}>
                     {formatRateDecimal(sh?.submit_to_render_rate ?? null)}
                   </span>
                 </div>
-                <div style={styles.metric}>
+                <div style={styles.metric} title="Percentage of scans that relied on fallback analysis rather than the primary extraction path.">
                   <span style={styles.metricLabel}>Fallback Rate</span>
                   <span style={styles.metricValue}>
                     {formatRateDecimal(sh?.fallback_rate ?? null)}
                   </span>
                 </div>
-                <div style={styles.metric}>
+                <div style={styles.metric} title="Percentage of scans that produced at least two classified core signals and landed in medium or high risk.">
                   <span style={styles.metricLabel}>High-Value Signal Yield</span>
                   <span style={styles.metricValue}>
                     {formatPct(sh?.signal_yield_pct ?? null)}
@@ -839,9 +886,188 @@ export default function RadarPage() {
                   <span style={styles.metricLabel}>Signal Coverage</span>
                   <span style={styles.metricValue}>
                     {formatPct(sh?.signal_coverage_pct ?? null)}
+                    <MetricWoWIndicator delta={getCurrentWeekRow(data)?.coverage_delta_wow ?? null} format="pct" />
                   </span>
+                  <span style={styles.metricHelper}>At least one core signal was classified.</span>
                 </div>
               </div>
+            </section>
+
+            <section style={{ ...styles.section, marginTop: "24px" }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Activity & Signal Trend</h2>
+              <p style={styles.sectionSubtitle}>
+                Weekly movement in scan volume and signal quality.
+              </p>
+              {(!data.weekly_timeline || data.weekly_timeline.length === 0) ? (
+                <p style={styles.signalsEmpty}>No weekly trend data available yet.</p>
+              ) : (
+                <div style={styles.trendChartsGrid}>
+                  <div style={styles.trendChartCard}>
+                    <h3 style={styles.trendChartTitle}>Weekly Scan Volume</h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart
+                        data={data.weekly_timeline}
+                        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                      >
+                        <XAxis
+                          dataKey="week_start"
+                          tick={{ fill: "#6e7681", fontSize: 10 }}
+                          tickFormatter={(v) => {
+                            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+                            if (!m) return v;
+                            const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+                            return d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+                          }}
+                          axisLine={{ stroke: "#30363d" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fill: "#6e7681", fontSize: 10 }}
+                          axisLine={{ stroke: "#30363d" }}
+                          tickLine={false}
+                          tickFormatter={(v) => String(v)}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#21262d",
+                            border: "1px solid #30363d",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                          }}
+                          labelFormatter={(v) => `Week of ${formatWeek(v)}`}
+                          formatter={(value: number, _n, props: { payload: WeeklyTimelineRow }) => [
+                            `${value.toLocaleString()} scans${props.payload.scan_delta_wow != null ? ` (WoW ${formatWowDelta(props.payload.scan_delta_wow)})` : ""}`,
+                            "Scans",
+                          ]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="scan_count"
+                          stroke="#388bfd"
+                          strokeWidth={2}
+                          dot={{ fill: "#388bfd", r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div style={styles.trendChartCard}>
+                    <h3 style={styles.trendChartTitle}>Signal Coverage Trend</h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart
+                        data={data.weekly_timeline}
+                        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                      >
+                        <XAxis
+                          dataKey="week_start"
+                          tick={{ fill: "#6e7681", fontSize: 10 }}
+                          tickFormatter={(v) => {
+                            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+                            if (!m) return v;
+                            const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+                            return d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+                          }}
+                          axisLine={{ stroke: "#30363d" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fill: "#6e7681", fontSize: 10 }}
+                          axisLine={{ stroke: "#30363d" }}
+                          tickLine={false}
+                          domain={[0, 100]}
+                          tickFormatter={(v) => `${v}%`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#21262d",
+                            border: "1px solid #30363d",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                          }}
+                          labelFormatter={(v) => `Week of ${formatWeek(v)}`}
+                          formatter={(_v: number, _n, props: { payload: WeeklyTimelineRow }) => {
+                            const cov = props.payload.signal_coverage_pct;
+                            const delta = props.payload.coverage_delta_wow;
+                            const pct = cov != null ? `${cov.toFixed(1)}%` : "—";
+                            const deltaStr = delta != null ? ` (WoW ${formatWowChange(delta)})` : "";
+                            return [`${pct}${deltaStr}`, "Coverage"];
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="signal_coverage_pct"
+                          stroke="#58a6ff"
+                          strokeWidth={2}
+                          dot={{ fill: "#58a6ff", r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+              {!data.daily_volume_timeline || data.daily_volume_timeline.length === 0 ? (
+                <p style={{ ...styles.signalsEmpty, marginTop: "16px" }}>
+                  No daily scan volume data available yet.
+                </p>
+              ) : (
+                <div style={styles.dailyVolumeCard}>
+                  <h3 style={styles.trendChartTitle}>Daily Scan Volume</h3>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <AreaChart
+                      data={data.daily_volume_timeline}
+                      margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                    >
+                      <defs>
+                        <linearGradient id="dailyVolumeFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#388bfd" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#388bfd" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="day"
+                        tick={{ fill: "#6e7681", fontSize: 10 }}
+                        tickFormatter={(v) => {
+                          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+                          if (!m) return v;
+                          const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+                          return d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+                        }}
+                        axisLine={{ stroke: "#30363d" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: "#6e7681", fontSize: 10 }}
+                        axisLine={{ stroke: "#30363d" }}
+                        tickLine={false}
+                        tickFormatter={(v) => String(v)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#21262d",
+                          border: "1px solid #30363d",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                        }}
+                        labelFormatter={(v) => {
+                          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+                          if (!m) return v;
+                          const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+                          return d.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+                        }}
+                        formatter={(value: number) => [`${value} scans`, "Scan count"]}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="scan_count"
+                        stroke="#388bfd"
+                        strokeWidth={1.5}
+                        fill="url(#dailyVolumeFill)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </section>
 
             <section style={{ ...styles.section, marginTop: "24px" }}>
@@ -872,7 +1098,7 @@ export default function RadarPage() {
             <section style={{ ...styles.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Emerging Techniques</h2>
               <p style={styles.sectionSubtitle}>
-                Signals gaining share versus last week.
+                Signals gaining share versus last week, based on week-over-week movement.
               </p>
               {(!data.emerging_patterns || data.emerging_patterns.length === 0) ? (
                 <div style={styles.emergingEmpty}>
@@ -921,7 +1147,7 @@ export default function RadarPage() {
             <section style={{ ...styles.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Canada Concentration</h2>
               <p style={styles.sectionSubtitle}>
-                Where activity is concentrating and shifting across Canada.
+                Where scan activity is concentrating and shifting across Canada this week.
               </p>
               {!data.geography?.provinces?.length && !data.geography?.top_cities?.length ? (
                 <p style={styles.geoEmpty}>No geographic concentration data available for this period.</p>
@@ -1111,6 +1337,30 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px",
     color: "#8b949e",
     lineHeight: 1.4,
+  },
+  trendChartsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+    gap: "20px",
+  },
+  trendChartCard: {
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "16px",
+  },
+  trendChartTitle: {
+    margin: "0 0 12px",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#e6edf3",
+  },
+  dailyVolumeCard: {
+    marginTop: "16px",
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "16px",
   },
   landscapeGrid: {
     display: "grid",
@@ -1442,6 +1692,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "20px",
     fontWeight: 600,
     color: "#e6edf3",
+  },
+  metricWoW: {
+    fontSize: "12px",
+    fontWeight: 500,
+    marginLeft: "6px",
+  },
+  metricHelper: {
+    fontSize: "11px",
+    color: "#6e7681",
+    lineHeight: 1.3,
+    marginTop: "2px",
   },
   error: {
     padding: "16px",
