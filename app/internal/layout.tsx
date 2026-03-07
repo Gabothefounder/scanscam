@@ -1,3 +1,5 @@
+import InternalPinGate from "@/app/components/InternalPinGate";
+
 export default function InternalLayout({
   children,
 }: {
@@ -12,7 +14,7 @@ export default function InternalLayout({
         fontFamily: "system-ui, sans-serif",
       }}
     >
-      {children}
+      <InternalPinGate>{children}</InternalPinGate>
     </div>
   );
 }
