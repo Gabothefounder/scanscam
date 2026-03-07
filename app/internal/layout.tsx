@@ -7,7 +7,7 @@ export default function InternalLayout({
     <div
       style={{
         minHeight: "100vh",
-        background: "#0f1419",
+        background: "#13181d",
         color: "#e6edf3",
         fontFamily: "system-ui, sans-serif",
       }}

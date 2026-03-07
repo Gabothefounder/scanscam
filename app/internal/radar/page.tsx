@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type SystemHealth = {
   scan_count: number;
@@ -10,10 +18,24 @@ type SystemHealth = {
   signal_coverage_pct: number | null;
 };
 
+type FraudLandscapeItem = {
+  value: string;
+  scan_count: number;
+  share_of_week: number;
+};
+
+type FraudLandscape = {
+  narratives: FraudLandscapeItem[];
+  channels: FraudLandscapeItem[];
+  payment_methods: FraudLandscapeItem[];
+  authority_types: FraudLandscapeItem[];
+};
+
 type RadarData = {
   week_start: string;
   generated_at: string;
   system_health: SystemHealth;
+  fraud_landscape?: FraudLandscape;
 };
 
 /** For values already 0–100 (e.g. signal_yield_pct, signal_coverage_pct) */
@@ -46,6 +68,92 @@ function formatGeneratedAt(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+const LABEL_MAP: Record<string, string> = {
+  delivery_scam: "Delivery Scam",
+  government_impersonation: "Government Impersonation",
+  financial_phishing: "Financial Phishing",
+  p2p_app: "P2P App",
+  financial_institution: "Financial Institution",
+  tech_company: "Tech Company",
+};
+
+function formatLandscapeLabel(raw: string): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "—";
+  return LABEL_MAP[s] ?? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** share_of_week from API is 0–1; convert to 0–100 for display */
+function toDisplayShare(share: number): number {
+  return share <= 1 ? share * 100 : share;
+}
+
+function FraudLandscapeCard({
+  title,
+  items,
+}: {
+  title: string;
+  items: FraudLandscapeItem[];
+}) {
+  const rows = items
+    .filter((item) => String(item.value ?? "").toLowerCase() !== "unknown")
+    .slice(0, 5)
+    .map((item) => ({
+      label: formatLandscapeLabel(item.value),
+      share: toDisplayShare(item.share_of_week),
+      count: item.scan_count,
+    }));
+
+  return (
+    <div style={styles.landscapeCard}>
+      <h3 style={styles.landscapeCardTitle}>{title}</h3>
+      {rows.length === 0 ? (
+        <p style={styles.landscapeEmpty}>No classified signals available for this period.</p>
+      ) : (
+        <div style={styles.landscapeChart}>
+          <ResponsiveContainer width="100%" height={Math.max(120, rows.length * 28)}>
+            <BarChart
+              data={rows}
+              layout="vertical"
+              margin={{ top: 0, right: 8, bottom: 0, left: 0 }}
+            >
+              <XAxis
+                type="number"
+                domain={[0, "auto"]}
+                tick={{ fill: "#6e7681", fontSize: 10 }}
+                axisLine={{ stroke: "#30363d" }}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                width={110}
+                tick={{ fill: "#8b949e", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#21262d",
+                  border: "1px solid #30363d",
+                  borderRadius: "6px",
+                  fontSize: "11px",
+                }}
+                labelStyle={{ color: "#e6edf3" }}
+                formatter={(value: number, _n, props: { payload: (typeof rows)[0] }) => [
+                  `${Number(value).toFixed(1)}% (${props.payload.count} scans)`,
+                  "",
+                ]}
+              />
+              <Bar dataKey="share" fill="#388bfd" radius={[0, 2, 2, 0]} maxBarSize={16} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function RadarPage() {
@@ -99,43 +207,70 @@ export default function RadarPage() {
         )}
 
         {!loading && data && (
-          <section style={styles.section}>
-            <h2 style={styles.sectionTitle}>System Health</h2>
-            <div style={styles.metrics}>
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Scans This Week</span>
-                <span style={styles.metricValue}>
-                  {sh?.scan_count != null
-                    ? sh.scan_count.toLocaleString()
-                    : "—"}
-                </span>
+          <>
+            <section style={styles.section}>
+              <h2 style={styles.sectionTitle}>System Health</h2>
+              <div style={styles.metrics}>
+                <div style={styles.metric}>
+                  <span style={styles.metricLabel}>Scans This Week</span>
+                  <span style={styles.metricValue}>
+                    {sh?.scan_count != null
+                      ? sh.scan_count.toLocaleString()
+                      : "—"}
+                  </span>
+                </div>
+                <div style={styles.metric}>
+                  <span style={styles.metricLabel}>Scan Completion</span>
+                  <span style={styles.metricValue}>
+                    {formatRateDecimal(sh?.submit_to_render_rate ?? null)}
+                  </span>
+                </div>
+                <div style={styles.metric}>
+                  <span style={styles.metricLabel}>Fallback Rate</span>
+                  <span style={styles.metricValue}>
+                    {formatRateDecimal(sh?.fallback_rate ?? null)}
+                  </span>
+                </div>
+                <div style={styles.metric}>
+                  <span style={styles.metricLabel}>High-Value Signal Yield</span>
+                  <span style={styles.metricValue}>
+                    {formatPct(sh?.signal_yield_pct ?? null)}
+                  </span>
+                </div>
+                <div style={styles.metric}>
+                  <span style={styles.metricLabel}>Signal Coverage</span>
+                  <span style={styles.metricValue}>
+                    {formatPct(sh?.signal_coverage_pct ?? null)}
+                  </span>
+                </div>
               </div>
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Scan Completion</span>
-                <span style={styles.metricValue}>
-                  {formatRateDecimal(sh?.submit_to_render_rate ?? null)}
-                </span>
+            </section>
+
+            <section style={{ ...styles.section, marginTop: "24px" }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Fraud Landscape</h2>
+              <p style={styles.sectionSubtitle}>
+                The most common scam patterns detected in current weekly activity.
+              </p>
+              <div style={styles.landscapeGrid}>
+                <FraudLandscapeCard
+                  title="Top Narratives"
+                  items={data.fraud_landscape?.narratives ?? []}
+                />
+                <FraudLandscapeCard
+                  title="Top Channels"
+                  items={data.fraud_landscape?.channels ?? []}
+                />
+                <FraudLandscapeCard
+                  title="Top Payment Methods"
+                  items={data.fraud_landscape?.payment_methods ?? []}
+                />
+                <FraudLandscapeCard
+                  title="Top Authority Types"
+                  items={data.fraud_landscape?.authority_types ?? []}
+                />
               </div>
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Fallback Rate</span>
-                <span style={styles.metricValue}>
-                  {formatRateDecimal(sh?.fallback_rate ?? null)}
-                </span>
-              </div>
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>High-Value Signal Yield</span>
-                <span style={styles.metricValue}>
-                  {formatPct(sh?.signal_yield_pct ?? null)}
-                </span>
-              </div>
-              <div style={styles.metric}>
-                <span style={styles.metricLabel}>Signal Coverage</span>
-                <span style={styles.metricValue}>
-                  {formatPct(sh?.signal_coverage_pct ?? null)}
-                </span>
-              </div>
-            </div>
-          </section>
+            </section>
+          </>
         )}
       </div>
     </div>
@@ -144,8 +279,8 @@ export default function RadarPage() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: "24px 32px",
-    maxWidth: "1200px",
+    padding: "24px 56px",
+    maxWidth: "1800px",
     margin: "0 auto",
   },
   header: {
@@ -199,10 +334,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   content: {},
   section: {
-    backgroundColor: "#161b22",
+    backgroundColor: "#171d24",
     borderRadius: "12px",
     border: "1px solid #30363d",
-    borderTop: "1px solid #1c2128",
+    borderTop: "1px solid #21262d",
     padding: "24px",
   },
   sectionTitle: {
@@ -210,6 +345,37 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "16px",
     fontWeight: 600,
     color: "#e6edf3",
+  },
+  sectionSubtitle: {
+    margin: "4px 0 20px",
+    fontSize: "13px",
+    color: "#8b949e",
+    lineHeight: 1.4,
+  },
+  landscapeGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "20px",
+  },
+  landscapeCard: {
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "16px",
+  },
+  landscapeCardTitle: {
+    margin: "0 0 12px",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#e6edf3",
+  },
+  landscapeChart: {
+    minHeight: 120,
+  },
+  landscapeEmpty: {
+    margin: 0,
+    fontSize: "12px",
+    color: "#6e7681",
   },
   metrics: {
     display: "grid",
