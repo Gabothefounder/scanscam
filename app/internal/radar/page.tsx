@@ -215,6 +215,220 @@ function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
   );
 }
 
+const CURRENT_SNAPSHOT_PROMPT = `You are analyzing a ScanScam current intelligence snapshot.
+
+Context
+Product: ScanScam
+Scope: Canada-focused scam signal monitoring
+Audience: founder
+Purpose: identify meaningful scam patterns, behavioral signals, and geographic concentration.
+
+Important design philosophy:
+The system prefers "unknown" classifications over incorrect ones. Do not assume missing labels indicate absence of a signal.
+
+Task
+Analyze the dataset and identify:
+
+1. the most important current scam signals
+2. any behavioral patterns or scam techniques appearing frequently
+3. geographic concentration signals
+4. interpretation limits due to sample size
+5. a short founder-level interpretation paragraph
+
+Be conservative and avoid overstating conclusions.`;
+
+const WEEKLY_SNAPSHOT_PROMPT = `You are analyzing a ScanScam weekly intelligence snapshot.
+
+Context
+Product: ScanScam
+Scope: Canada-focused scam signal monitoring
+Audience: founder and potential institutional partners
+Purpose: identify meaningful weekly scam patterns and shifts.
+
+Important philosophy:
+The system prefers "unknown" classifications over incorrect ones. Missing classifications should be interpreted cautiously.
+
+Task
+Analyze the dataset and produce:
+
+1. dominant scam patterns this week
+2. notable behavioral signals
+3. geographic observations
+4. possible interpretation limits due to sample size
+5. a concise weekly intelligence summary suitable for a founder briefing.
+
+Avoid overclaiming conclusions from small samples.`;
+
+const SYSTEM_QUALITY_SNAPSHOT_PROMPT = `You are analyzing a ScanScam system quality snapshot.
+
+Context
+Product: ScanScam
+Scope: Canada-focused scam signal monitoring
+Audience: founder
+Purpose: identify where the detection and extraction system should improve.
+
+Important philosophy:
+The system intentionally prefers "unknown" classifications over incorrect ones. High unknown rates indicate caution, not failure, but they still reveal where the system needs better coverage.
+
+Task
+Analyze the dataset and identify:
+
+1. which classification areas have the highest unknown rates
+2. which signal dimensions are currently strongest
+3. where extraction quality appears weakest
+4. which improvements would most likely increase signal coverage and high-value signal yield
+5. a short prioritized improvement recommendation for the founder
+
+Be conservative and focus on the highest-leverage system improvements.`;
+
+function AnalystBlockCard({
+  title,
+  sourceView,
+  explanation,
+  bestFor,
+  promptText,
+  data,
+  onCopyFeedback,
+}: {
+  title: string;
+  sourceView: string;
+  explanation: string;
+  bestFor: string;
+  promptText: string;
+  data: unknown;
+  onCopyFeedback: (msg: string) => void;
+}) {
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      onCopyFeedback("Prompt helper copied");
+    } catch {
+      onCopyFeedback("Copy failed");
+    }
+  };
+
+  const handleCopyData = async () => {
+    try {
+      const timestamp = new Date().toISOString();
+      const header = `ScanScam Analyst Dataset
+Block: ${title}
+Source View: ${sourceView}
+Scope: Canada
+Generated: ${timestamp}
+Explanation: ${explanation}
+
+`;
+      const json = JSON.stringify(data, null, 2);
+      await navigator.clipboard.writeText(header + json);
+      onCopyFeedback("Dataset copied for LLM analysis");
+    } catch {
+      onCopyFeedback("Copy failed");
+    }
+  };
+
+  return (
+    <div style={styles.analystBlockCard}>
+      <div style={styles.analystBlockHeader}>
+        <h3 style={styles.analystBlockTitle}>{title}</h3>
+      </div>
+      <p style={styles.analystBlockExplanation}>{explanation}</p>
+      <p style={styles.analystBlockBestFor}>
+        <span style={styles.analystBlockBestForLabel}>Best for: </span>
+        {bestFor}
+      </p>
+      <div style={styles.analystBlockActions}>
+        <button type="button" onClick={handleCopyPrompt} style={styles.analystBlockBtn}>
+          Copy prompt helper
+        </button>
+        <button type="button" onClick={handleCopyData} style={styles.analystBlockBtn}>
+          Copy data for LLM
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AnalystBlocksSection() {
+  const [expanded, setExpanded] = useState(false);
+  const [blocksData, setBlocksData] = useState<{
+    current_snapshot: unknown;
+    weekly_snapshot: unknown;
+    system_quality_snapshot: unknown;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  useEffect(() => {
+    if (!expanded) return;
+    setLoading(true);
+    fetch("/api/intel/analyst-blocks")
+      .then((r) => r.json())
+      .then(setBlocksData)
+      .catch(() => setBlocksData({ current_snapshot: null, weekly_snapshot: null, system_quality_snapshot: null }))
+      .finally(() => setLoading(false));
+  }, [expanded]);
+
+  return (
+    <section style={{ ...styles.section, ...styles.analystBlocksSection, marginTop: "24px" }}>
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        style={styles.analystBlocksHeader}
+        aria-expanded={expanded}
+      >
+        <span style={styles.analystBlocksChevron}>{expanded ? "▼" : "▶"}</span>
+        <h2 style={styles.analystBlocksTitle}>Analyst Blocks</h2>
+      </button>
+      {expanded && (
+        <>
+          <p style={styles.analystBlocksSubtitle}>
+            Additional internal datasets for deeper analysis, quick export, and external LLM interpretation.
+          </p>
+          {loading ? (
+            <p style={styles.analystBlocksEmpty}>Loading analyst datasets…</p>
+          ) : (
+            <div style={styles.analystBlocksGrid}>
+              <AnalystBlockCard
+                title="Current Snapshot"
+                sourceView="intel_current_snapshot"
+                explanation="Compressed 7-day intelligence summary including activity, risk mix, behavioral signals, geography, and acquisition context."
+                bestFor="rapid founder interpretation of the current fraud environment."
+                promptText={CURRENT_SNAPSHOT_PROMPT}
+                data={blocksData?.current_snapshot ?? {}}
+                onCopyFeedback={showToast}
+              />
+              <AnalystBlockCard
+                title="Weekly Snapshot"
+                sourceView="intel_weekly_snapshot"
+                explanation="Compressed weekly intelligence package combining activity, risk distribution, behavioral patterns, geography, and acquisition signals."
+                bestFor="weekly founder review and preparation of intelligence briefs."
+                promptText={WEEKLY_SNAPSHOT_PROMPT}
+                data={blocksData?.weekly_snapshot ?? {}}
+                onCopyFeedback={showToast}
+              />
+              <AnalystBlockCard
+                title="System Quality Snapshot"
+                sourceView="intel_system_quality_snapshot"
+                explanation="Internal diagnostics for classification coverage, unknown distribution, and signal extraction quality."
+                bestFor="identifying where the detection system should improve next."
+                promptText={SYSTEM_QUALITY_SNAPSHOT_PROMPT}
+                data={blocksData?.system_quality_snapshot ?? {}}
+                onCopyFeedback={showToast}
+              />
+            </div>
+          )}
+          {toast && <div style={styles.analystBlocksToast}>{toast}</div>}
+        </>
+      )}
+    </section>
+  );
+}
+
 function formatRiskTierLabel(tier: string): string {
   const s = String(tier ?? "").trim().toLowerCase();
   if (!s) return "—";
@@ -691,6 +905,8 @@ export default function RadarPage() {
                 <RecentSignalsContent signals={data.recent_signals} />
               )}
             </section>
+
+            <AnalystBlocksSection />
           </>
         )}
       </div>
@@ -984,6 +1200,104 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#6e7681",
     fontSize: "12px",
     cursor: "pointer",
+  },
+  analystBlocksSection: {
+    opacity: 0.9,
+  },
+  analystBlocksHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    width: "100%",
+    padding: 0,
+    margin: "0 0 4px",
+    border: "none",
+    background: "none",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  analystBlocksChevron: {
+    fontSize: "10px",
+    color: "#6e7681",
+  },
+  analystBlocksTitle: {
+    margin: 0,
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "#e6edf3",
+  },
+  analystBlocksSubtitle: {
+    margin: "4px 0 20px",
+    fontSize: "13px",
+    color: "#8b949e",
+    lineHeight: 1.4,
+  },
+  analystBlocksGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+    gap: "16px",
+  },
+  analystBlockCard: {
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "14px 16px",
+  },
+  analystBlockHeader: {
+    marginBottom: "6px",
+  },
+  analystBlockTitle: {
+    margin: 0,
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#e6edf3",
+  },
+  analystBlockExplanation: {
+    margin: "0 0 8px",
+    fontSize: "12px",
+    color: "#8b949e",
+    lineHeight: 1.4,
+  },
+  analystBlockBestFor: {
+    margin: "0 0 12px",
+    fontSize: "11px",
+    color: "#6e7681",
+    lineHeight: 1.4,
+  },
+  analystBlockBestForLabel: {
+    fontStyle: "italic",
+  },
+  analystBlockActions: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  analystBlockBtn: {
+    padding: "6px 10px",
+    fontSize: "11px",
+    color: "#8b949e",
+    backgroundColor: "transparent",
+    border: "1px solid #30363d",
+    borderRadius: "4px",
+    cursor: "pointer",
+  },
+  analystBlocksEmpty: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#6e7681",
+  },
+  analystBlocksToast: {
+    position: "fixed",
+    bottom: "24px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: "8px 16px",
+    fontSize: "12px",
+    color: "#e6edf3",
+    backgroundColor: "#21262d",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    zIndex: 1000,
   },
   metrics: {
     display: "grid",
