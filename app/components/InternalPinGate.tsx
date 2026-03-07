@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const STORAGE_KEY = "internalRadarUnlocked";
+const API_PIN = "/api/internal/pin";
+const isDev = process.env.NODE_ENV === "development";
 
 export default function InternalPinGate({
   children,
@@ -12,30 +13,42 @@ export default function InternalPinGate({
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [checking, setChecking] = useState(true);
+  const [apiDebug, setApiDebug] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    setUnlocked(stored === "true");
+    fetch(API_PIN, { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.ok) setUnlocked(true);
+        if (isDev) setApiDebug("PIN API reachable");
+      })
+      .catch((err) => {
+        if (isDev) setApiDebug(`PIN API error: ${err?.message ?? String(err)}`);
+      })
+      .finally(() => setChecking(false));
   }, []);
 
   useEffect(() => {
-    if (!unlocked) {
-      inputRef.current?.focus();
-    }
-  }, [unlocked]);
+    if (!unlocked && !checking) inputRef.current?.focus();
+  }, [unlocked, checking]);
 
-  const validate = useCallback(() => {
-    const expected = process.env.NEXT_PUBLIC_INTERNAL_RADAR_PIN ?? "";
-    if (pin === expected) {
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(STORAGE_KEY, "true");
-      }
+  const validate = useCallback(async () => {
+    setError("");
+    const res = await fetch(API_PIN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ pin }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.ok) {
       setError("");
       setUnlocked(true);
     } else {
-      setError("Incorrect PIN");
+      setError(typeof data?.error === "string" ? data.error : "Incorrect PIN");
     }
   }, [pin]);
 
@@ -71,6 +84,7 @@ export default function InternalPinGate({
           </button>
         </form>
         {error && <p style={styles.error}>{error}</p>}
+        {isDev && apiDebug && <p style={styles.debug}>{apiDebug}</p>}
       </div>
     </div>
   );
@@ -132,5 +146,10 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "12px 0 0",
     fontSize: "12px",
     color: "#f85149",
+  },
+  debug: {
+    margin: "12px 0 0",
+    fontSize: "11px",
+    color: "#8b949e",
   },
 };
