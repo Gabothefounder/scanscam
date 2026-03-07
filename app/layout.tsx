@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
-import ClientShell from "@/app/components/ClientShell";
-import Footer from "@/app/components/Footer";
+import ConditionalShell from "@/app/components/ConditionalShell";
 import "./globals.css";
 
 /* ---------------- Fonts ---------------- */
@@ -38,10 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         style={{ margin: 0, background: "#E2E4E9", minHeight: "100vh", display: "flex", flexDirection: "column" }}
       >
-        <ClientShell>
-          <main style={{ paddingTop: "8px", flex: 1 }}>{children}</main>
-          <Footer />
-        </ClientShell>
+        <ConditionalShell>{children}</ConditionalShell>
 
         {/* Google Ads Global Site Tag */}
         <Script
