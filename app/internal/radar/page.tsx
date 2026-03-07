@@ -457,6 +457,92 @@ function formatLandscapeLabel(raw: string): string {
   return LABEL_MAP[s] ?? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Deterministic generation of 3 key takeaways from radar payload */
+function generateKeyTakeaways(data: RadarData): [string, string, string] {
+  const sh = data.system_health;
+  const fl = data.fraud_landscape;
+  const geo = data.geography;
+  const scanCount = sh?.scan_count ?? 0;
+  const coverage = sh?.signal_coverage_pct ?? null;
+  const yieldPct = sh?.signal_yield_pct ?? null;
+  const smallSample = scanCount < 25;
+
+  const coverageNum = coverage != null ? Number(coverage) : null;
+  const yieldNum = yieldPct != null ? Number(yieldPct) : null;
+
+  let systemTakeaway: string;
+  if (coverageNum == null && yieldNum == null) {
+    systemTakeaway = "Signal coverage and yield data are not yet available for this period.";
+  } else {
+    const coveragePhrase =
+      coverageNum != null
+        ? coverageNum < 30
+          ? `remains low at ${coverageNum.toFixed(1)}%, indicating most scans lack classified core signals`
+          : coverageNum < 60
+            ? `is moderate at ${coverageNum.toFixed(1)}%`
+            : `is strong at ${coverageNum.toFixed(1)}%`
+        : "";
+    const yieldPhrase =
+      yieldNum != null
+        ? (yieldNum < 15 ? "low" : yieldNum < 35 ? "moderate" : "strong") +
+          ` at ${yieldNum.toFixed(1)}%`
+        : "";
+    const parts: string[] = [];
+    if (coveragePhrase) parts.push(`Signal coverage ${coveragePhrase}.`);
+    if (yieldPhrase) parts.push(`Signal yield is ${yieldPhrase}.`);
+    systemTakeaway = parts.join(" ") || "System quality metrics are still building.";
+    if (smallSample && scanCount > 0) {
+      systemTakeaway += ` Sample of ${scanCount} scans—interpret with caution.`;
+    }
+  }
+
+  const knownItems = (
+    [
+      ...(fl?.narratives ?? []),
+      ...(fl?.channels ?? []),
+      ...(fl?.payment_methods ?? []),
+      ...(fl?.authority_types ?? []),
+    ] as FraudLandscapeItem[]
+  )
+    .filter((i) => String(i.value ?? "").toLowerCase() !== "unknown")
+    .sort((a, b) => (b.scan_count ?? 0) - (a.scan_count ?? 0));
+
+  const topKnown = knownItems.slice(0, 5).map((i) => formatLandscapeLabel(i.value));
+
+  let fraudTakeaway: string;
+  if (topKnown.length === 0) {
+    fraudTakeaway = "Known classified patterns remain limited this week.";
+  } else if (topKnown.length <= 2) {
+    fraudTakeaway = `Known patterns this week: ${topKnown.join(" and ")}. Signal coverage remains sparse.`;
+  } else {
+    fraudTakeaway = `Known patterns this week are led by ${topKnown.slice(0, 3).join(", ")}.`;
+  }
+
+  const provinces = geo?.provinces ?? [];
+  const topCities = geo?.top_cities ?? [];
+  const topProvinceNames = provinces.slice(0, 3).map((p) => p.province);
+  const topCity = topCities[0];
+
+  let geoTakeaway: string;
+  if (topProvinceNames.length === 0 && !topCity) {
+    geoTakeaway = "Geographic activity data are not yet available for this period.";
+  } else if (topProvinceNames.length === 0) {
+    geoTakeaway = topCity
+      ? `${topCity.city}, ${topCity.province} is the most active identified city.`
+      : "Geographic concentration data remain limited.";
+  } else {
+    const provList = topProvinceNames.join(", ");
+    const cityPhrase = topCity ? `, with ${topCity.city} the most active identified city` : "";
+    if (smallSample && scanCount > 0) {
+      geoTakeaway = `Activity distribution is preliminary; ${provList} show highest scan counts${cityPhrase}.`;
+    } else {
+      geoTakeaway = `${provList} lead scan activity this week${cityPhrase}.`;
+    }
+  }
+
+  return [systemTakeaway, fraudTakeaway, geoTakeaway];
+}
+
 /** share_of_week from API is 0–1; convert to 0–100 for display */
 function toDisplayShare(share: number): number {
   return share <= 1 ? share * 100 : share;
@@ -709,6 +795,17 @@ export default function RadarPage() {
 
         {!loading && data && (
           <>
+            <section style={styles.takeawaysSection}>
+              <h2 style={styles.takeawaysTitle}>Key Takeaways</h2>
+              <ul style={styles.takeawaysList}>
+                {generateKeyTakeaways(data).map((line, i) => (
+                  <li key={i} style={styles.takeawaysItem}>
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             <section style={styles.section}>
               <h2 style={styles.sectionTitle}>System Health</h2>
               <div style={styles.metrics}>
@@ -982,6 +1079,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "16px",
     fontWeight: 600,
     color: "#e6edf3",
+  },
+  takeawaysSection: {
+    marginBottom: "24px",
+    padding: "20px 24px",
+    backgroundColor: "#171d24",
+    border: "1px solid #30363d",
+    borderLeft: "3px solid #388bfd",
+    borderRadius: "8px",
+  },
+  takeawaysTitle: {
+    margin: "0 0 12px",
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#e6edf3",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  takeawaysList: {
+    margin: 0,
+    paddingLeft: "18px",
+    fontSize: "13px",
+    color: "#8b949e",
+    lineHeight: 1.6,
+  },
+  takeawaysItem: {
+    marginBottom: "6px",
   },
   sectionSubtitle: {
     margin: "4px 0 20px",
