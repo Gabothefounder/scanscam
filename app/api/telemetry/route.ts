@@ -46,6 +46,12 @@ const ALLOWED_PROPS = [
   "build_id",
   "input_length",
   "attempt_id",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "gclid",
 ] as const;
 
 const BANNED_KEYS = [
@@ -198,6 +204,13 @@ export async function POST(req: Request) {
     route: safePayload.route ?? null,
     props: safePayload.props ?? null,
   };
+  const attrKeys = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"];
+  const props = safePayload.props;
+  if (props && typeof props === "object") {
+    for (const k of attrKeys) {
+      if (props[k] != null && typeof props[k] === "string") context[k] = props[k];
+    }
+  }
   if (canonicalEvent !== safePayload.event_type) {
     context.original_event = safePayload.event_type;
   }

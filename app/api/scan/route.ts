@@ -273,6 +273,14 @@ export async function POST(req: Request) {
   let country_code: string | undefined;
   let region_code: string | undefined;
   let city: string | undefined;
+  let utm_source: string | undefined;
+  let utm_medium: string | undefined;
+  let utm_campaign: string | undefined;
+  let utm_term: string | undefined;
+  let utm_content: string | undefined;
+  let gclid: string | undefined;
+  let referrer: string | undefined;
+  let landing_path: string | undefined;
 
   /* ---------- Strict content-type check ---------- */
   if (!contentType.includes("application/json") && !contentType.includes("multipart/form-data")) {
@@ -292,6 +300,14 @@ export async function POST(req: Request) {
       country_code = body.country_code;
       region_code = body.region_code;
       city = body.city;
+      utm_source = body.utm_source;
+      utm_medium = body.utm_medium;
+      utm_campaign = body.utm_campaign;
+      utm_term = body.utm_term;
+      utm_content = body.utm_content;
+      gclid = body.gclid;
+      referrer = body.referrer;
+      landing_path = body.landing_path;
     } else if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
 
@@ -316,6 +332,23 @@ export async function POST(req: Request) {
 
       const cityField = formData.get("city");
       if (typeof cityField === "string") city = cityField;
+
+      const utmSourceField = formData.get("utm_source");
+      if (typeof utmSourceField === "string") utm_source = utmSourceField;
+      const utmMediumField = formData.get("utm_medium");
+      if (typeof utmMediumField === "string") utm_medium = utmMediumField;
+      const utmCampaignField = formData.get("utm_campaign");
+      if (typeof utmCampaignField === "string") utm_campaign = utmCampaignField;
+      const utmTermField = formData.get("utm_term");
+      if (typeof utmTermField === "string") utm_term = utmTermField;
+      const utmContentField = formData.get("utm_content");
+      if (typeof utmContentField === "string") utm_content = utmContentField;
+      const gclidField = formData.get("gclid");
+      if (typeof gclidField === "string") gclid = gclidField;
+      const referrerField = formData.get("referrer");
+      if (typeof referrerField === "string") referrer = referrerField;
+      const landingPathField = formData.get("landing_path");
+      if (typeof landingPathField === "string") landing_path = landingPathField;
 
       const imageField = formData.get("image");
       if (imageField && typeof imageField === "object" && "arrayBuffer" in imageField) {
@@ -466,6 +499,25 @@ export async function POST(req: Request) {
     if (vercel_country_code) scanRow.country_code = vercel_country_code;
     if (vercel_region_code) scanRow.region_code = vercel_region_code;
     if (vercel_city) scanRow.city = vercel_city;
+
+    const sanitize = (v: string | undefined): string | null =>
+      typeof v === "string" && (v = v.trim()).length > 0 ? v.slice(0, 512) : null;
+    const u = sanitize(utm_source);
+    if (u != null) scanRow.utm_source = u;
+    const um = sanitize(utm_medium);
+    if (um != null) scanRow.utm_medium = um;
+    const uc = sanitize(utm_campaign);
+    if (uc != null) scanRow.utm_campaign = uc;
+    const ut = sanitize(utm_term);
+    if (ut != null) scanRow.utm_term = ut;
+    const uco = sanitize(utm_content);
+    if (uco != null) scanRow.utm_content = uco;
+    const g = sanitize(gclid);
+    if (g != null) scanRow.gclid = g;
+    const r = sanitize(referrer);
+    if (r != null) scanRow.referrer = r;
+    const lp = sanitize(landing_path);
+    if (lp != null) scanRow.landing_path = lp;
 
     const { data: scanData, error: scanError } = await supabase
       .from("scans")

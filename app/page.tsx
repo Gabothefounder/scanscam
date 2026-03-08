@@ -39,10 +39,20 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
+  const [scanHref, setScanHref] = useState("/scan");
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const currentLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(currentLang);
+
+    const attr = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"];
+    const scanParams = new URLSearchParams({ lang: currentLang });
+    attr.forEach((k) => {
+      const v = params.get(k);
+      if (v) scanParams.set(k, v);
+    });
+    setScanHref(`/scan?${scanParams.toString()}`);
     setMounted(true);
   }, []);
 
@@ -61,7 +71,7 @@ export default function Home() {
           <h1 style={styles.title}>{t.title}</h1>
           <p style={styles.subtext}>{t.subtext}</p>
 
-          <a href={`/scan?lang=${lang}`} style={styles.primaryButton}>
+          <a href={scanHref} style={styles.primaryButton}>
             {t.primaryCta}
           </a>
           <p style={styles.reassurance}>{t.reassurance}</p>

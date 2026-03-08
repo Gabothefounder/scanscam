@@ -22,6 +22,7 @@ const copy = {
       "Fraud-pattern fields (non-identifying): urgency, authority claims, payment requests, suspicious links, etc.",
       "Approximate region (city-level) may be used to detect local scam trends.",
       "Raw message text may be stored securely for up to 30 days for system quality and improvement, then deleted automatically.",
+      "Search or ad context may be linked to a scan to improve scam pattern detection.",
     ],
 
     notCollectedTitle: "What is NOT collected",
@@ -55,6 +56,7 @@ const copy = {
       "Champs de schémas de fraude (non identifiants) : urgence, revendications d'autorité, demandes de paiement, liens suspects, etc.",
       "Région approximative (niveau ville) peut être utilisée pour détecter les tendances de fraude locales.",
       "Le texte brut du message peut être stocké de manière sécurisée pendant 30 jours pour la qualité et l'amélioration du système, puis supprimé automatiquement.",
+      "Le contexte de recherche ou publicitaire peut être associé à une analyse pour améliorer la détection des schémas d'arnaque.",
     ],
 
     notCollectedTitle: "Ce qui n'est PAS collecté",

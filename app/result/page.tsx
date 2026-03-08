@@ -207,9 +207,16 @@ export default function ResultPage() {
         const key = scanId ? `scan_shown:${scanId}` : null;
         if (scanId && key && !firedOnce.has(key)) {
           firedOnce.add(key);
+          let attrProps: Record<string, string> = {};
+          try {
+            const stored = sessionStorage.getItem("scan_attribution");
+            if (stored) attrProps = JSON.parse(stored);
+          } catch {
+            /* ignore */
+          }
           logScanEvent("scan_shown", {
             scan_id: scanId,
-            props: { risk_tier: riskTier },
+            props: { risk_tier: riskTier, ...attrProps },
           });
         }
         if (scanId && conversionFiredForScanRef.current !== scanId) {

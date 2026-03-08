@@ -55,10 +55,19 @@ export default function ScanPage() {
   const [loading, setLoading] = useState(false);
   const [textareaFocused, setTextareaFocused] = useState(false);
 
+  const [attribution, setAttribution] = useState<Record<string, string | null>>({});
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const currentLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(currentLang);
+    const attr = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"];
+    const out: Record<string, string | null> = {};
+    attr.forEach((k) => {
+      const v = params.get(k);
+      out[k] = v ? v.trim() || null : null;
+    });
+    setAttribution(out);
     setMounted(true);
   }, []);
 
@@ -80,14 +89,34 @@ export default function ScanPage() {
     setError(null);
     const attempt_id = crypto.randomUUID();
     sessionStorage.setItem("scan_attempt_id", attempt_id);
+    const attrProps: Record<string, string> = {};
+    if (attribution.utm_source) attrProps.utm_source = attribution.utm_source;
+    if (attribution.utm_campaign) attrProps.utm_campaign = attribution.utm_campaign;
+    if (attribution.utm_term) attrProps.utm_term = attribution.utm_term;
+    if (attribution.utm_medium) attrProps.utm_medium = attribution.utm_medium;
+    if (attribution.utm_content) attrProps.utm_content = attribution.utm_content;
+    if (attribution.gclid) attrProps.gclid = attribution.gclid;
+
     logScanEvent("scan_attempt", {
-      props: { input_length: text.length, attempt_id },
+      props: { input_length: text.length, attempt_id, ...attrProps },
     });
     setLoading(true);
     logScanEvent("scan_processing", { props: { attempt_id } });
 
     try {
-      const payload: any = { lang, raw_opt_in: true };
+      const payload: any = {
+        lang,
+        raw_opt_in: true,
+        referrer: typeof document !== "undefined" ? (document.referrer || null) : null,
+        landing_path:
+          typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
+      };
+      ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"].forEach(
+        (k) => {
+          const v = attribution[k];
+          if (v) payload[k] = v;
+        }
+      );
 
       if (imageFile) {
         payload.image = await fileToBase64(imageFile);
@@ -116,10 +145,13 @@ export default function ScanPage() {
       if (scanId) {
         logScanEvent("scan_created", {
           scan_id: scanId,
-          props: { attempt_id, input_length: text.length },
+          props: { attempt_id, input_length: text.length, ...attrProps },
         });
       }
       sessionStorage.setItem("scanResult", JSON.stringify(data.result));
+      if (Object.keys(attrProps).length > 0) {
+        sessionStorage.setItem("scan_attribution", JSON.stringify(attrProps));
+      }
       router.push(`/result?lang=${lang}`);
     } catch {
       logScanEvent("scan_error", { props: { error_code: "network_error" } });
