@@ -379,7 +379,13 @@ Explanation: ${explanation}
   );
 }
 
-function AnalystBlocksSection() {
+function AnalystBlocksSection({
+  isMobile,
+  mobileStyles,
+}: {
+  isMobile?: boolean;
+  mobileStyles?: Record<string, React.CSSProperties>;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [blocksData, setBlocksData] = useState<{
     current_snapshot: unknown;
@@ -405,11 +411,11 @@ function AnalystBlocksSection() {
   }, [expanded]);
 
   return (
-    <section style={{ ...styles.section, ...styles.analystBlocksSection, marginTop: "24px" }}>
+    <section style={{ ...styles.section, ...(mobileStyles?.section ?? {}), ...styles.analystBlocksSection, marginTop: "24px" }}>
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        style={styles.analystBlocksHeader}
+        style={{ ...styles.analystBlocksHeader, ...(isMobile ? (mobileStyles?.analystBlocksHeader ?? {}) : {}) }}
         aria-expanded={expanded}
       >
         <span style={styles.analystBlocksChevron}>{expanded ? "▼" : "▶"}</span>
@@ -423,7 +429,7 @@ function AnalystBlocksSection() {
           {loading ? (
             <p style={styles.analystBlocksEmpty}>Loading analyst datasets…</p>
           ) : (
-            <div style={styles.analystBlocksGrid}>
+            <div style={{ ...styles.analystBlocksGrid, ...(mobileStyles?.analystBlocksGrid ?? {}) }}>
               <AnalystBlockCard
                 title="Current Snapshot"
                 sourceView="intel_current_snapshot"
@@ -643,6 +649,18 @@ function getSignalsToWatchRows(data: RadarData): {
   return { displayRows: fallbackRows.slice(0, 10), usedFallback: true };
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
+
 /** Get current week row from weekly_timeline for WoW deltas */
 function getCurrentWeekRow(data: RadarData): WeeklyTimelineRow | null {
   if (!data?.week_start || !data?.weekly_timeline?.length) return null;
@@ -687,7 +705,7 @@ function getChoroplethFill(scanCount: number, maxCount: number): string {
   return `rgba(56, 139, 253, ${opacity.toFixed(2)})`;
 }
 
-function CanadaChoropleth({ provinces }: { provinces: GeoProvince[] }) {
+function CanadaChoropleth({ provinces, isMobile }: { provinces: GeoProvince[]; isMobile?: boolean }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const byCode = Object.fromEntries(
     provinces.map((p) => [String(p.province).toUpperCase(), p]),
@@ -699,7 +717,7 @@ function CanadaChoropleth({ provinces }: { provinces: GeoProvince[] }) {
     <div style={styles.choroWrap}>
       <svg
         viewBox="0 0 900 520"
-        style={styles.choroSvg}
+        style={{ ...styles.choroSvg, ...(isMobile ? { maxHeight: "200px" } : {}) }}
         preserveAspectRatio="xMidYMid meet"
       >
         {Object.entries(CA_PROVINCE_PATHS).map(([code, d]) => {
@@ -851,13 +869,31 @@ export default function RadarPage() {
   }, []);
 
   const sh = data?.system_health;
+  const isMobile = useIsMobile();
+
+  const mobile = isMobile
+    ? {
+        container: { padding: "16px 12px" },
+        headerTop: { flexDirection: "column" as const, gap: "12px" },
+        takeawaysSection: { padding: "16px 12px" },
+        section: { padding: "16px 12px" },
+        metrics: { gridTemplateColumns: "1fr" },
+        trendChartsGrid: { gridTemplateColumns: "1fr" },
+        landscapeGrid: { gridTemplateColumns: "1fr" },
+        geoLayout: { flexDirection: "column" as const },
+        geoLeft: { minWidth: "100%" },
+        geoRight: { minWidth: "100%" },
+        analystBlocksGrid: { gridTemplateColumns: "1fr" },
+        analystBlocksHeader: { padding: "12px 0", minHeight: 44 },
+      }
+    : ({} as Record<string, React.CSSProperties>);
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, ...mobile.container }}>
       {/* Briefing header */}
       <header style={styles.header}>
         <p style={styles.kicker}>INTERNAL INTELLIGENCE SURFACE</p>
-        <div style={styles.headerTop}>
+        <div style={{ ...styles.headerTop, ...mobile.headerTop }}>
           <div>
             <h1 style={styles.title}>ScanScam Intelligence Radar</h1>
             <p style={styles.subLabel}>Founder Internal / Weekly Intelligence Surface</p>
@@ -882,14 +918,14 @@ export default function RadarPage() {
         )}
 
         {loading && !data && (
-          <div style={styles.section}>
+          <div style={{ ...styles.section, ...mobile.section }}>
             <p style={{ color: "#8b949e" }}>Loading system health…</p>
           </div>
         )}
 
         {!loading && data && (
           <>
-            <section style={styles.takeawaysSection}>
+            <section style={{ ...styles.takeawaysSection, ...mobile.takeawaysSection }}>
               <h2 style={styles.takeawaysTitle}>Key Takeaways</h2>
               <ul style={styles.takeawaysList}>
                 {generateKeyTakeaways(data).map((line, i) => (
@@ -900,9 +936,9 @@ export default function RadarPage() {
               </ul>
             </section>
 
-            <section style={styles.section}>
+            <section style={{ ...styles.section, ...mobile.section }}>
               <h2 style={styles.sectionTitle}>System Health</h2>
-              <div style={styles.metrics}>
+              <div style={{ ...styles.metrics, ...mobile.metrics }}>
                 <div style={styles.metric} title="Total number of scans analyzed during the current weekly window.">
                   <span style={styles.metricLabel}>Scans This Week</span>
                   <span style={styles.metricValue}>
@@ -939,7 +975,7 @@ export default function RadarPage() {
               </div>
             </section>
 
-            <section style={{ ...styles.section, marginTop: "24px" }}>
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Activity & Signal Trend</h2>
               <p style={styles.sectionSubtitle}>
                 Weekly movement in scan volume and signal quality.
@@ -947,10 +983,10 @@ export default function RadarPage() {
               {(!data.weekly_timeline || data.weekly_timeline.length === 0) ? (
                 <p style={styles.signalsEmpty}>No weekly trend data available yet.</p>
               ) : (
-                <div style={styles.trendChartsGrid}>
+                <div style={{ ...styles.trendChartsGrid, ...mobile.trendChartsGrid }}>
                   <div style={styles.trendChartCard}>
                     <h3 style={styles.trendChartTitle}>Weekly Scan Volume</h3>
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 160 : 200}>
                       <LineChart
                         data={data.weekly_timeline}
                         margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -1003,7 +1039,7 @@ export default function RadarPage() {
                   </div>
                   <div style={styles.trendChartCard}>
                     <h3 style={styles.trendChartTitle}>Signal Coverage Trend</h3>
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 160 : 200}>
                       <LineChart
                         data={data.weekly_timeline}
                         margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -1063,7 +1099,7 @@ export default function RadarPage() {
               ) : (
                 <div style={styles.dailyVolumeCard}>
                   <h3 style={styles.trendChartTitle}>Daily Scan Volume</h3>
-                  <ResponsiveContainer width="100%" height={140}>
+                  <ResponsiveContainer width="100%" height={isMobile ? 120 : 140}>
                     <AreaChart
                       data={data.daily_volume_timeline}
                       margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -1123,12 +1159,12 @@ export default function RadarPage() {
               )}
             </section>
 
-            <section style={{ ...styles.section, marginTop: "24px" }}>
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Fraud Landscape</h2>
               <p style={styles.sectionSubtitle}>
                 The most common scam patterns detected in current weekly activity.
               </p>
-              <div style={styles.landscapeGrid}>
+              <div style={{ ...styles.landscapeGrid, ...mobile.landscapeGrid }}>
                 <FraudLandscapeCard
                   title="Top Narratives"
                   items={data.fraud_landscape?.narratives ?? []}
@@ -1157,7 +1193,7 @@ export default function RadarPage() {
                       : "Signals gaining share versus last week, based on week-over-week movement.")
                   : "No classified signals available for this period.";
               return (
-            <section style={{ ...styles.section, marginTop: "24px" }}>
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Signals to Watch</h2>
               <p style={styles.sectionSubtitle}>{subtitle}</p>
               {displayRows.length === 0 ? (
@@ -1201,7 +1237,7 @@ export default function RadarPage() {
               );
             })()}
 
-            <section style={{ ...styles.section, marginTop: "24px" }}>
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Canada Concentration</h2>
               <p style={styles.sectionSubtitle}>
                 Where scan activity is concentrating and shifting across Canada this week.
@@ -1209,11 +1245,11 @@ export default function RadarPage() {
               {!data.geography?.provinces?.length && !data.geography?.top_cities?.length ? (
                 <p style={styles.geoEmpty}>No geographic concentration data available for this period.</p>
               ) : (
-                <div style={styles.geoLayout}>
-                  <div style={styles.geoLeft}>
-                    <CanadaChoropleth provinces={data.geography?.provinces ?? []} />
+                <div style={{ ...styles.geoLayout, ...mobile.geoLayout }}>
+                  <div style={{ ...styles.geoLeft, ...mobile.geoLeft }}>
+                    <CanadaChoropleth provinces={data.geography?.provinces ?? []} isMobile={isMobile} />
                   </div>
-                  <div style={styles.geoRight}>
+                  <div style={{ ...styles.geoRight, ...mobile.geoRight }}>
                     <div style={styles.geoLeaderboard}>
                       <h3 style={styles.geoCardTitle}>Province Leaderboard</h3>
                       {(!data.geography?.provinces || data.geography.provinces.length === 0) ? (
@@ -1274,7 +1310,7 @@ export default function RadarPage() {
               )}
             </section>
 
-            <section style={{ ...styles.section, marginTop: "24px" }}>
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Recent Signals</h2>
               <p style={styles.sectionSubtitle}>
                 Latest scan examples feeding the current intelligence picture.
@@ -1286,7 +1322,7 @@ export default function RadarPage() {
               )}
             </section>
 
-            <AnalystBlocksSection />
+            <AnalystBlocksSection isMobile={isMobile} mobileStyles={mobile} />
           </>
         )}
       </div>
@@ -1462,6 +1498,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   emergingTable: {
     width: "100%",
+    minWidth: "360px",
     borderCollapse: "collapse",
     fontSize: "13px",
   },
@@ -1535,6 +1572,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "8px",
     border: "1px solid #30363d",
     padding: "16px",
+    overflowX: "auto",
   },
   geoCardTitle: {
     margin: "0 0 12px",
@@ -1549,6 +1587,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   geoLeaderTable: {
     width: "100%",
+    minWidth: "280px",
     borderCollapse: "collapse",
     fontSize: "12px",
   },
@@ -1604,6 +1643,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   signalsTable: {
     width: "100%",
+    minWidth: "320px",
     borderCollapse: "collapse",
     fontSize: "12px",
   },
