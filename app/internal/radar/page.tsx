@@ -123,6 +123,18 @@ function formatWeek(iso: string): string {
   return d.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Decode URL-encoded geography labels (e.g. Maple%20Ridge → Maple Ridge) */
+function formatGeoValue(value: string | null | undefined): string {
+  if (value == null) return "";
+  const s = String(value).trim();
+  if (!s) return "";
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 function formatGeneratedAt(iso: string): string {
   try {
     const d = new Date(iso);
@@ -196,7 +208,7 @@ function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
                     ...(row.city ? {} : styles.signalsTdMuted),
                   }}
                 >
-                  {row.city ?? "—"}
+                  {row.city ? formatGeoValue(row.city) : "—"}
                 </td>
                 <td
                   style={{
@@ -204,7 +216,7 @@ function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
                     ...(row.province ? {} : styles.signalsTdMuted),
                   }}
                 >
-                  {row.province ?? "—"}
+                  {row.province ? formatGeoValue(row.province) : "—"}
                 </td>
                 <td
                   style={{
@@ -539,7 +551,7 @@ function generateKeyTakeaways(data: RadarData): [string, string, string] {
 
   const provinces = geo?.provinces ?? [];
   const topCities = geo?.top_cities ?? [];
-  const topProvinceNames = provinces.slice(0, 3).map((p) => p.province);
+  const topProvinceNames = provinces.slice(0, 3).map((p) => formatGeoValue(p.province));
   const topCity = topCities[0];
 
   let geoTakeaway: string;
@@ -547,11 +559,11 @@ function generateKeyTakeaways(data: RadarData): [string, string, string] {
     geoTakeaway = "Geographic activity data are not yet available for this period.";
   } else if (topProvinceNames.length === 0) {
     geoTakeaway = topCity
-      ? `${topCity.city}, ${topCity.province} is the most active identified city.`
+      ? `${formatGeoValue(topCity.city)}, ${formatGeoValue(topCity.province)} is the most active identified city.`
       : "Geographic concentration data remain limited.";
   } else {
     const provList = topProvinceNames.join(", ");
-    const cityPhrase = topCity ? `, with ${topCity.city} the most active identified city` : "";
+    const cityPhrase = topCity ? `, with ${formatGeoValue(topCity.city)} the most active identified city` : "";
     if (smallSample && scanCount > 0) {
       geoTakeaway = `Activity distribution is preliminary; ${provList} show highest scan counts${cityPhrase}.`;
     } else {
@@ -596,6 +608,39 @@ function formatWowChange(delta: number): string {
 function formatWowDelta(delta: number): string {
   if (delta > 0) return `+${delta}`;
   return String(delta);
+}
+
+/** Build display rows for Signals to Watch: filter emerging, fallback to top known from fraud_landscape */
+function getSignalsToWatchRows(data: RadarData): {
+  displayRows: Array<{ dimension: string; value: string; this_week_count: number; this_week_share: number; share_delta_wow: number | null }>;
+  usedFallback: boolean;
+} {
+  const raw = data.emerging_patterns ?? [];
+  const filtered = raw.filter(
+    (r) =>
+      String(r.value ?? "").toLowerCase() !== "unknown" &&
+      (r.this_week_count ?? 0) >= 2 &&
+      (r.share_delta_wow ?? 0) > 0
+  );
+  if (filtered.length > 0) return { displayRows: filtered, usedFallback: false };
+  const fl = data.fraud_landscape ?? { narratives: [], channels: [], payment_methods: [], authority_types: [] };
+  const dimKeys = ["narrative_category", "channel_type", "payment_method", "authority_type"] as const;
+  const fallbackRows: Array<{ dimension: string; value: string; this_week_count: number; this_week_share: number; share_delta_wow: number | null }> = [];
+  for (const dim of dimKeys) {
+    const arr = fl[dim === "narrative_category" ? "narratives" : dim === "channel_type" ? "channels" : dim === "payment_method" ? "payment_methods" : "authority_types"] ?? [];
+    for (const item of arr) {
+      if (String(item.value ?? "").toLowerCase() === "unknown") continue;
+      fallbackRows.push({
+        dimension: dim,
+        value: item.value,
+        this_week_count: item.scan_count,
+        this_week_share: item.share_of_week,
+        share_delta_wow: null,
+      });
+    }
+  }
+  fallbackRows.sort((a, b) => b.this_week_share - a.this_week_share);
+  return { displayRows: fallbackRows.slice(0, 10), usedFallback: true };
 }
 
 /** Get current week row from weekly_timeline for WoW deltas */
@@ -697,7 +742,7 @@ function CanadaChoropleth({ provinces }: { provinces: GeoProvince[] }) {
       </svg>
       {tooltipProv && (
         <div style={styles.choroTooltip}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>{tooltipProv.province}</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{formatGeoValue(tooltipProv.province)}</div>
           <div style={styles.choroTooltipRow}>Scans: {tooltipProv.scan_count.toLocaleString()}</div>
           <div style={styles.choroTooltipRow}>High-risk: {tooltipProv.high_risk_count}</div>
           <div style={styles.choroTooltipRow}>Risk ratio: {formatRiskRatio(tooltipProv.high_risk_ratio)}</div>
@@ -1103,19 +1148,21 @@ export default function RadarPage() {
               </div>
             </section>
 
+            {(() => {
+              const { displayRows, usedFallback } = getSignalsToWatchRows(data);
+              const subtitle =
+                displayRows.length > 0
+                  ? (usedFallback
+                      ? "Top known classified signals this week (no movers met threshold)."
+                      : "Signals gaining share versus last week, based on week-over-week movement.")
+                  : "No classified signals available for this period.";
+              return (
             <section style={{ ...styles.section, marginTop: "24px" }}>
-              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Emerging Techniques</h2>
-              <p style={styles.sectionSubtitle}>
-                Signals gaining share versus last week, based on week-over-week movement.
-              </p>
-              {(!data.emerging_patterns || data.emerging_patterns.length === 0) ? (
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Signals to Watch</h2>
+              <p style={styles.sectionSubtitle}>{subtitle}</p>
+              {displayRows.length === 0 ? (
                 <div style={styles.emergingEmpty}>
-                  <p style={styles.emergingEmptyMain}>
-                    No emerging techniques met the current threshold this week.
-                  </p>
-                  <p style={styles.emergingEmptySub}>
-                    Threshold: at least 3 scans and +5% share change week over week.
-                  </p>
+                  <p style={styles.emergingEmptyMain}>No classified signals available for this period.</p>
                 </div>
               ) : (
                 <div style={styles.emergingTableWrap}>
@@ -1130,7 +1177,7 @@ export default function RadarPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.emerging_patterns.map((row, i) => (
+                      {displayRows.map((row, i) => (
                         <tr key={i}>
                           <td style={styles.emergingTd}>{formatDimensionLabel(row.dimension)}</td>
                           <td style={styles.emergingTd}>{formatLandscapeLabel(row.value)}</td>
@@ -1139,10 +1186,10 @@ export default function RadarPage() {
                           <td
                             style={{
                               ...styles.emergingTd,
-                              ...(row.share_delta_wow > 0 ? styles.emergingTdPositive : {}),
+                              ...(row.share_delta_wow != null && row.share_delta_wow > 0 ? styles.emergingTdPositive : {}),
                             }}
                           >
-                            {formatWowChange(row.share_delta_wow)}
+                            {row.share_delta_wow != null ? formatWowChange(row.share_delta_wow) : "—"}
                           </td>
                         </tr>
                       ))}
@@ -1151,6 +1198,8 @@ export default function RadarPage() {
                 </div>
               )}
             </section>
+              );
+            })()}
 
             <section style={{ ...styles.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Canada Concentration</h2>
@@ -1180,11 +1229,11 @@ export default function RadarPage() {
                               <th style={styles.geoLeaderTh}>Risk Ratio</th>
                             </tr>
                           </thead>
-                          <tbody>
+                            <tbody>
                             {data.geography!.provinces.map((p, i) => (
                               <tr key={i}>
                                 <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
-                                  {p.province}
+                                  {formatGeoValue(p.province)}
                                 </td>
                                 <td style={{ ...styles.geoLeaderTd, ...(p.is_meaningful ? {} : styles.geoLeaderTdMuted) }}>
                                   {p.scan_count.toLocaleString()}
@@ -1211,8 +1260,8 @@ export default function RadarPage() {
                       ) : (
                         data.geography.top_cities.map((c, i) => (
                           <div key={i} style={styles.geoCityRow}>
-                            <span style={styles.geoCityName}>{c.city}</span>
-                            <span style={styles.geoCityProv}>{c.province}</span>
+                            <span style={styles.geoCityName}>{formatGeoValue(c.city)}</span>
+                            <span style={styles.geoCityProv}>{formatGeoValue(c.province)}</span>
                             <span style={styles.geoCityMeta}>
                               {c.scan_count} scans · {c.high_risk_count} high-risk
                             </span>
