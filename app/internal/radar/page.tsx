@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CA_PROVINCE_PATHS } from "./canada-paths";
+import CanadaChoropleth, { type GeoProvince } from "@/app/components/charts/CanadaChoropleth";
+import FraudLandscapeCard, { type FraudLandscapeItem } from "@/app/components/charts/FraudLandscapeCard";
+import { formatGeoValue, formatLandscapeLabel, formatRiskRatio, formatWowDelta } from "@/app/components/charts/utils";
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -21,12 +21,6 @@ type SystemHealth = {
   fallback_rate: number | null;
   signal_yield_pct: number | null;
   signal_coverage_pct: number | null;
-};
-
-type FraudLandscapeItem = {
-  value: string;
-  scan_count: number;
-  share_of_week: number;
 };
 
 type FraudLandscape = {
@@ -46,15 +40,6 @@ type EmergingPattern = {
   count_delta_wow: number;
   share_delta_wow: number;
   emerging_rank: number;
-  is_meaningful: boolean;
-};
-
-type GeoProvince = {
-  province: string;
-  scan_count: number;
-  wow_scan_delta: number;
-  high_risk_count: number;
-  high_risk_ratio: number | null;
   is_meaningful: boolean;
 };
 
@@ -121,18 +106,6 @@ function formatWeek(iso: string): string {
   if (!m) return iso;
   const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
   return d.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
-}
-
-/** Decode URL-encoded geography labels (e.g. Maple%20Ridge → Maple Ridge) */
-function formatGeoValue(value: string | null | undefined): string {
-  if (value == null) return "";
-  const s = String(value).trim();
-  if (!s) return "";
-  try {
-    return decodeURIComponent(s);
-  } catch {
-    return s;
-  }
 }
 
 function formatGeneratedAt(iso: string): string {
@@ -479,21 +452,6 @@ function getRiskTierStyle(tier: string): React.CSSProperties {
   return { color: "#6e7681" };
 }
 
-const LABEL_MAP: Record<string, string> = {
-  delivery_scam: "Delivery Scam",
-  government_impersonation: "Government Impersonation",
-  financial_phishing: "Financial Phishing",
-  p2p_app: "P2P App",
-  financial_institution: "Financial Institution",
-  tech_company: "Tech Company",
-};
-
-function formatLandscapeLabel(raw: string): string {
-  const s = String(raw ?? "").trim();
-  if (!s) return "—";
-  return LABEL_MAP[s] ?? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 /** Deterministic generation of 3 key takeaways from radar payload */
 function generateKeyTakeaways(data: RadarData): [string, string, string] {
   const sh = data.system_health;
@@ -580,11 +538,6 @@ function generateKeyTakeaways(data: RadarData): [string, string, string] {
   return [systemTakeaway, fraudTakeaway, geoTakeaway];
 }
 
-/** share_of_week from API is 0–1; convert to 0–100 for display */
-function toDisplayShare(share: number): number {
-  return share <= 1 ? share * 100 : share;
-}
-
 const DIMENSION_LABELS: Record<string, string> = {
   narrative_category: "Narrative",
   channel_type: "Channel",
@@ -608,12 +561,6 @@ function formatWowChange(delta: number): string {
   const s = Number(pct).toFixed(1);
   if (Number(s) > 0) return `+${s}%`;
   return `${s}%`;
-}
-
-/** WoW scan delta as signed, e.g. +12 or -3 */
-function formatWowDelta(delta: number): string {
-  if (delta > 0) return `+${delta}`;
-  return String(delta);
 }
 
 /** Build display rows for Signals to Watch: filter emerging, fallback to top known from fraud_landscape */
@@ -687,171 +634,6 @@ function MetricWoWIndicator({
       {" "}
       {arrow} {text}
     </span>
-  );
-}
-
-/** Risk ratio 0–1 to X.X% */
-function formatRiskRatio(ratio: number | null): string {
-  if (ratio == null) return "—";
-  const pct = ratio <= 1 ? ratio * 100 : ratio;
-  return `${Number(pct).toFixed(1)}%`;
-}
-
-function getChoroplethFill(scanCount: number, maxCount: number): string {
-  if (scanCount <= 0) return "#21262d";
-  if (maxCount <= 0) return "#21262d";
-  const t = Math.min(1, scanCount / Math.max(maxCount, 1));
-  const opacity = 0.25 + t * 0.6;
-  return `rgba(56, 139, 253, ${opacity.toFixed(2)})`;
-}
-
-function CanadaChoropleth({ provinces, isMobile }: { provinces: GeoProvince[]; isMobile?: boolean }) {
-  const [hovered, setHovered] = useState<string | null>(null);
-  const byCode = Object.fromEntries(
-    provinces.map((p) => [String(p.province).toUpperCase(), p]),
-  );
-  const maxScan = Math.max(0, ...provinces.map((p) => p.scan_count));
-  const tooltipProv = hovered ? byCode[hovered] : null;
-
-  return (
-    <div style={styles.choroWrap}>
-      <svg
-        viewBox="0 0 900 520"
-        style={{ ...styles.choroSvg, ...(isMobile ? { maxHeight: "200px" } : {}) }}
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {Object.entries(CA_PROVINCE_PATHS).map(([code, d]) => {
-          const p = byCode[code] ?? {
-            province: code,
-            scan_count: 0,
-            wow_scan_delta: 0,
-            high_risk_count: 0,
-            high_risk_ratio: null,
-            is_meaningful: false,
-          };
-          const fill = getChoroplethFill(p.scan_count, maxScan);
-          return (
-            <path
-              key={code}
-              d={d}
-              fill={fill}
-              stroke="#30363d"
-              strokeWidth={0.8}
-              opacity={hovered && hovered !== code ? 0.6 : 1}
-              onMouseEnter={() => setHovered(code)}
-              onMouseLeave={() => setHovered(null)}
-              style={{ cursor: "default" }}
-            />
-          );
-        })}
-        {Object.entries(CA_PROVINCE_PATHS).map(([code]) => (
-          <text
-            key={`${code}-label`}
-            x={getProvinceLabelX(code)}
-            y={getProvinceLabelY(code)}
-            fill="#6e7681"
-            fontSize={10}
-            textAnchor="middle"
-            style={{ pointerEvents: "none" }}
-          >
-            {code}
-          </text>
-        ))}
-      </svg>
-      {tooltipProv && (
-        <div style={styles.choroTooltip}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>{formatGeoValue(tooltipProv.province)}</div>
-          <div style={styles.choroTooltipRow}>Scans: {tooltipProv.scan_count.toLocaleString()}</div>
-          <div style={styles.choroTooltipRow}>High-risk: {tooltipProv.high_risk_count}</div>
-          <div style={styles.choroTooltipRow}>Risk ratio: {formatRiskRatio(tooltipProv.high_risk_ratio)}</div>
-          <div style={styles.choroTooltipRow}>WoW Δ: {formatWowDelta(tooltipProv.wow_scan_delta)}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function getProvinceLabelX(code: string): number {
-  const x: Record<string, number> = {
-    YT: 100, NT: 325, NU: 675,
-    BC: 70, AB: 205, SK: 330, MB: 450, ON: 615, QC: 810,
-    NB: 757, NS: 757, PE: 825, NL: 877,
-  };
-  return x[code] ?? 450;
-}
-function getProvinceLabelY(code: string): number {
-  const y: Record<string, number> = {
-    YT: 35, NT: 35, NU: 35,
-    BC: 210, AB: 190, SK: 180, MB: 190, ON: 200, QC: 210,
-    NB: 382, NS: 467, PE: 457, NL: 435,
-  };
-  return y[code] ?? 260;
-}
-
-function FraudLandscapeCard({
-  title,
-  items,
-}: {
-  title: string;
-  items: FraudLandscapeItem[];
-}) {
-  const rows = items
-    .filter((item) => String(item.value ?? "").toLowerCase() !== "unknown")
-    .slice(0, 5)
-    .map((item) => ({
-      label: formatLandscapeLabel(item.value),
-      share: toDisplayShare(item.share_of_week),
-      count: item.scan_count,
-    }));
-
-  return (
-    <div style={styles.landscapeCard}>
-      <h3 style={styles.landscapeCardTitle}>{title}</h3>
-      {rows.length === 0 ? (
-        <p style={styles.landscapeEmpty}>No classified signals available for this period.</p>
-      ) : (
-        <div style={styles.landscapeChart}>
-          <ResponsiveContainer width="100%" height={Math.max(120, rows.length * 28)}>
-            <BarChart
-              data={rows}
-              layout="vertical"
-              margin={{ top: 0, right: 8, bottom: 0, left: 0 }}
-            >
-              <XAxis
-                type="number"
-                domain={[0, "auto"]}
-                tick={{ fill: "#6e7681", fontSize: 10 }}
-                axisLine={{ stroke: "#30363d" }}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="label"
-                width={110}
-                tick={{ fill: "#8b949e", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#21262d",
-                  border: "1px solid #30363d",
-                  borderRadius: "6px",
-                  fontSize: "11px",
-                }}
-                labelStyle={{ color: "#e6edf3" }}
-                formatter={(value, _name, item) => {
-                  const numericValue = Number(value ?? 0);
-                  const count = Number(item?.payload?.count ?? 0);
-                  return [`${numericValue.toFixed(1)}% (${count} scans)`, ""];
-                }}
-              />
-              <Bar dataKey="share" fill="#388bfd" radius={[0, 2, 2, 0]} maxBarSize={16} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1460,26 +1242,6 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
     gap: "20px",
   },
-  landscapeCard: {
-    backgroundColor: "#1e252d",
-    borderRadius: "8px",
-    border: "1px solid #30363d",
-    padding: "16px",
-  },
-  landscapeCardTitle: {
-    margin: "0 0 12px",
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "#e6edf3",
-  },
-  landscapeChart: {
-    minHeight: 120,
-  },
-  landscapeEmpty: {
-    margin: 0,
-    fontSize: "12px",
-    color: "#6e7681",
-  },
   emergingEmpty: {
     padding: "24px 0",
   },
@@ -1538,34 +1300,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "20px",
-  },
-  choroWrap: {
-    position: "relative",
-    backgroundColor: "#1c2128",
-    borderRadius: "8px",
-    border: "1px solid #30363d",
-    padding: "12px",
-    maxWidth: "100%",
-  },
-  choroSvg: {
-    width: "100%",
-    maxHeight: "280px",
-    display: "block",
-  },
-  choroTooltip: {
-    position: "absolute",
-    top: "12px",
-    right: "12px",
-    backgroundColor: "#21262d",
-    border: "1px solid #30363d",
-    borderRadius: "6px",
-    padding: "10px 12px",
-    fontSize: "11px",
-    color: "#e6edf3",
-    minWidth: "140px",
-  },
-  choroTooltipRow: {
-    marginTop: 2,
   },
   geoLeaderboard: {
     backgroundColor: "#1e252d",
