@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { BriefWeeklyResponse } from "@/lib/brief";
+import type { BriefWeeklyResponse, SocialSignalFormats } from "@/lib/brief";
 import { formatSocialSignalText } from "@/lib/brief";
 
 type SystemHealth = {
@@ -653,7 +653,7 @@ export default function RadarPage() {
   } | null>(null);
   const [socialSignalLoading, setSocialSignalLoading] = useState(false);
   const [socialSignalMessage, setSocialSignalMessage] = useState<string | null>(null);
-  const [socialSignalText, setSocialSignalText] = useState<{ en: string; fr: string } | null>(null);
+  const [socialSignalText, setSocialSignalText] = useState<SocialSignalFormats | null>(null);
   const [marketingSectionExpanded, setMarketingSectionExpanded] = useState(false);
 
   const handleGenerateBrief = () => {
@@ -702,8 +702,7 @@ export default function RadarPage() {
         return json as BriefWeeklyResponse;
       })
       .then((brief) => {
-        const { en, fr } = formatSocialSignalText(brief);
-        setSocialSignalText({ en, fr });
+        setSocialSignalText(formatSocialSignalText(brief));
         setSocialSignalMessage("Social signal generated.");
       })
       .catch((e) => {
@@ -712,12 +711,26 @@ export default function RadarPage() {
       .finally(() => setSocialSignalLoading(false));
   };
 
-  const handleCopySocialSignal = async (lang: "en" | "fr") => {
+  type SocialSignalVariant = "en" | "fr" | "enShort" | "frShort";
+  const handleCopySocialSignal = async (variant: SocialSignalVariant) => {
     if (!socialSignalText) return;
-    const text = lang === "en" ? socialSignalText.en : socialSignalText.fr;
+    const text =
+      variant === "en"
+        ? socialSignalText.en
+        : variant === "fr"
+          ? socialSignalText.fr
+          : variant === "enShort"
+            ? socialSignalText.enShort
+            : socialSignalText.frShort;
+    const labels: Record<SocialSignalVariant, string> = {
+      en: "Social signal (EN, long) copied.",
+      fr: "Social signal (FR, long) copied.",
+      enShort: "Social signal (EN, short) copied.",
+      frShort: "Social signal (FR, short) copied.",
+    };
     try {
       await navigator.clipboard.writeText(text);
-      setSocialSignalMessage(lang === "en" ? "Social signal (EN) copied." : "Social signal (FR) copied.");
+      setSocialSignalMessage(labels[variant]);
       setTimeout(() => setSocialSignalMessage(null), 2500);
     } catch {
       setSocialSignalMessage("Copy failed.");
@@ -1266,7 +1279,7 @@ export default function RadarPage() {
                     <div style={styles.marketingSignalOutput}>
                       <details style={styles.marketingDetails}>
                         <summary style={styles.marketingSummary}>
-                          <span>English social signal</span>
+                          <span>English social signal (long)</span>
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); handleCopySocialSignal("en"); }}
@@ -1279,7 +1292,20 @@ export default function RadarPage() {
                       </details>
                       <details style={styles.marketingDetails}>
                         <summary style={styles.marketingSummary}>
-                          <span>French social signal</span>
+                          <span>English social signal (short)</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); handleCopySocialSignal("enShort"); }}
+                            style={styles.briefAdminBtn}
+                          >
+                            Copy
+                          </button>
+                        </summary>
+                        <pre style={{ ...styles.briefAdminPreviewSummary, padding: "8px 12px" }}>{socialSignalText.enShort}</pre>
+                      </details>
+                      <details style={styles.marketingDetails}>
+                        <summary style={styles.marketingSummary}>
+                          <span>French social signal (long)</span>
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); handleCopySocialSignal("fr"); }}
@@ -1289,6 +1315,19 @@ export default function RadarPage() {
                           </button>
                         </summary>
                         <pre style={{ ...styles.briefAdminPreviewSummary, padding: "8px 12px" }}>{socialSignalText.fr}</pre>
+                      </details>
+                      <details style={styles.marketingDetails}>
+                        <summary style={styles.marketingSummary}>
+                          <span>French social signal (short)</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); handleCopySocialSignal("frShort"); }}
+                            style={styles.briefAdminBtn}
+                          >
+                            Copy
+                          </button>
+                        </summary>
+                        <pre style={{ ...styles.briefAdminPreviewSummary, padding: "8px 12px" }}>{socialSignalText.frShort}</pre>
                       </details>
                     </div>
                   )}

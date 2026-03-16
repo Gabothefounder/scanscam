@@ -390,7 +390,14 @@ function fraudLabelFr(fraudLabel: string): string {
   return FRAUD_LABEL_FR[label] ?? label;
 }
 
-export function formatSocialSignalText(brief: BriefWeeklyResponse): { en: string; fr: string } {
+export type SocialSignalFormats = {
+  en: string;
+  fr: string;
+  enShort: string;
+  frShort: string;
+};
+
+export function formatSocialSignalText(brief: BriefWeeklyResponse): SocialSignalFormats {
   const weekStart = String(brief?.week_start ?? "").trim();
   const weekEn = formatWeekStartForSocial(weekStart, "en-CA");
   const weekFr = formatWeekStartForSocial(weekStart, "fr-CA");
@@ -446,7 +453,43 @@ export function formatSocialSignalText(brief: BriefWeeklyResponse): { en: string
     .filter(Boolean)
     .join("\n");
 
-  return { en, fr };
+  const enShort = [
+    "⚠️ Fraud signal in Canada",
+    "",
+    "Dominant pattern this week: " + (fraudLabel || "No single dominant pattern.") + ".",
+    "",
+    "Scammers promise rewards and ask for payment or personal details.",
+    "",
+    "Full brief (2-minute read):",
+    SOCIAL_BRIEF_URL,
+    "",
+    "Analyze a suspicious message:",
+    SOCIAL_SCAN_URL,
+    "",
+    "Your scan could help stop the next scam.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const frShort = [
+    "⚠️ Signal de fraude au Canada",
+    "",
+    "Fraude dominante cette semaine : " + (fraudLabelFrText || "Aucun schéma dominant.") + ".",
+    "",
+    "Les fraudeurs promettent une récompense et demandent ensuite un paiement ou des informations personnelles.",
+    "",
+    "Analyse complète (2 minutes) :",
+    SOCIAL_BRIEF_URL,
+    "",
+    "Analysez un message suspect :",
+    SOCIAL_SCAN_URL,
+    "",
+    "Votre analyse pourrait empêcher la prochaine fraude.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return { en, fr, enShort, frShort };
 }
 
 /** Deterministic social-ready headline and summary from brief fields. Public-awareness tone; CTA idea without URLs. */
