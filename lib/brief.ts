@@ -365,7 +365,7 @@ export function deriveBriefPayload(data: RadarPayloadForBrief): BriefWeeklyRespo
 const SOCIAL_BRIEF_URL = "https://scanscam.ca/brief/weekly";
 const SOCIAL_SCAN_URL = "https://scanscam.ca";
 
-function formatWeekStartForSocial(weekStart: string, locale: "en-CA" | "fr-CA"): string {
+export function formatWeekStartForSocial(weekStart: string, locale: "en-CA" | "fr-CA"): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(weekStart ?? "").trim());
   if (!m) return weekStart;
   const d = new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
@@ -379,7 +379,7 @@ function shortExplanation(text: string, maxLength: number): string {
   return t.length > maxLength ? `${t.slice(0, maxLength).trim()}…` : t;
 }
 
-function fraudLabelFr(fraudLabel: string): string {
+export function fraudLabelFr(fraudLabel: string): string {
   const label = String(fraudLabel ?? "").trim();
   const viaIndex = label.indexOf(" via ");
   if (viaIndex > 0) {

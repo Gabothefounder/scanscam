@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toPng } from "html-to-image";
 import CanadaChoropleth, { type GeoProvince } from "@/app/components/charts/CanadaChoropleth";
 import FraudLandscapeCard, { type FraudLandscapeItem } from "@/app/components/charts/FraudLandscapeCard";
 import { formatGeoValue, formatLandscapeLabel, formatRiskRatio, formatWowDelta } from "@/app/components/charts/utils";
@@ -15,7 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { BriefWeeklyResponse, SocialSignalFormats } from "@/lib/brief";
-import { formatSocialSignalText } from "@/lib/brief";
+import { formatSocialSignalText, formatWeekStartForSocial, fraudLabelFr } from "@/lib/brief";
 
 type SystemHealth = {
   scan_count: number;
@@ -655,6 +656,12 @@ export default function RadarPage() {
   const [socialSignalMessage, setSocialSignalMessage] = useState<string | null>(null);
   const [socialSignalText, setSocialSignalText] = useState<SocialSignalFormats | null>(null);
   const [marketingSectionExpanded, setMarketingSectionExpanded] = useState(false);
+  const [graphicPreview, setGraphicPreview] = useState<BriefWeeklyResponse | null>(null);
+  const [graphicLoading, setGraphicLoading] = useState(false);
+  const [graphicMessage, setGraphicMessage] = useState<string | null>(null);
+  const [graphicCleanViewLang, setGraphicCleanViewLang] = useState<"en" | "fr" | null>(null);
+  const graphicCardEnRef = useRef<HTMLDivElement>(null);
+  const graphicCardFrRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateBrief = () => {
     setBriefMessage(null);
@@ -735,6 +742,131 @@ export default function RadarPage() {
     } catch {
       setSocialSignalMessage("Copy failed.");
       setTimeout(() => setSocialSignalMessage(null), 2500);
+    }
+  };
+
+  const handleLoadGraphicPreview = () => {
+    setGraphicMessage(null);
+    setGraphicPreview(null);
+    setGraphicLoading(true);
+    fetch("/api/brief/weekly", { cache: "no-store" })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          throw new Error("No weekly brief yet. Generate one first.");
+        }
+        if (!res.ok) {
+          throw new Error(
+            typeof (json as { error?: string })?.error === "string"
+              ? (json as { error: string }).error
+              : "Failed to load weekly brief."
+          );
+        }
+        return json as BriefWeeklyResponse;
+      })
+      .then((brief) => {
+        setGraphicPreview(brief);
+        setGraphicMessage("Graphic preview loaded.");
+      })
+      .catch((e) => {
+        setGraphicMessage(e?.message ?? "Failed to load graphic preview.");
+      })
+      .finally(() => setGraphicLoading(false));
+  };
+
+  const getGraphicCaptionEn = (brief: BriefWeeklyResponse) =>
+    [
+      "⚠️ Fraud signal in Canada — week of " + formatWeekStartForSocial(brief.week_start ?? "", "en-CA"),
+      "",
+      "Predominant fraud: " + (brief.fraud_label || "—"),
+      "Risk Index: " + brief.risk_index,
+      "",
+      "Full brief:",
+      "https://scanscam.ca/brief/weekly",
+      "",
+      "Analyze a suspicious message:",
+      "https://scanscam.ca",
+      "",
+      "Your scan could help stop the next scam.",
+    ].join("\n");
+
+  const getGraphicCaptionFr = (brief: BriefWeeklyResponse) =>
+    [
+      "⚠️ Signal de fraude au Canada — semaine du " + formatWeekStartForSocial(brief.week_start ?? "", "fr-CA"),
+      "",
+      "Fraude prédominante : " + (fraudLabelFr(brief.fraud_label) || "—"),
+      "Indice de risque : " + brief.risk_index,
+      "",
+      "Analyse complète :",
+      "https://scanscam.ca/brief/weekly",
+      "",
+      "Analysez un message suspect :",
+      "https://scanscam.ca",
+      "",
+      "Votre analyse pourrait empêcher la prochaine fraude.",
+    ].join("\n");
+
+  const handleCopyCaptionEn = async () => {
+    if (!graphicPreview) return;
+    try {
+      await navigator.clipboard.writeText(getGraphicCaptionEn(graphicPreview));
+      setGraphicMessage("EN caption copied.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    } catch {
+      setGraphicMessage("Copy failed.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    }
+  };
+
+  const handleCopyCaptionFr = async () => {
+    if (!graphicPreview) return;
+    try {
+      await navigator.clipboard.writeText(getGraphicCaptionFr(graphicPreview));
+      setGraphicMessage("FR caption copied.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    } catch {
+      setGraphicMessage("Copy failed.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    }
+  };
+
+  const handleDownloadEnPng = async () => {
+    if (!graphicCardEnRef.current) return;
+    try {
+      const dataUrl = await toPng(graphicCardEnRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#0d1117",
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `scanscam-fraud-signal-en-${graphicPreview?.week_start ?? "weekly"}.png`;
+      a.click();
+      setGraphicMessage("EN PNG downloaded.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    } catch {
+      setGraphicMessage("PNG export failed.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    }
+  };
+
+  const handleDownloadFrPng = async () => {
+    if (!graphicCardFrRef.current) return;
+    try {
+      const dataUrl = await toPng(graphicCardFrRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#0d1117",
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `scanscam-fraud-signal-fr-${graphicPreview?.week_start ?? "weekly"}.png`;
+      a.click();
+      setGraphicMessage("FR PNG downloaded.");
+      setTimeout(() => setGraphicMessage(null), 2500);
+    } catch {
+      setGraphicMessage("PNG export failed.");
+      setTimeout(() => setGraphicMessage(null), 2500);
     }
   };
 
@@ -1242,11 +1374,16 @@ export default function RadarPage() {
                     >
                       Open Weekly Brief →
                     </a>
-                    <button type="button" disabled style={styles.briefAdminBtnDisabled}>
-                      Social Signal (Graphic)
+                    <button
+                      type="button"
+                      onClick={handleLoadGraphicPreview}
+                      disabled={graphicLoading}
+                      style={styles.briefAdminBtn}
+                    >
+                      {graphicLoading ? "Loading…" : "Social Signal (Graphic)"}
                     </button>
                   </div>
-                  {(briefMessage || socialSignalMessage) && (
+                  {(briefMessage || socialSignalMessage || graphicMessage) && (
                     <div style={styles.briefAdminRow}>
                       {briefMessage && (
                         <span style={briefSuccess ? styles.briefAdminSuccess : styles.briefAdminError}>
@@ -1264,6 +1401,11 @@ export default function RadarPage() {
                       {socialSignalMessage && (
                         <span style={socialSignalText ? styles.briefAdminSuccess : styles.briefAdminError}>
                           {socialSignalMessage}
+                        </span>
+                      )}
+                      {graphicMessage && (
+                        <span style={graphicPreview ? styles.briefAdminSuccess : styles.briefAdminError}>
+                          {graphicMessage}
                         </span>
                       )}
                     </div>
@@ -1330,6 +1472,255 @@ export default function RadarPage() {
                         <pre style={{ ...styles.briefAdminPreviewSummary, padding: "8px 12px" }}>{socialSignalText.frShort}</pre>
                       </details>
                     </div>
+                  )}
+                  {graphicPreview && (
+                    <>
+                      <div style={styles.graphicCardRow}>
+                        <button
+                          type="button"
+                          onClick={() => setGraphicCleanViewLang("en")}
+                          style={styles.briefAdminBtn}
+                        >
+                          Open EN card
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGraphicCleanViewLang("fr")}
+                          style={styles.briefAdminBtn}
+                        >
+                          Open FR card
+                        </button>
+                        <button type="button" onClick={handleDownloadEnPng} style={styles.briefAdminBtn}>
+                          Download EN PNG
+                        </button>
+                        <button type="button" onClick={handleDownloadFrPng} style={styles.briefAdminBtn}>
+                          Download FR PNG
+                        </button>
+                      </div>
+                      <div style={styles.graphicCardsWrap}>
+                        <div>
+                          <div style={styles.graphicCardLabel}>Graphic Preview (EN)</div>
+                          <div ref={graphicCardEnRef} style={styles.graphicCard}>
+                            <div style={styles.graphicCardHeader}>
+                              <div style={styles.graphicCardTitle}>ScanScam Fraud Signal</div>
+                              <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                            </div>
+                            <div style={styles.graphicCardSubline}>
+                              Week of {formatWeekStartForSocial(graphicPreview.week_start ?? "", "en-CA")}
+                            </div>
+                            <div style={styles.graphicCardMetric}>
+                              <span style={styles.graphicCardMetricLabel}>Risk Index</span>
+                              <span style={styles.graphicCardMetricValue}>
+                                {graphicPreview.risk_index}
+                                {graphicPreview.risk_index_trend === "up" && " ↑"}
+                                {graphicPreview.risk_index_trend === "down" && " ↓"}
+                                {graphicPreview.risk_index_trend === "flat" && " →"}
+                              </span>
+                            </div>
+                            <div style={styles.graphicCardSection}>
+                              <span style={styles.graphicCardSectionLabel}>Predominant fraud</span>
+                              <span style={styles.graphicCardSectionValue}>
+                                {graphicPreview.fraud_label || "—"}
+                              </span>
+                            </div>
+                            <div style={styles.graphicCardUrlBlocks}>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Full brief</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                              </div>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                              </div>
+                            </div>
+                            <div style={styles.graphicCardFooter}>
+                              Your scan could help stop the next scam.
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <div style={styles.graphicCardLabel}>Graphic Preview (FR)</div>
+                          <div ref={graphicCardFrRef} style={styles.graphicCard}>
+                            <div style={styles.graphicCardHeader}>
+                              <div style={styles.graphicCardTitle}>Signal de fraude ScanScam</div>
+                              <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                            </div>
+                            <div style={styles.graphicCardSubline}>
+                              Semaine du {formatWeekStartForSocial(graphicPreview.week_start ?? "", "fr-CA")}
+                            </div>
+                            <div style={styles.graphicCardMetric}>
+                              <span style={styles.graphicCardMetricLabel}>Indice de risque</span>
+                              <span style={styles.graphicCardMetricValue}>
+                                {graphicPreview.risk_index}
+                                {graphicPreview.risk_index_trend === "up" && " ↑"}
+                                {graphicPreview.risk_index_trend === "down" && " ↓"}
+                                {graphicPreview.risk_index_trend === "flat" && " →"}
+                              </span>
+                            </div>
+                            <div style={styles.graphicCardSection}>
+                              <span style={styles.graphicCardSectionLabel}>Fraude prédominante</span>
+                              <span style={styles.graphicCardSectionValue}>
+                                {fraudLabelFr(graphicPreview.fraud_label) || "—"}
+                              </span>
+                            </div>
+                            <div style={styles.graphicCardUrlBlocks}>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Analyse complète</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                              </div>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Analysez un message suspect</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                              </div>
+                            </div>
+                            <div style={styles.graphicCardFooter}>
+                              Votre analyse pourrait empêcher la prochaine fraude.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={styles.graphicCaptionsWrap}>
+                        <div style={styles.graphicCaptionBlock}>
+                          <div style={styles.graphicCaptionHeader}>
+                            <span style={styles.graphicCaptionLabel}>Caption (EN)</span>
+                            <button type="button" onClick={handleCopyCaptionEn} style={styles.briefAdminBtn}>
+                              Copy EN caption
+                            </button>
+                          </div>
+                          <pre style={styles.graphicCaptionPre}>{getGraphicCaptionEn(graphicPreview)}</pre>
+                          <div style={styles.graphicCaptionLinks}>
+                            <a href="https://scanscam.ca/brief/weekly" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca/brief/weekly
+                            </a>
+                            {" · "}
+                            <a href="https://scanscam.ca" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca
+                            </a>
+                          </div>
+                        </div>
+                        <div style={styles.graphicCaptionBlock}>
+                          <div style={styles.graphicCaptionHeader}>
+                            <span style={styles.graphicCaptionLabel}>Caption (FR)</span>
+                            <button type="button" onClick={handleCopyCaptionFr} style={styles.briefAdminBtn}>
+                              Copy FR caption
+                            </button>
+                          </div>
+                          <pre style={styles.graphicCaptionPre}>{getGraphicCaptionFr(graphicPreview)}</pre>
+                          <div style={styles.graphicCaptionLinks}>
+                            <a href="https://scanscam.ca/brief/weekly" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca/brief/weekly
+                            </a>
+                            {" · "}
+                            <a href="https://scanscam.ca" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                      {graphicCleanViewLang !== null && (
+                        <div
+                          style={styles.graphicCleanViewOverlay}
+                          onClick={() => setGraphicCleanViewLang(null)}
+                          role="dialog"
+                          aria-modal="true"
+                          aria-label={graphicCleanViewLang === "en" ? "Clean view EN card" : "Clean view FR card"}
+                        >
+                          <div style={styles.graphicCleanViewContent} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => setGraphicCleanViewLang(null)}
+                              style={styles.graphicCleanViewClose}
+                            >
+                              Close
+                            </button>
+                            <div style={styles.graphicCleanViewCards}>
+                              {graphicCleanViewLang === "en" && (
+                                <div style={styles.graphicCleanViewCardWrap}>
+                                <div style={styles.graphicCard}>
+                                  <div style={styles.graphicCardHeader}>
+                                    <div style={styles.graphicCardTitle}>ScanScam Fraud Signal</div>
+                                    <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                                  </div>
+                                  <div style={styles.graphicCardSubline}>
+                                    Week of {formatWeekStartForSocial(graphicPreview.week_start ?? "", "en-CA")}
+                                  </div>
+                                  <div style={styles.graphicCardMetric}>
+                                    <span style={styles.graphicCardMetricLabel}>Risk Index</span>
+                                    <span style={styles.graphicCardMetricValue}>
+                                      {graphicPreview.risk_index}
+                                      {graphicPreview.risk_index_trend === "up" && " ↑"}
+                                      {graphicPreview.risk_index_trend === "down" && " ↓"}
+                                      {graphicPreview.risk_index_trend === "flat" && " →"}
+                                    </span>
+                                  </div>
+                                  <div style={styles.graphicCardSection}>
+                                    <span style={styles.graphicCardSectionLabel}>Predominant fraud</span>
+                                    <span style={styles.graphicCardSectionValue}>
+                                      {graphicPreview.fraud_label || "—"}
+                                    </span>
+                                  </div>
+                                  <div style={styles.graphicCardUrlBlocks}>
+                                    <div style={styles.graphicCardUrlBlock}>
+                                      <div style={styles.graphicCardUrlLabel}>Full brief</div>
+                                      <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                                    </div>
+                                    <div style={styles.graphicCardUrlBlock}>
+                                      <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message</div>
+                                      <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                                    </div>
+                                  </div>
+                                  <div style={styles.graphicCardFooter}>
+                                    Your scan could help stop the next scam.
+                                  </div>
+                                </div>
+                                </div>
+                              )}
+                              {graphicCleanViewLang === "fr" && (
+                                <div style={styles.graphicCleanViewCardWrap}>
+                                <div style={styles.graphicCard}>
+                                  <div style={styles.graphicCardHeader}>
+                                    <div style={styles.graphicCardTitle}>Signal de fraude ScanScam</div>
+                                    <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                                  </div>
+                                  <div style={styles.graphicCardSubline}>
+                                    Semaine du {formatWeekStartForSocial(graphicPreview.week_start ?? "", "fr-CA")}
+                                  </div>
+                                  <div style={styles.graphicCardMetric}>
+                                    <span style={styles.graphicCardMetricLabel}>Indice de risque</span>
+                                    <span style={styles.graphicCardMetricValue}>
+                                      {graphicPreview.risk_index}
+                                      {graphicPreview.risk_index_trend === "up" && " ↑"}
+                                      {graphicPreview.risk_index_trend === "down" && " ↓"}
+                                      {graphicPreview.risk_index_trend === "flat" && " →"}
+                                    </span>
+                                  </div>
+                                  <div style={styles.graphicCardSection}>
+                                    <span style={styles.graphicCardSectionLabel}>Fraude prédominante</span>
+                                    <span style={styles.graphicCardSectionValue}>
+                                      {fraudLabelFr(graphicPreview.fraud_label) || "—"}
+                                    </span>
+                                  </div>
+                                  <div style={styles.graphicCardUrlBlocks}>
+                                    <div style={styles.graphicCardUrlBlock}>
+                                      <div style={styles.graphicCardUrlLabel}>Analyse complète</div>
+                                      <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                                    </div>
+                                    <div style={styles.graphicCardUrlBlock}>
+                                      <div style={styles.graphicCardUrlLabel}>Analysez un message suspect</div>
+                                      <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                                    </div>
+                                  </div>
+                                  <div style={styles.graphicCardFooter}>
+                                    Votre analyse pourrait empêcher la prochaine fraude.
+                                  </div>
+                                </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -1800,6 +2191,220 @@ const styles: Record<string, React.CSSProperties> = {
     listStyle: "none",
     fontSize: "12px",
     color: "#c9d1d9",
+  },
+  graphicCardRow: {
+    marginTop: "12px",
+    marginBottom: "8px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  },
+  graphicCardsWrap: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "20px",
+    marginBottom: "16px",
+  },
+  graphicCardLabel: {
+    marginBottom: "6px",
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "#8b949e",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  graphicCard: {
+    width: "100%",
+    maxWidth: "360px",
+    aspectRatio: "1",
+    padding: "20px 24px",
+    backgroundColor: "#0d1117",
+    border: "1px solid #21262d",
+    borderRadius: "12px",
+    fontFamily: "inherit",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
+  },
+  graphicCardHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+  graphicCardLogo: {
+    width: "32px",
+    height: "32px",
+    objectFit: "contain",
+    flexShrink: 0,
+  },
+  graphicCardTitle: {
+    margin: 0,
+    fontSize: "16px",
+    fontWeight: 700,
+    color: "#f0f6fc",
+    letterSpacing: "-0.02em",
+    lineHeight: 1.25,
+  },
+  graphicCardSubline: {
+    margin: "0 0 20px",
+    fontSize: "13px",
+    color: "#8b949e",
+    lineHeight: 1.35,
+  },
+  graphicCardMetric: {
+    marginBottom: "18px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  graphicCardMetricLabel: {
+    fontSize: "10px",
+    color: "#6e7681",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontWeight: 600,
+  },
+  graphicCardMetricValue: {
+    fontSize: "26px",
+    fontWeight: 700,
+    color: "#f0f6fc",
+    letterSpacing: "-0.02em",
+  },
+  graphicCardSection: {
+    marginBottom: "18px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  graphicCardSectionLabel: {
+    fontSize: "10px",
+    color: "#6e7681",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontWeight: 600,
+  },
+  graphicCardSectionValue: {
+    fontSize: "14px",
+    color: "#c9d1d9",
+    lineHeight: 1.4,
+  },
+  graphicCardUrlBlocks: {
+    paddingTop: "16px",
+    borderTop: "1px solid #21262d",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    flex: "1 1 auto",
+    minHeight: 0,
+  },
+  graphicCardUrlBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+  },
+  graphicCardUrlLabel: {
+    fontSize: "11px",
+    color: "#6e7681",
+    lineHeight: 1.3,
+  },
+  graphicCardUrlValue: {
+    fontSize: "11px",
+    color: "#8b949e",
+    lineHeight: 1.3,
+  },
+  graphicCardFooter: {
+    paddingTop: "10px",
+    marginTop: "auto",
+    borderTop: "1px solid #21262d",
+    fontSize: "12px",
+    color: "#8b949e",
+    lineHeight: 1.5,
+    fontStyle: "italic",
+  },
+  graphicCaptionsWrap: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "16px",
+    marginTop: "8px",
+  },
+  graphicCaptionBlock: {
+    flex: "1 1 300px",
+    maxWidth: "480px",
+    padding: "12px 16px",
+    backgroundColor: "#161b22",
+    border: "1px solid #30363d",
+    borderRadius: "8px",
+  },
+  graphicCaptionHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    marginBottom: "8px",
+    flexWrap: "wrap",
+  },
+  graphicCaptionLabel: {
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "#8b949e",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  graphicCaptionPre: {
+    margin: "0 0 8px",
+    fontSize: "12px",
+    color: "#c9d1d9",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    lineHeight: 1.5,
+    fontFamily: "inherit",
+  },
+  graphicCaptionLinks: {
+    fontSize: "12px",
+  },
+  graphicCleanViewOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 2000,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+  },
+  graphicCleanViewContent: {
+    position: "relative",
+    maxWidth: "800px",
+    width: "100%",
+    maxHeight: "90vh",
+    overflow: "auto",
+  },
+  graphicCleanViewClose: {
+    position: "absolute",
+    top: "12px",
+    right: "12px",
+    zIndex: 1,
+    padding: "8px 14px",
+    fontSize: "12px",
+    color: "#c9d1d9",
+    backgroundColor: "#21262d",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  graphicCleanViewCards: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "24px",
+    padding: "40px 24px 24px",
+  },
+  graphicCleanViewCardWrap: {
+    maxWidth: "420px",
+    width: "100%",
   },
   analystBlockBtn: {
     padding: "6px 10px",
