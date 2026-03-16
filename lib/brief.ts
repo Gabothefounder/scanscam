@@ -362,6 +362,93 @@ export function deriveBriefPayload(data: RadarPayloadForBrief): BriefWeeklyRespo
   };
 }
 
+const SOCIAL_BRIEF_URL = "https://scanscam.ca/brief/weekly";
+const SOCIAL_SCAN_URL = "https://scanscam.ca";
+
+function formatWeekStartForSocial(weekStart: string, locale: "en-CA" | "fr-CA"): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(weekStart ?? "").trim());
+  if (!m) return weekStart;
+  const d = new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
+  return d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+}
+
+function shortExplanation(text: string, maxLength: number): string {
+  const t = String(text ?? "").trim();
+  const period = t.indexOf(".");
+  if (period >= 0) return t.slice(0, period + 1).trim();
+  return t.length > maxLength ? `${t.slice(0, maxLength).trim()}…` : t;
+}
+
+function fraudLabelFr(fraudLabel: string): string {
+  const label = String(fraudLabel ?? "").trim();
+  const viaIndex = label.indexOf(" via ");
+  if (viaIndex > 0) {
+    const main = label.slice(0, viaIndex);
+    const rest = label.slice(viaIndex);
+    return (FRAUD_LABEL_FR[main] ?? main) + rest;
+  }
+  return FRAUD_LABEL_FR[label] ?? label;
+}
+
+export function formatSocialSignalText(brief: BriefWeeklyResponse): { en: string; fr: string } {
+  const weekStart = String(brief?.week_start ?? "").trim();
+  const weekEn = formatWeekStartForSocial(weekStart, "en-CA");
+  const weekFr = formatWeekStartForSocial(weekStart, "fr-CA");
+  const fraudLabel = String(brief?.fraud_label ?? "").trim();
+  const fraudLabelFrText = fraudLabelFr(fraudLabel);
+  const howEn = shortExplanation(String(brief?.how_it_works ?? ""), 200);
+  const howFr = shortExplanation(
+    String(brief?.how_it_works_fr ?? brief?.how_it_works ?? ""),
+    200
+  );
+  const protectEn = String(brief?.protection_tip ?? "").trim();
+  const protectFr = String(brief?.protection_tip_fr ?? brief?.protection_tip ?? "").trim();
+
+  const en = [
+    "⚠️ Fraud signal in Canada — week of " + weekEn,
+    "",
+    "Dominant pattern: " + (fraudLabel || "No single dominant pattern.") + ".",
+    "",
+    howEn,
+    "",
+    "Reminder:",
+    protectEn,
+    "",
+    "Full analysis (2 minutes):",
+    SOCIAL_BRIEF_URL,
+    "",
+    "Analyze a suspicious message:",
+    SOCIAL_SCAN_URL,
+    "",
+    "Your scan could help stop the next scam.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const fr = [
+    "⚠️ Signal de fraude au Canada — semaine du " + weekFr,
+    "",
+    "Fraude dominante : " + (fraudLabelFrText || "Aucun schéma dominant.") + ".",
+    "",
+    howFr,
+    "",
+    "Rappel :",
+    protectFr,
+    "",
+    "Analyse complète (2 minutes) :",
+    SOCIAL_BRIEF_URL,
+    "",
+    "Analysez un message suspect :",
+    SOCIAL_SCAN_URL,
+    "",
+    "Votre analyse pourrait empêcher la prochaine fraude.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return { en, fr };
+}
+
 /** Deterministic social-ready headline and summary from brief fields. Public-awareness tone; CTA idea without URLs. */
 function deriveSocialCopy(params: {
   fraud_label: string;

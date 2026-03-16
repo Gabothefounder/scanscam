@@ -14,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { BriefWeeklyResponse } from "@/lib/brief";
+import { formatSocialSignalText } from "@/lib/brief";
 
 type SystemHealth = {
   scan_count: number;
@@ -649,6 +651,10 @@ export default function RadarPage() {
     social_summary: string;
     brief_url: string;
   } | null>(null);
+  const [socialSignalLoading, setSocialSignalLoading] = useState(false);
+  const [socialSignalMessage, setSocialSignalMessage] = useState<string | null>(null);
+  const [socialSignalText, setSocialSignalText] = useState<{ en: string; fr: string } | null>(null);
+  const [marketingSectionExpanded, setMarketingSectionExpanded] = useState(false);
 
   const handleGenerateBrief = () => {
     setBriefMessage(null);
@@ -674,6 +680,49 @@ export default function RadarPage() {
       })
       .catch(() => setBriefMessage("Failed to generate brief."))
       .finally(() => setBriefGenerating(false));
+  };
+
+  const handleGenerateSocialSignalText = () => {
+    setSocialSignalMessage(null);
+    setSocialSignalText(null);
+    setSocialSignalLoading(true);
+    fetch("/api/brief/weekly", { cache: "no-store" })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          throw new Error("No weekly brief yet. Generate one first.");
+        }
+        if (!res.ok) {
+          throw new Error(
+            typeof (json as any)?.error === "string"
+              ? (json as any).error
+              : "Failed to load weekly brief."
+          );
+        }
+        return json as BriefWeeklyResponse;
+      })
+      .then((brief) => {
+        const { en, fr } = formatSocialSignalText(brief);
+        setSocialSignalText({ en, fr });
+        setSocialSignalMessage("Social signal generated.");
+      })
+      .catch((e) => {
+        setSocialSignalMessage(e?.message ?? "Failed to generate social signal.");
+      })
+      .finally(() => setSocialSignalLoading(false));
+  };
+
+  const handleCopySocialSignal = async (lang: "en" | "fr") => {
+    if (!socialSignalText) return;
+    const text = lang === "en" ? socialSignalText.en : socialSignalText.fr;
+    try {
+      await navigator.clipboard.writeText(text);
+      setSocialSignalMessage(lang === "en" ? "Social signal (EN) copied." : "Social signal (FR) copied.");
+      setTimeout(() => setSocialSignalMessage(null), 2500);
+    } catch {
+      setSocialSignalMessage("Copy failed.");
+      setTimeout(() => setSocialSignalMessage(null), 2500);
+    }
   };
 
   useEffect(() => {
@@ -730,41 +779,6 @@ export default function RadarPage() {
         {error && (
           <div style={styles.error}>
             <p>{error}</p>
-          </div>
-        )}
-
-        {!loading && data && (
-          <div style={styles.briefAdmin}>
-            <div style={styles.briefAdminRow}>
-              <button
-                type="button"
-                onClick={handleGenerateBrief}
-                disabled={briefGenerating}
-                style={styles.briefAdminBtn}
-              >
-                {briefGenerating ? "Generating…" : "Generate Weekly Brief"}
-              </button>
-              {briefMessage && (
-                <span style={briefSuccess ? styles.briefAdminSuccess : styles.briefAdminError}>
-                  {briefMessage}
-                  {briefSuccess && briefPreview && (
-                    <>
-                      {" "}
-                      <a href={briefPreview.brief_url} target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
-                        Open brief →
-                      </a>
-                    </>
-                  )}
-                </span>
-              )}
-            </div>
-            {briefSuccess && briefPreview && (
-              <div style={styles.briefAdminPreview}>
-                <div style={styles.briefAdminPreviewLabel}>Social preview</div>
-                <div style={styles.briefAdminPreviewHeadline}>{briefPreview.social_headline}</div>
-                <pre style={styles.briefAdminPreviewSummary}>{briefPreview.social_summary}</pre>
-              </div>
-            )}
           </div>
         )}
 
@@ -1174,6 +1188,113 @@ export default function RadarPage() {
             </section>
 
             <AnalystBlocksSection isMobile={isMobile} mobileStyles={mobile} />
+
+            <section style={{ ...styles.section, ...mobile.section, ...styles.analystBlocksSection, marginTop: "24px" }}>
+              <button
+                type="button"
+                onClick={() => setMarketingSectionExpanded(!marketingSectionExpanded)}
+                style={{ ...styles.analystBlocksHeader, ...(isMobile ? (mobile?.analystBlocksHeader ?? {}) : {}) }}
+                aria-expanded={marketingSectionExpanded}
+              >
+                <span style={styles.analystBlocksChevron}>{marketingSectionExpanded ? "▼" : "▶"}</span>
+                <h2 style={styles.analystBlocksTitle}>Marketing & Distribution</h2>
+              </button>
+              {marketingSectionExpanded && (
+                <>
+                  <p style={styles.analystBlocksSubtitle}>
+                    Weekly brief and social signal exports for sharing.
+                  </p>
+                  <div style={styles.briefAdminRow}>
+                    <button
+                      type="button"
+                      onClick={handleGenerateBrief}
+                      disabled={briefGenerating}
+                      style={styles.briefAdminBtn}
+                    >
+                      {briefGenerating ? "Generating…" : "Generate Weekly Brief"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGenerateSocialSignalText}
+                      disabled={socialSignalLoading}
+                      style={styles.briefAdminBtn}
+                    >
+                      {socialSignalLoading ? "Generating…" : "Social Signal (Text)"}
+                    </button>
+                    <a
+                      href="https://scanscam.ca/brief/weekly"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ ...styles.briefAdminLink, fontSize: "12px" }}
+                    >
+                      Open Weekly Brief →
+                    </a>
+                    <button type="button" disabled style={styles.briefAdminBtnDisabled}>
+                      Social Signal (Graphic)
+                    </button>
+                  </div>
+                  {(briefMessage || socialSignalMessage) && (
+                    <div style={styles.briefAdminRow}>
+                      {briefMessage && (
+                        <span style={briefSuccess ? styles.briefAdminSuccess : styles.briefAdminError}>
+                          {briefMessage}
+                          {briefSuccess && briefPreview && (
+                            <>
+                              {" "}
+                              <a href={briefPreview.brief_url} target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                                Open brief →
+                              </a>
+                            </>
+                          )}
+                        </span>
+                      )}
+                      {socialSignalMessage && (
+                        <span style={socialSignalText ? styles.briefAdminSuccess : styles.briefAdminError}>
+                          {socialSignalMessage}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {briefSuccess && briefPreview && (
+                    <div style={styles.briefAdminPreview}>
+                      <div style={styles.briefAdminPreviewLabel}>Social preview</div>
+                      <div style={styles.briefAdminPreviewHeadline}>{briefPreview.social_headline}</div>
+                      <pre style={styles.briefAdminPreviewSummary}>{briefPreview.social_summary}</pre>
+                    </div>
+                  )}
+                  {socialSignalText && (
+                    <div style={styles.marketingSignalOutput}>
+                      <details style={styles.marketingDetails}>
+                        <summary style={styles.marketingSummary}>
+                          <span>English social signal</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); handleCopySocialSignal("en"); }}
+                            style={styles.briefAdminBtn}
+                          >
+                            Copy
+                          </button>
+                        </summary>
+                        <pre style={{ ...styles.briefAdminPreviewSummary, padding: "8px 12px" }}>{socialSignalText.en}</pre>
+                      </details>
+                      <details style={styles.marketingDetails}>
+                        <summary style={styles.marketingSummary}>
+                          <span>French social signal</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); handleCopySocialSignal("fr"); }}
+                            style={styles.briefAdminBtn}
+                          >
+                            Copy
+                          </button>
+                        </summary>
+                        <pre style={{ ...styles.briefAdminPreviewSummary, padding: "8px 12px" }}>{socialSignalText.fr}</pre>
+                      </details>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
           </>
         )}
       </div>
@@ -1608,6 +1729,38 @@ const styles: Record<string, React.CSSProperties> = {
   briefAdminLink: {
     color: "#58a6ff",
     textDecoration: "none",
+  },
+  briefAdminBtnDisabled: {
+    padding: "6px 10px",
+    fontSize: "11px",
+    color: "#6e7681",
+    backgroundColor: "#21262d",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    cursor: "not-allowed",
+  },
+  marketingSignalOutput: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    marginTop: "8px",
+  },
+  marketingDetails: {
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    backgroundColor: "#161b22",
+    overflow: "hidden",
+  },
+  marketingSummary: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    padding: "8px 12px",
+    cursor: "pointer",
+    listStyle: "none",
+    fontSize: "12px",
+    color: "#c9d1d9",
   },
   analystBlockBtn: {
     padding: "6px 10px",
