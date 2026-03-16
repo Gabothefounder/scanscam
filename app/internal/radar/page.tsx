@@ -16,7 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { BriefWeeklyResponse, SocialSignalFormats } from "@/lib/brief";
-import { formatSocialSignalText, formatWeekStartForSocial, fraudLabelFr } from "@/lib/brief";
+import { formatSocialSignalText, formatWeekStartForSocial, fraudLabelFr, FRAUD_LABEL_FR } from "@/lib/brief";
 
 type SystemHealth = {
   scan_count: number;
@@ -662,6 +662,12 @@ export default function RadarPage() {
   const [graphicCleanViewLang, setGraphicCleanViewLang] = useState<"en" | "fr" | null>(null);
   const graphicCardEnRef = useRef<HTMLDivElement>(null);
   const graphicCardFrRef = useRef<HTMLDivElement>(null);
+  const [narrativePreview, setNarrativePreview] = useState<BriefWeeklyResponse | null>(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
+  const [narrativeMessage, setNarrativeMessage] = useState<string | null>(null);
+  const [narrativeCleanViewLang, setNarrativeCleanViewLang] = useState<"en" | "fr" | null>(null);
+  const narrativeCardEnRef = useRef<HTMLDivElement>(null);
+  const narrativeCardFrRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateBrief = () => {
     setBriefMessage(null);
@@ -867,6 +873,182 @@ export default function RadarPage() {
     } catch {
       setGraphicMessage("PNG export failed.");
       setTimeout(() => setGraphicMessage(null), 2500);
+    }
+  };
+
+  const handleLoadNarrativePreview = () => {
+    setNarrativeMessage(null);
+    setNarrativePreview(null);
+    setNarrativeLoading(true);
+    fetch("/api/brief/weekly", { cache: "no-store" })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          throw new Error("No weekly brief yet. Generate one first.");
+        }
+        if (!res.ok) {
+          throw new Error(
+            typeof (json as { error?: string })?.error === "string"
+              ? (json as { error: string }).error
+              : "Failed to load weekly brief."
+          );
+        }
+        return json as BriefWeeklyResponse;
+      })
+      .then((brief) => {
+        setNarrativePreview(brief);
+        setNarrativeMessage("Narrative signal loaded.");
+      })
+      .catch((e) => {
+        setNarrativeMessage(e?.message ?? "Failed to load narrative preview.");
+      })
+      .finally(() => setNarrativeLoading(false));
+  };
+
+  const getNarrativeShareOfWeek = (brief: BriefWeeklyResponse): number => {
+    const top = brief?.narratives?.[0];
+    return top?.share_of_week ?? 0;
+  };
+
+  const formatNarrativeSharePercent = (share: number): string => {
+    const pct = share * 100;
+    return pct % 1 === 0 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
+  };
+
+  /**
+   * Display-ready narrative rows for the Narrative Signal card only.
+   * Does NOT use raw brief.narratives for rendering. Follows the same filtered display
+   * logic as the Weekly Brief narrative graph (FraudLandscapeCard):
+   *
+   * 1. Exclude "unknown" completely — never displayed, never in totals, never affects bar sizes.
+   * 2. Build graph only from known narratives.
+   * 3. Normalize bar sizes using only the known narrative subset (totalKnown = sum of their scan_count).
+   * 4. Take top 5 by scan_count order, then reorder so dominant (top_narrative_raw) is first.
+   *
+   * This guarantees Unknown can never appear in the card, even when the brief source
+   * (e.g. stored brief_json) contains raw narratives.
+   */
+  const getNarrativeDisplayList = (
+    brief: BriefWeeklyResponse,
+    lang: "en" | "fr"
+  ): { value: string; label: string; share_of_week: number }[] => {
+    const raw = brief.narratives ?? [];
+    const isUnknown = (v: string) => String(v ?? "").toLowerCase() === "unknown";
+    const knownOnly = raw.filter((n) => !isUnknown(n.value ?? ""));
+    const top5 = knownOnly.slice(0, 5);
+    const totalKnown = top5.reduce((sum, n) => sum + (Number(n.scan_count) ?? 0), 0);
+    let rows = top5.map((n) => ({
+      value: n.value,
+      label:
+        lang === "fr"
+          ? (FRAUD_LABEL_FR[formatLandscapeLabel(n.value)] ?? formatLandscapeLabel(n.value))
+          : formatLandscapeLabel(n.value),
+      share_of_week: totalKnown > 0 ? (Number(n.scan_count) ?? 0) / totalKnown : 0,
+    }));
+    const selectedValue = brief.top_narrative_raw ?? null;
+    if (selectedValue != null && rows.length > 1 && !isUnknown(selectedValue)) {
+      const selectedIdx = rows.findIndex((r) => String(r.value) === String(selectedValue));
+      if (selectedIdx > 0) {
+        const selectedRow = rows[selectedIdx];
+        rows = [selectedRow, ...rows.slice(0, selectedIdx), ...rows.slice(selectedIdx + 1)];
+      }
+    }
+    return rows;
+  };
+
+  const getNarrativeCaptionEn = (brief: BriefWeeklyResponse) =>
+    [
+      "⚠️ Fraud narrative in Canada — week of " + formatWeekStartForSocial(brief.week_start ?? "", "en-CA"),
+      "",
+      "Dominant scam narrative: " + (brief.top_narrative || "—"),
+      "Share of reports: " + formatNarrativeSharePercent(getNarrativeShareOfWeek(brief)),
+      "",
+      "Full brief:",
+      "https://scanscam.ca/brief/weekly",
+      "",
+      "Analyze a suspicious message:",
+      "https://scanscam.ca",
+      "",
+      "Your scan could help stop the next scam.",
+    ].join("\n");
+
+  const getNarrativeCaptionFr = (brief: BriefWeeklyResponse) =>
+    [
+      "⚠️ Narratif de fraude au Canada — semaine du " + formatWeekStartForSocial(brief.week_start ?? "", "fr-CA"),
+      "",
+      "Fraude dominante : " + (brief.top_narrative || "—"),
+      "Part des signalements : " + formatNarrativeSharePercent(getNarrativeShareOfWeek(brief)) + " %",
+      "",
+      "Analyse complète :",
+      "https://scanscam.ca/brief/weekly",
+      "",
+      "Analysez un message suspect :",
+      "https://scanscam.ca",
+      "",
+      "Votre analyse pourrait empêcher la prochaine fraude.",
+    ].join("\n");
+
+  const handleCopyNarrativeCaptionEn = async () => {
+    if (!narrativePreview) return;
+    try {
+      await navigator.clipboard.writeText(getNarrativeCaptionEn(narrativePreview));
+      setNarrativeMessage("EN caption copied.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    } catch {
+      setNarrativeMessage("Copy failed.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    }
+  };
+
+  const handleCopyNarrativeCaptionFr = async () => {
+    if (!narrativePreview) return;
+    try {
+      await navigator.clipboard.writeText(getNarrativeCaptionFr(narrativePreview));
+      setNarrativeMessage("FR caption copied.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    } catch {
+      setNarrativeMessage("Copy failed.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    }
+  };
+
+  const handleDownloadNarrativeEnPng = async () => {
+    if (!narrativeCardEnRef.current) return;
+    try {
+      const dataUrl = await toPng(narrativeCardEnRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#0d1117",
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `scanscam-narrative-signal-en-${narrativePreview?.week_start ?? "weekly"}.png`;
+      a.click();
+      setNarrativeMessage("EN PNG downloaded.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    } catch {
+      setNarrativeMessage("PNG export failed.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    }
+  };
+
+  const handleDownloadNarrativeFrPng = async () => {
+    if (!narrativeCardFrRef.current) return;
+    try {
+      const dataUrl = await toPng(narrativeCardFrRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#0d1117",
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `scanscam-narrative-signal-fr-${narrativePreview?.week_start ?? "weekly"}.png`;
+      a.click();
+      setNarrativeMessage("FR PNG downloaded.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
+    } catch {
+      setNarrativeMessage("PNG export failed.");
+      setTimeout(() => setNarrativeMessage(null), 2500);
     }
   };
 
@@ -1382,8 +1564,16 @@ export default function RadarPage() {
                     >
                       {graphicLoading ? "Loading…" : "Social Signal (Graphic)"}
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleLoadNarrativePreview}
+                      disabled={narrativeLoading}
+                      style={styles.briefAdminBtn}
+                    >
+                      {narrativeLoading ? "Loading…" : "Narrative Signal (Graphic)"}
+                    </button>
                   </div>
-                  {(briefMessage || socialSignalMessage || graphicMessage) && (
+                  {(briefMessage || socialSignalMessage || graphicMessage || narrativeMessage) && (
                     <div style={styles.briefAdminRow}>
                       {briefMessage && (
                         <span style={briefSuccess ? styles.briefAdminSuccess : styles.briefAdminError}>
@@ -1406,6 +1596,11 @@ export default function RadarPage() {
                       {graphicMessage && (
                         <span style={graphicPreview ? styles.briefAdminSuccess : styles.briefAdminError}>
                           {graphicMessage}
+                        </span>
+                      )}
+                      {narrativeMessage && (
+                        <span style={narrativePreview ? styles.briefAdminSuccess : styles.briefAdminError}>
+                          {narrativeMessage}
                         </span>
                       )}
                     </div>
@@ -1505,6 +1700,7 @@ export default function RadarPage() {
                               <div style={styles.graphicCardTitle}>ScanScam Fraud Signal</div>
                               <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
                             </div>
+                            <div style={styles.graphicCardScopeLabel}>Canada</div>
                             <div style={styles.graphicCardSubline}>
                               Week of {formatWeekStartForSocial(graphicPreview.week_start ?? "", "en-CA")}
                             </div>
@@ -1529,7 +1725,7 @@ export default function RadarPage() {
                                 <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
                               </div>
                               <div style={styles.graphicCardUrlBlock}>
-                                <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message</div>
+                                <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message:</div>
                                 <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
                               </div>
                             </div>
@@ -1545,6 +1741,7 @@ export default function RadarPage() {
                               <div style={styles.graphicCardTitle}>Signal de fraude ScanScam</div>
                               <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
                             </div>
+                            <div style={styles.graphicCardScopeLabel}>Canada</div>
                             <div style={styles.graphicCardSubline}>
                               Semaine du {formatWeekStartForSocial(graphicPreview.week_start ?? "", "fr-CA")}
                             </div>
@@ -1569,7 +1766,7 @@ export default function RadarPage() {
                                 <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
                               </div>
                               <div style={styles.graphicCardUrlBlock}>
-                                <div style={styles.graphicCardUrlLabel}>Analysez un message suspect</div>
+                                <div style={styles.graphicCardUrlLabel}>Analysez un message suspect :</div>
                                 <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
                               </div>
                             </div>
@@ -1641,6 +1838,7 @@ export default function RadarPage() {
                                     <div style={styles.graphicCardTitle}>ScanScam Fraud Signal</div>
                                     <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
                                   </div>
+                                  <div style={styles.graphicCardScopeLabel}>Canada</div>
                                   <div style={styles.graphicCardSubline}>
                                     Week of {formatWeekStartForSocial(graphicPreview.week_start ?? "", "en-CA")}
                                   </div>
@@ -1665,7 +1863,7 @@ export default function RadarPage() {
                                       <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
                                     </div>
                                     <div style={styles.graphicCardUrlBlock}>
-                                      <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message</div>
+                                      <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message:</div>
                                       <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
                                     </div>
                                   </div>
@@ -1682,6 +1880,7 @@ export default function RadarPage() {
                                     <div style={styles.graphicCardTitle}>Signal de fraude ScanScam</div>
                                     <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
                                   </div>
+                                  <div style={styles.graphicCardScopeLabel}>Canada</div>
                                   <div style={styles.graphicCardSubline}>
                                     Semaine du {formatWeekStartForSocial(graphicPreview.week_start ?? "", "fr-CA")}
                                   </div>
@@ -1706,7 +1905,7 @@ export default function RadarPage() {
                                       <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
                                     </div>
                                     <div style={styles.graphicCardUrlBlock}>
-                                      <div style={styles.graphicCardUrlLabel}>Analysez un message suspect</div>
+                                      <div style={styles.graphicCardUrlLabel}>Analysez un message suspect :</div>
                                       <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
                                     </div>
                                   </div>
@@ -1714,6 +1913,303 @@ export default function RadarPage() {
                                     Votre analyse pourrait empêcher la prochaine fraude.
                                   </div>
                                 </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {narrativePreview && (
+                    <>
+                      <div style={styles.graphicCardRow}>
+                        <button type="button" onClick={() => setNarrativeCleanViewLang("en")} style={styles.briefAdminBtn}>
+                          Open EN card
+                        </button>
+                        <button type="button" onClick={() => setNarrativeCleanViewLang("fr")} style={styles.briefAdminBtn}>
+                          Open FR card
+                        </button>
+                        <button type="button" onClick={handleDownloadNarrativeEnPng} style={styles.briefAdminBtn}>
+                          Download EN PNG
+                        </button>
+                        <button type="button" onClick={handleDownloadNarrativeFrPng} style={styles.briefAdminBtn}>
+                          Download FR PNG
+                        </button>
+                      </div>
+                      <div style={styles.graphicCardsWrap}>
+                        <div>
+                          <div style={styles.graphicCardLabel}>Narrative Preview (EN)</div>
+                          <div ref={narrativeCardEnRef} style={styles.graphicCard}>
+                            <div style={styles.graphicCardHeader}>
+                              <div style={styles.graphicCardTitle}>ScanScam Fraud Narrative</div>
+                              <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                            </div>
+                            <div style={styles.graphicCardScopeLabel}>Canada</div>
+                            <div style={styles.graphicCardSubline}>
+                              Week of {formatWeekStartForSocial(narrativePreview.week_start ?? "", "en-CA")}
+                            </div>
+                            <div style={styles.narrativeDominantSection}>
+                              <div style={styles.narrativeDominantLabel}>Dominant scam this week</div>
+                              <div style={styles.narrativeDominantValue}>{narrativePreview.fraud_label || "—"}</div>
+                            </div>
+                            <div style={styles.narrativeBarSection}>
+                              <div style={styles.narrativeBarSectionLabel}>Top scam narratives</div>
+                              {getNarrativeDisplayList(narrativePreview, "en").map((n) => (
+                                <div key={n.value} style={styles.narrativeBarRow}>
+                                  <span style={styles.narrativeBarLabel}>{n.label}</span>
+                                  <div style={styles.narrativeBarTrack}>
+                                    <div
+                                      style={{
+                                        ...styles.narrativeBarFill,
+                                        width: `${(n.share_of_week * 100).toFixed(1)}%`,
+                                        backgroundColor:
+                                          narrativePreview.top_narrative_raw != null &&
+                                          String(n.value) === String(narrativePreview.top_narrative_raw)
+                                            ? "#d1242f"
+                                            : "#58a6ff",
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={styles.narrativeGraphNote}>
+                              Distribution based on reported scam messages this week.
+                            </div>
+                            <div style={styles.graphicCardUrlBlocks}>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Full brief</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                              </div>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message:</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                              </div>
+                            </div>
+                            <div style={styles.graphicCardFooter}>
+                              Your scan could help stop the next scam.
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <div style={styles.graphicCardLabel}>Narrative Preview (FR)</div>
+                          <div ref={narrativeCardFrRef} style={styles.graphicCard}>
+                            <div style={styles.graphicCardHeader}>
+                              <div style={styles.graphicCardTitle}>Narratif de fraude ScanScam</div>
+                              <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                            </div>
+                            <div style={styles.graphicCardScopeLabel}>Canada</div>
+                            <div style={styles.graphicCardSubline}>
+                              Semaine du {formatWeekStartForSocial(narrativePreview.week_start ?? "", "fr-CA")}
+                            </div>
+                            <div style={styles.narrativeDominantSection}>
+                              <div style={styles.narrativeDominantLabel}>Fraude principale cette semaine</div>
+                              <div style={styles.narrativeDominantValue}>{fraudLabelFr(narrativePreview.fraud_label) || "—"}</div>
+                            </div>
+                            <div style={styles.narrativeBarSection}>
+                              <div style={styles.narrativeBarSectionLabel}>Principaux narratifs de fraude</div>
+                              {getNarrativeDisplayList(narrativePreview, "fr").map((n) => (
+                                <div key={n.value} style={styles.narrativeBarRow}>
+                                  <span style={styles.narrativeBarLabel}>{n.label}</span>
+                                  <div style={styles.narrativeBarTrack}>
+                                    <div
+                                      style={{
+                                        ...styles.narrativeBarFill,
+                                        width: `${(n.share_of_week * 100).toFixed(1)}%`,
+                                        backgroundColor:
+                                          narrativePreview.top_narrative_raw != null &&
+                                          String(n.value) === String(narrativePreview.top_narrative_raw)
+                                            ? "#d1242f"
+                                            : "#58a6ff",
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={styles.narrativeGraphNote}>
+                              Distribution basée sur les messages frauduleux signalés cette semaine.
+                            </div>
+                            <div style={styles.graphicCardUrlBlocks}>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Analyse complète</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                              </div>
+                              <div style={styles.graphicCardUrlBlock}>
+                                <div style={styles.graphicCardUrlLabel}>Analysez un message suspect :</div>
+                                <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                              </div>
+                            </div>
+                            <div style={styles.graphicCardFooter}>
+                              Votre analyse pourrait empêcher la prochaine fraude.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={styles.graphicCaptionsWrap}>
+                        <div style={styles.graphicCaptionBlock}>
+                          <div style={styles.graphicCaptionHeader}>
+                            <span style={styles.graphicCaptionLabel}>Caption (EN)</span>
+                            <button type="button" onClick={handleCopyNarrativeCaptionEn} style={styles.briefAdminBtn}>
+                              Copy EN caption
+                            </button>
+                          </div>
+                          <pre style={styles.graphicCaptionPre}>{getNarrativeCaptionEn(narrativePreview)}</pre>
+                          <div style={styles.graphicCaptionLinks}>
+                            <a href="https://scanscam.ca/brief/weekly" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca/brief/weekly
+                            </a>
+                            {" · "}
+                            <a href="https://scanscam.ca" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca
+                            </a>
+                          </div>
+                        </div>
+                        <div style={styles.graphicCaptionBlock}>
+                          <div style={styles.graphicCaptionHeader}>
+                            <span style={styles.graphicCaptionLabel}>Caption (FR)</span>
+                            <button type="button" onClick={handleCopyNarrativeCaptionFr} style={styles.briefAdminBtn}>
+                              Copy FR caption
+                            </button>
+                          </div>
+                          <pre style={styles.graphicCaptionPre}>{getNarrativeCaptionFr(narrativePreview)}</pre>
+                          <div style={styles.graphicCaptionLinks}>
+                            <a href="https://scanscam.ca/brief/weekly" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca/brief/weekly
+                            </a>
+                            {" · "}
+                            <a href="https://scanscam.ca" target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                              scanscam.ca
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                      {narrativeCleanViewLang !== null && (
+                        <div
+                          style={styles.graphicCleanViewOverlay}
+                          onClick={() => setNarrativeCleanViewLang(null)}
+                          role="dialog"
+                          aria-modal="true"
+                          aria-label={narrativeCleanViewLang === "en" ? "Clean view narrative EN" : "Clean view narrative FR"}
+                        >
+                          <div style={styles.graphicCleanViewContent} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => setNarrativeCleanViewLang(null)}
+                              style={styles.graphicCleanViewClose}
+                            >
+                              Close
+                            </button>
+                            <div style={styles.graphicCleanViewCards}>
+                              {narrativeCleanViewLang === "en" && (
+                                <div style={styles.graphicCleanViewCardWrap}>
+                                  <div style={styles.graphicCard}>
+                                    <div style={styles.graphicCardHeader}>
+                                      <div style={styles.graphicCardTitle}>ScanScam Fraud Narrative</div>
+                                      <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                                    </div>
+                                    <div style={styles.graphicCardScopeLabel}>Canada</div>
+                                    <div style={styles.graphicCardSubline}>
+                                      Week of {formatWeekStartForSocial(narrativePreview.week_start ?? "", "en-CA")}
+                                    </div>
+                                    <div style={styles.narrativeDominantSection}>
+                                      <div style={styles.narrativeDominantLabel}>Dominant scam this week</div>
+                                      <div style={styles.narrativeDominantValue}>{narrativePreview.fraud_label || "—"}</div>
+                                    </div>
+                                    <div style={styles.narrativeBarSection}>
+                                      <div style={styles.narrativeBarSectionLabel}>Top scam narratives</div>
+                                      {getNarrativeDisplayList(narrativePreview, "en").map((n) => (
+                                        <div key={n.value} style={styles.narrativeBarRow}>
+                                          <span style={styles.narrativeBarLabel}>{n.label}</span>
+                                          <div style={styles.narrativeBarTrack}>
+                                            <div
+                                              style={{
+                                                ...styles.narrativeBarFill,
+                                                width: `${(n.share_of_week * 100).toFixed(1)}%`,
+                                                backgroundColor:
+                                                  narrativePreview.top_narrative_raw != null &&
+                                                  String(n.value) === String(narrativePreview.top_narrative_raw)
+                                                    ? "#d1242f"
+                                                    : "#58a6ff",
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div style={styles.narrativeGraphNote}>
+                                      Distribution based on reported scam messages this week.
+                                    </div>
+                                    <div style={styles.graphicCardUrlBlocks}>
+                                      <div style={styles.graphicCardUrlBlock}>
+                                        <div style={styles.graphicCardUrlLabel}>Full brief</div>
+                                        <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                                      </div>
+                                      <div style={styles.graphicCardUrlBlock}>
+                                        <div style={styles.graphicCardUrlLabel}>Analyze a suspicious message:</div>
+                                        <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                                      </div>
+                                    </div>
+                                    <div style={styles.graphicCardFooter}>
+                                      Your scan could help stop the next scam.
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {narrativeCleanViewLang === "fr" && (
+                                <div style={styles.graphicCleanViewCardWrap}>
+                                  <div style={styles.graphicCard}>
+                                    <div style={styles.graphicCardHeader}>
+                                      <div style={styles.graphicCardTitle}>Narratif de fraude ScanScam</div>
+                                      <img src="/Logo/scanscam-sun-mark.png" alt="" style={styles.graphicCardLogo} />
+                                    </div>
+                                    <div style={styles.graphicCardScopeLabel}>Canada</div>
+                                    <div style={styles.graphicCardSubline}>
+                                      Semaine du {formatWeekStartForSocial(narrativePreview.week_start ?? "", "fr-CA")}
+                                    </div>
+                                    <div style={styles.narrativeDominantSection}>
+                                      <div style={styles.narrativeDominantLabel}>Fraude principale cette semaine</div>
+                                      <div style={styles.narrativeDominantValue}>{fraudLabelFr(narrativePreview.fraud_label) || "—"}</div>
+                                    </div>
+                                    <div style={styles.narrativeBarSection}>
+                                      <div style={styles.narrativeBarSectionLabel}>Principaux narratifs de fraude</div>
+                                      {getNarrativeDisplayList(narrativePreview, "fr").map((n) => (
+                                        <div key={n.value} style={styles.narrativeBarRow}>
+                                          <span style={styles.narrativeBarLabel}>{n.label}</span>
+                                          <div style={styles.narrativeBarTrack}>
+                                            <div
+                                              style={{
+                                                ...styles.narrativeBarFill,
+                                                width: `${(n.share_of_week * 100).toFixed(1)}%`,
+                                                backgroundColor:
+                                                  narrativePreview.top_narrative_raw != null &&
+                                                  String(n.value) === String(narrativePreview.top_narrative_raw)
+                                                    ? "#d1242f"
+                                                    : "#58a6ff",
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div style={styles.narrativeGraphNote}>
+                                      Distribution basée sur les messages frauduleux signalés cette semaine.
+                                    </div>
+                                    <div style={styles.graphicCardUrlBlocks}>
+                                      <div style={styles.graphicCardUrlBlock}>
+                                        <div style={styles.graphicCardUrlLabel}>Analyse complète</div>
+                                        <div style={styles.graphicCardUrlValue}>scanscam.ca/brief/weekly</div>
+                                      </div>
+                                      <div style={styles.graphicCardUrlBlock}>
+                                        <div style={styles.graphicCardUrlLabel}>Analysez un message suspect :</div>
+                                        <div style={styles.graphicCardUrlValue}>scanscam.ca</div>
+                                      </div>
+                                    </div>
+                                    <div style={styles.graphicCardFooter}>
+                                      Votre analyse pourrait empêcher la prochaine fraude.
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -2248,10 +2744,16 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "-0.02em",
     lineHeight: 1.25,
   },
+  graphicCardScopeLabel: {
+    margin: "2px 0 6px",
+    fontSize: "12px",
+    color: "#8b949e",
+    lineHeight: 1.3,
+  },
   graphicCardSubline: {
     margin: "0 0 20px",
-    fontSize: "13px",
-    color: "#8b949e",
+    fontSize: "14px",
+    color: "#9ca3af",
     lineHeight: 1.35,
   },
   graphicCardMetric: {
@@ -2323,6 +2825,74 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#8b949e",
     lineHeight: 1.5,
     fontStyle: "italic",
+  },
+  narrativeDominantSection: {
+    marginBottom: "14px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  narrativeDominantLabel: {
+    fontSize: "10px",
+    color: "#6e7681",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontWeight: 600,
+  },
+  narrativeDominantValue: {
+    fontSize: "15px",
+    fontWeight: 600,
+    color: "#e6edf3",
+    lineHeight: 1.4,
+  },
+  narrativeBarSection: {
+    marginBottom: "8px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  narrativeGraphNote: {
+    marginBottom: "14px",
+    fontSize: "10px",
+    color: "#6e7681",
+    lineHeight: 1.4,
+    fontStyle: "italic",
+  },
+  narrativeBarSectionLabel: {
+    fontSize: "10px",
+    color: "#6e7681",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontWeight: 600,
+    marginBottom: "2px",
+  },
+  narrativeBarRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    minHeight: "28px",
+  },
+  narrativeBarLabel: {
+    flex: "0 0 130px",
+    fontSize: "12px",
+    color: "#c9d1d9",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  narrativeBarTrack: {
+    flex: "1 1 auto",
+    minWidth: 0,
+    height: "16px",
+    backgroundColor: "#21262d",
+    borderRadius: "6px",
+    overflow: "hidden",
+  },
+  narrativeBarFill: {
+    height: "100%",
+    backgroundColor: "#58a6ff",
+    borderRadius: "6px",
+    minWidth: "2px",
   },
   graphicCaptionsWrap: {
     display: "flex",

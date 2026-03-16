@@ -306,10 +306,20 @@ export function deriveBriefPayload(data: RadarPayloadForBrief): BriefWeeklyRespo
     protection_tip: protectionTip,
   });
 
-  const narrativesPublic = narratives.map((n) => ({
+  const knownNarratives = narratives.filter(
+    (n) => String(n.value ?? "").toLowerCase() !== "unknown"
+  );
+  const totalKnownScans = knownNarratives.reduce(
+    (sum, n) => sum + (Number(n.scan_count) ?? 0),
+    0
+  );
+  const narrativesPublic = knownNarratives.map((n) => ({
     value: n.value,
     scan_count: n.scan_count,
-    share_of_week: n.share_of_week,
+    share_of_week:
+      totalKnownScans > 0
+        ? (Number(n.scan_count) ?? 0) / totalKnownScans
+        : 0,
   }));
 
   const w = data.week_risk_counts;
