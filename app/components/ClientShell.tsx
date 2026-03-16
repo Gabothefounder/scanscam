@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "./Header";
+import CookieConsentBanner from "./CookieConsentBanner";
 
 export default function ClientShell({
   children,
@@ -11,6 +12,8 @@ export default function ClientShell({
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <Header />
       {children}
+      <CookieConsentBanner />
     </div>
   );
 }
+
