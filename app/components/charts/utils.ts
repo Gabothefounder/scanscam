@@ -10,6 +10,7 @@ const LABEL_MAP: Record<string, string> = {
   p2p_app: "P2P App",
   financial_institution: "Financial Institution",
   tech_company: "Tech Company",
+  prize_scam: "Prize Scam",
 };
 
 export function formatLandscapeLabel(raw: string): string {

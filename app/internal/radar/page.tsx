@@ -641,6 +641,40 @@ export default function RadarPage() {
   const [data, setData] = useState<RadarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [briefGenerating, setBriefGenerating] = useState(false);
+  const [briefMessage, setBriefMessage] = useState<string | null>(null);
+  const [briefSuccess, setBriefSuccess] = useState(false);
+  const [briefPreview, setBriefPreview] = useState<{
+    social_headline: string;
+    social_summary: string;
+    brief_url: string;
+  } | null>(null);
+
+  const handleGenerateBrief = () => {
+    setBriefMessage(null);
+    setBriefSuccess(false);
+    setBriefPreview(null);
+    setBriefGenerating(true);
+    fetch("/api/internal/brief/generate-weekly", { method: "POST", credentials: "include" })
+      .then((res) => res.json().catch(() => ({})))
+      .then((body) => {
+        if (body?.ok) {
+          setBriefMessage(`Brief generated for week ${body.week_start ?? ""}.`);
+          setBriefSuccess(true);
+          if (body.social_headline != null && body.social_summary != null && body.brief_url) {
+            setBriefPreview({
+              social_headline: body.social_headline,
+              social_summary: body.social_summary,
+              brief_url: body.brief_url,
+            });
+          }
+        } else {
+          setBriefMessage(body?.error ?? "Failed to generate brief.");
+        }
+      })
+      .catch(() => setBriefMessage("Failed to generate brief."))
+      .finally(() => setBriefGenerating(false));
+  };
 
   useEffect(() => {
     fetch("/api/intel/radar-weekly")
@@ -696,6 +730,41 @@ export default function RadarPage() {
         {error && (
           <div style={styles.error}>
             <p>{error}</p>
+          </div>
+        )}
+
+        {!loading && data && (
+          <div style={styles.briefAdmin}>
+            <div style={styles.briefAdminRow}>
+              <button
+                type="button"
+                onClick={handleGenerateBrief}
+                disabled={briefGenerating}
+                style={styles.briefAdminBtn}
+              >
+                {briefGenerating ? "Generating…" : "Generate Weekly Brief"}
+              </button>
+              {briefMessage && (
+                <span style={briefSuccess ? styles.briefAdminSuccess : styles.briefAdminError}>
+                  {briefMessage}
+                  {briefSuccess && briefPreview && (
+                    <>
+                      {" "}
+                      <a href={briefPreview.brief_url} target="_blank" rel="noopener noreferrer" style={styles.briefAdminLink}>
+                        Open brief →
+                      </a>
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
+            {briefSuccess && briefPreview && (
+              <div style={styles.briefAdminPreview}>
+                <div style={styles.briefAdminPreviewLabel}>Social preview</div>
+                <div style={styles.briefAdminPreviewHeadline}>{briefPreview.social_headline}</div>
+                <pre style={styles.briefAdminPreviewSummary}>{briefPreview.social_summary}</pre>
+              </div>
+            )}
           </div>
         )}
 
@@ -1475,6 +1544,70 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     gap: "8px",
     flexWrap: "wrap",
+  },
+  briefAdmin: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    marginBottom: "16px",
+    paddingBottom: "12px",
+    borderBottom: "1px solid #21262d",
+  },
+  briefAdminRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+  briefAdminPreview: {
+    marginTop: 4,
+    padding: "10px 12px",
+    backgroundColor: "#161b22",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    fontSize: "12px",
+  },
+  briefAdminPreviewLabel: {
+    color: "#8b949e",
+    marginBottom: "6px",
+    fontSize: "11px",
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+  },
+  briefAdminPreviewHeadline: {
+    color: "#e6edf3",
+    fontWeight: 600,
+    marginBottom: "6px",
+  },
+  briefAdminPreviewSummary: {
+    margin: 0,
+    color: "#8b949e",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    fontSize: "11px",
+    lineHeight: 1.4,
+    fontFamily: "inherit",
+  },
+  briefAdminBtn: {
+    padding: "6px 12px",
+    fontSize: "12px",
+    color: "#e6edf3",
+    backgroundColor: "#21262d",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  briefAdminSuccess: {
+    fontSize: "12px",
+    color: "#7ee787",
+  },
+  briefAdminError: {
+    fontSize: "12px",
+    color: "#f85149",
+  },
+  briefAdminLink: {
+    color: "#58a6ff",
+    textDecoration: "none",
   },
   analystBlockBtn: {
     padding: "6px 10px",
