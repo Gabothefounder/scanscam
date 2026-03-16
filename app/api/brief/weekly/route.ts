@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       .from("weekly_briefs")
       .select("brief_json")
       .eq("status", "published")
-      .order("week_start", { ascending: false })
+      .order("generated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 

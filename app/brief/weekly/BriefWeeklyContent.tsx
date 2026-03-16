@@ -136,17 +136,17 @@ const COPY = {
 
 const styles: Record<string, React.CSSProperties> = {
   wrap: {
-    maxWidth: 600,
+    maxWidth: 720,
     margin: "0 auto",
-    padding: "24px 16px",
+    padding: "28px 20px",
     fontFamily: "system-ui, -apple-system, sans-serif",
     color: "#1a1a1a",
     backgroundColor: "#fff",
   },
   intro: {
-    margin: "0 0 8px",
-    fontSize: 13,
-    lineHeight: 1.45,
+    margin: "0 0 10px",
+    fontSize: 15,
+    lineHeight: 1.5,
     color: "#57606a",
   },
   header: {
@@ -163,11 +163,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   meta: {
     margin: "4px 0 0",
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 1.4,
     color: "#57606a",
   },
   section: {
-    marginBottom: 16,
+    marginTop: 40,
+    marginBottom: 24,
     breakInside: "avoid",
   },
   chartWrap: {
@@ -180,17 +182,17 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.4,
   },
   sectionTitle: {
-    margin: "0 0 6px",
-    fontSize: 11,
+    margin: "0 0 10px",
+    fontSize: 13,
     fontWeight: 600,
-    color: "#57606a",
+    color: "#4b5563",
     textTransform: "uppercase",
-    letterSpacing: "0.04em",
+    letterSpacing: "0.08em",
   },
   sectionBody: {
-    margin: 0,
-    fontSize: 14,
-    lineHeight: 1.5,
+    margin: "0 0 16px",
+    fontSize: 19,
+    lineHeight: 1.7,
     color: "#24292f",
   },
   riskBox: {

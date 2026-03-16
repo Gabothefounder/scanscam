@@ -102,12 +102,20 @@ const HOW_IT_WORKS: Record<string, string> = {
 
 /** French: how the fraud works (same keys as HOW_IT_WORKS). */
 const HOW_IT_WORKS_FR: Record<string, string> = {
+  financial_phishing:
+    "Les fraudeurs se font passer pour une banque ou un service financier. Ils tentent de créer un sentiment d’urgence pour vous pousser à cliquer sur un lien ou à confirmer vos informations. Le lien mène en général à une fausse page qui ressemble au site officiel afin de voler vos identifiants.",
+  financial_institution:
+    "Les fraudeurs se font passer pour une banque ou un service financier. Ils tentent de créer un sentiment d’urgence pour vous pousser à cliquer sur un lien ou à confirmer vos informations. Le lien mène en général à une fausse page qui ressemble au site officiel afin de voler vos identifiants.",
   prize_scam:
     "Dans ce type de fraude, l'arnaqueur annonce un prix, un remboursement ou une récompense et demande ensuite de payer des frais, de fournir des informations ou de cliquer sur un lien pour le réclamer. Les fraudeurs utilisent l'urgence et l'attrait d'un gain pour pousser à agir rapidement. Les organisations légitimes n'exigent généralement aucun paiement ni information sensible pour recevoir un prix.",
 };
 
 /** French: protection advice (same keys as PROTECTION_TIP). */
 const PROTECTION_TIP_FR: Record<string, string> = {
+  financial_phishing:
+    "Ne cliquez jamais sur un lien pour vous connecter à votre banque ou à un service financier. Ouvrez plutôt l’application officielle ou tapez vous-même l’adresse du site dans votre navigateur.",
+  financial_institution:
+    "Ne cliquez jamais sur un lien pour vous connecter à votre banque ou à un service financier. Ouvrez plutôt l’application officielle ou tapez vous-même l’adresse du site dans votre navigateur.",
   prize_scam:
     "Les vrais concours ou remboursements ne demandent jamais de paiement ni d'informations personnelles pour réclamer un prix. Si vous n'avez participé à aucun concours ou demandé de remboursement, considérez ce message comme suspect.",
 };

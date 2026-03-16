@@ -13,6 +13,37 @@ const supabase = createClient(
 /** Radar payload shape (subset). */
 type RadarPayload = Parameters<typeof deriveBriefPayload>[0];
 
+const BRIEF_TIMEZONE = "America/Toronto";
+
+/**
+ * Returns the Monday (YYYY-MM-DD) of the last fully completed Monday–Sunday week.
+ * "Today" is interpreted in BRIEF_TIMEZONE so the week is stable for Canadian users
+ * and not affected by server UTC (e.g. Sunday evening local is still "previous week").
+ * Example: 2026-03-16 (Monday) or 2026-03-18 (Wednesday) in Toronto → 2026-03-09.
+ * Note: /brief/weekly reads from weekly_briefs; after deploying this logic, regenerate
+ * the brief from the internal radar so the stored row uses the correct week_start.
+ */
+function getLastCompletedWeekStartISO(now: Date): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BRIEF_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parseInt(parts.find((p) => p.type === "year")!.value, 10);
+  const month = parseInt(parts.find((p) => p.type === "month")!.value, 10) - 1;
+  const day = parseInt(parts.find((p) => p.type === "day")!.value, 10);
+  const noonUtc = new Date(Date.UTC(year, month, day, 12, 0, 0));
+  const dayOfWeek = noonUtc.getUTCDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const mondayOfThisWeek = new Date(Date.UTC(year, month, day, 12, 0, 0));
+  mondayOfThisWeek.setUTCDate(mondayOfThisWeek.getUTCDate() - daysSinceMonday);
+  const previousMonday = new Date(mondayOfThisWeek);
+  previousMonday.setUTCDate(previousMonday.getUTCDate() - 7);
+  return previousMonday.toISOString().slice(0, 10);
+}
+
 function weekToDateRange(weekStart: string): { start: string; end: string } {
   const start = new Date(weekStart);
   const end = new Date(start);
@@ -97,7 +128,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const origin = req.nextUrl.origin;
-    const res = await fetch(`${origin}/api/intel/radar-weekly`, {
+    const lastCompletedWeekStart = getLastCompletedWeekStartISO(new Date());
+    const res = await fetch(`${origin}/api/intel/radar-weekly?week_start=${lastCompletedWeekStart}`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     });
@@ -108,41 +140,40 @@ export async function POST(req: NextRequest) {
       );
     }
     let data = (await res.json()) as RadarPayload;
-    const weekStartFromRadar = data?.week_start;
-    if (weekStartFromRadar && /^\d{4}-\d{2}-\d{2}$/.test(weekStartFromRadar)) {
-      const { start: rangeStart, end: rangeEnd } = weekToDateRange(weekStartFromRadar);
-      const [weekRiskData, previousWeekTotals] = await Promise.all([
-        getWeekRiskData(rangeStart, rangeEnd),
-        (() => {
-          const prevStart = new Date(weekStartFromRadar);
-          prevStart.setDate(prevStart.getDate() - 7);
-          const prevEnd = new Date(prevStart);
-          prevEnd.setDate(prevEnd.getDate() + 6);
-          const pStart = prevStart.toISOString().slice(0, 10);
-          const pEnd = prevEnd.toISOString().slice(0, 10);
-          return getPreviousWeekRiskTotals(pStart, pEnd);
-        })(),
-      ]);
-      const narratives = Array.isArray(data.fraud_landscape?.narratives) ? data.fraud_landscape.narratives : [];
-      data = {
-        ...data,
-        fraud_landscape: {
-          ...data.fraud_landscape,
-          narratives: enrichNarrativesWithRiskCounts(narratives, weekRiskData.byNarrative),
-        },
-        week_risk_counts: weekRiskData.totals,
-        previous_week_risk_counts: previousWeekTotals,
-      };
-    }
-    const payload = deriveBriefPayload(data);
-
-    const weekStart = payload.week_start;
-    if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(lastCompletedWeekStart)) {
       return NextResponse.json(
-        { ok: false, error: "Invalid week_start from radar" },
-        { status: 502 }
+        { ok: false, error: "Invalid lastCompletedWeekStart" },
+        { status: 500 }
       );
     }
+    const { start: rangeStart, end: rangeEnd } = weekToDateRange(lastCompletedWeekStart);
+    const [weekRiskData, previousWeekTotals] = await Promise.all([
+      getWeekRiskData(rangeStart, rangeEnd),
+      (() => {
+        const prevStart = new Date(lastCompletedWeekStart + "T12:00:00.000Z");
+        prevStart.setUTCDate(prevStart.getUTCDate() - 7);
+        const prevEnd = new Date(prevStart);
+        prevEnd.setUTCDate(prevEnd.getUTCDate() + 6);
+        const pStart = prevStart.toISOString().slice(0, 10);
+        const pEnd = prevEnd.toISOString().slice(0, 10);
+        return getPreviousWeekRiskTotals(pStart, pEnd);
+      })(),
+    ]);
+    const narratives = Array.isArray(data.fraud_landscape?.narratives) ? data.fraud_landscape.narratives : [];
+    data = {
+      ...data,
+      week_start: lastCompletedWeekStart,
+      fraud_landscape: {
+        ...data.fraud_landscape,
+        narratives: enrichNarrativesWithRiskCounts(narratives, weekRiskData.byNarrative),
+      },
+      week_risk_counts: weekRiskData.totals,
+      previous_week_risk_counts: previousWeekTotals,
+    };
+    const payload = deriveBriefPayload(data);
+    payload.week_start = lastCompletedWeekStart;
+
+    const weekStart = lastCompletedWeekStart;
 
     const generatedAt = new Date().toISOString();
     const briefJson = { ...payload, generated_at: generatedAt };
