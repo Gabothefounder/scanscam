@@ -219,6 +219,77 @@ function hasCredentialRequest(text: string): boolean {
   return /password|ssn|sin\b|social\s+security|login|credentials|verify.*identity|confirm.*account|otp|verification\s+code/i.test(text);
 }
 
+/** Same pattern as callback_number_present / channel phone detection — single source for phone micro-signal. */
+const PHONE_CALLBACK_PATTERN = /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/;
+
+const DEFAULT_MICRO_SIGNALS: Record<string, boolean> = {
+  has_link: false,
+  has_phone_number: false,
+  has_email_address: false,
+  has_action_request: false,
+  urgency_detected: false,
+  threat_detected: false,
+  authority_keyword_detected: false,
+  delivery_keyword_detected: false,
+  financial_keyword_detected: false,
+  credential_request_detected: false,
+  reward_keyword_detected: false,
+  account_verification_detected: false,
+};
+
+function extractMicroSignals(raw: string, text: string): Record<string, boolean> {
+  const has_link = /https?:\/\/|www\./i.test(raw);
+  const has_phone_number = PHONE_CALLBACK_PATTERN.test(raw);
+  const has_email_address = /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(raw);
+  const has_action_request =
+    /\b(click|verify|call|reply|check|confirm|login|review|update)\b/.test(text) || /\bact\s+now\b/.test(text);
+  const urgency_detected =
+    /\burgent\b|\bimmediately\b|\bright\s+now\b|\bnow\b|\btoday\b|final\s+notice|action\s+required|\bact\s+now\b/.test(text);
+  const threat_detected =
+    /\bsuspension\b|\brestriction\b|\blocked\b|\bpenalty\b|\boverdue\b|\benforcement\b|final\s+warning/.test(text);
+  const authority_keyword_detected =
+    /\bcra\b|\birs\b|\b(?:arc)\b|tax|government|justice|\bbank\b|account\s+support|official\s+notice/.test(text);
+  const delivery_keyword_detected =
+    /\bpackage\b|\bcourier\b|\bdelivery\b|\bredelivery\b|\bparcel\b|\btracking\b/.test(text);
+  const financial_keyword_detected =
+    /\bbank\b|\bcredit\b|\bpayment\b|\bbilling\b|\btransfer\b|\binvoice\b/.test(text);
+  const credential_request_detected =
+    /\bpassword\b|\bcode\b|\botp\b|\blogin\b|verify\s+account|confirmation\s+code/.test(text);
+  const reward_keyword_detected =
+    /\bprize\b|\breward\b|\bwon\b|\bwinner\b|\bredeem\b/.test(text);
+  const account_verification_detected =
+    /verify\s+your\s+account|account\s+verification|confirm\s+your\s+identity/.test(text);
+
+  return {
+    has_link,
+    has_phone_number,
+    has_email_address,
+    has_action_request,
+    urgency_detected,
+    threat_detected,
+    authority_keyword_detected,
+    delivery_keyword_detected,
+    financial_keyword_detected,
+    credential_request_detected,
+    reward_keyword_detected,
+    account_verification_detected,
+  };
+}
+
+function microSignalsBlockBenign(ms: Record<string, boolean>): boolean {
+  return (
+    ms.has_action_request ||
+    ms.urgency_detected ||
+    ms.threat_detected ||
+    ms.authority_keyword_detected ||
+    ms.delivery_keyword_detected ||
+    ms.financial_keyword_detected ||
+    ms.credential_request_detected ||
+    ms.reward_keyword_detected ||
+    ms.account_verification_detected
+  );
+}
+
 function detectEmotionVectors(text: string): string[] {
   const vectors: string[] = [];
   if (/fear|scared|worried|concern/.test(text)) vectors.push("fear");
@@ -314,7 +385,8 @@ function gateCoreDimensionsNone(
   }
 }
 
-function isBenignRoutineLowRisk(text: string): boolean {
+function isBenignRoutineLowRisk(text: string, micro_signals: Record<string, boolean>): boolean {
+  if (microSignalsBlockBenign(micro_signals)) return false;
   const hasNarrativeCue = NARRATIVE_SIGNALS.some(({ test }) => test.test(text));
   const hasAuthorityCue = AUTHORITY_SIGNALS.some(({ test }) => test.test(text));
   const hasPaymentCue = hasPaymentPressure(text);
@@ -352,10 +424,12 @@ function extractIntelFeatures(
 
   try {
     const text = messageText.toLowerCase();
+    const micro_signals = extractMicroSignals(messageText, text);
     const contextQ = assessContextQuality(messageText, inputQuality);
     const narrative_category = detectNarrativeCategory(text, contextQ);
     let channel_type = detectChannelType(text, messageText, inputQuality);
-    const authority_type = detectAuthorityType(text, contextQ);
+    let authority_type = detectAuthorityType(text, contextQ);
+    if (authority_type === "none" && micro_signals.authority_keyword_detected) authority_type = "unknown";
     const payment_intent = detectPaymentIntent(text);
     const payment_method = detectPaymentMethod(text, contextQ);
     const escalation_pattern = detectEscalationPattern(text, contextQ);
@@ -385,13 +459,23 @@ function extractIntelFeatures(
       riskTier === "low" &&
       richContext &&
       (intel_state === "unknown" || intel_state === "no_signal") &&
-      isBenignRoutineLowRisk(text)
+      isBenignRoutineLowRisk(text, micro_signals)
     ) {
       intel_state = "no_signal";
       gatedDims.narrative_category = "none";
       gatedDims.authority_type = "none";
       gatedDims.payment_method = "none";
       gatedDims.escalation_pattern = "none";
+    }
+
+    if (
+      riskTier === "low" &&
+      richContext &&
+      intel_state === "unknown" &&
+      micro_signals.has_action_request &&
+      (micro_signals.urgency_detected || micro_signals.threat_detected)
+    ) {
+      intel_state = "weak_signal";
     }
 
     gateCoreDimensionsNone(contextQ, intel_state, gatedDims);
@@ -406,13 +490,14 @@ function extractIntelFeatures(
       context_quality: contextQ,
       payment_intent,
       intel_state,
+      micro_signals: { ...micro_signals },
       brand_mentions: detectBrandMentions(text),
       urgency_score: urgency,
       threat_score: threat,
       payment_request: hasPaymentPressure(text),
       credential_request: hasCredentialRequest(text),
       link_present: /https?:\/\/|www\./i.test(messageText),
-      callback_number_present: /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/.test(messageText),
+      callback_number_present: PHONE_CALLBACK_PATTERN.test(messageText),
       emotion_vectors: detectEmotionVectors(text),
       language_variant: platformLang,
       risk_score_numeric: riskTierToNumeric(result.risk_tier ?? result.risk ?? "low"),
@@ -442,6 +527,7 @@ function extractIntelFeatures(
         context_quality: "unknown",
         payment_intent: "unknown",
         intel_state: "unknown",
+        micro_signals: { ...DEFAULT_MICRO_SIGNALS },
         extraction_failed: true,
         reason: err?.message ?? "unknown_error",
       }),
