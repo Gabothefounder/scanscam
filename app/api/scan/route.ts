@@ -232,6 +232,41 @@ function isCommunicationLike(textLower: string, microSignals: Record<string, boo
   );
 }
 
+function isLikelyWebArtifact(
+  inputQuality: { url_only: boolean; very_short: boolean; message_like: boolean },
+  contextQ: string,
+  microSignals: Record<string, boolean>,
+  raw: string
+): boolean {
+  if (!microSignals.has_link) return false;
+  if (
+    !(
+      inputQuality.url_only ||
+      inputQuality.very_short ||
+      contextQ === "fragment" ||
+      contextQ === "thin"
+    )
+  )
+    return false;
+
+  // Structural clues that this is more like a message than a bare web artifact.
+  if (PHONE_CALLBACK_PATTERN.test(raw)) return false;
+  if (/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(raw)) return false;
+  if (/^from:\s|^to:\s|^subject:\s|^sent:\s|^date:\s|^reply-to:\s/mi.test(raw)) return false;
+  if (
+    /\b(reply|text)\s+stop\b|msg\s*&\s*data|data\s+(?:rates|charges|may\s+apply)|\btext\s+message\b|^sms[\s:]|^txt[\s:]/i.test(
+      raw
+    )
+  )
+    return false;
+  if (
+    /voicemail|missed\s+call|incoming\s+call|call\s+(us|now|today|back)|ring\s+us|dial\s+this|reach\s+us\s+at/i.test(raw)
+  )
+    return false;
+
+  return true;
+}
+
 function detectEscalationPattern(text: string, contextQ: string): string {
   if (isInsufficientContextQuality(contextQ)) return "unknown";
   const time = /immediate|urgent|asap|act\s+now|within\s+\d+\s*(hour|minute|day)|expires?\s+(today|soon)/.test(text);
@@ -545,15 +580,10 @@ function extractIntelFeatures(
     const richContext = contextQ === "partial" || contextQ === "full";
     const commLike = isCommunicationLike(text, micro_signals);
 
-    // URL-only / URL-dominant artifacts with weak context and no clear communication cues → treat as web.
+    // URL-only / fragmentary link artifacts with weak context and no strong message structure → web.
     if (
       (channel_type === "unknown" || channel_type === "none") &&
-      !commLike &&
-      (inputQuality.url_only ||
-        inputQuality.very_short ||
-        micro_signals.has_link ||
-        contextQ === "fragment" ||
-        contextQ === "thin")
+      isLikelyWebArtifact(inputQuality, contextQ, micro_signals, messageText)
     ) {
       channel_type = "web";
     }
