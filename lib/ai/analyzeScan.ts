@@ -9,17 +9,19 @@ type AnalyzeScanInput = {
   source: "user_text" | "ocr";
 };
 
-type AnalyzeScanOutput = {
+/**
+ * ai_parse_fallback: true if first-pass parse failed (retry used) OR final hard fallback used.
+ * usedFallback: true only when the hard-coded fallback result is returned after retry also failed.
+ */
+export type AnalyzeScanOutput = {
   result: AnalysisResult;
   usedFallback: boolean;
+  ai_parse_fallback: boolean;
 };
 
-export async function analyzeScan(
-  input: AnalyzeScanInput
-): Promise<AnalyzeScanOutput> {
+export async function analyzeScan(input: AnalyzeScanInput): Promise<AnalyzeScanOutput> {
   const prompt = buildPrompt(input);
 
-  // ---- First attempt ----
   const rawResponse = await callOpenAI(prompt);
   const firstPass = safeParseModelJson(rawResponse);
 
@@ -27,10 +29,10 @@ export async function analyzeScan(
     return {
       result: trimForUI(firstPass.result),
       usedFallback: false,
+      ai_parse_fallback: false,
     };
   }
 
-  // ---- One repair retry ----
   const repairPrompt =
     prompt +
     "\n\nIMPORTANT: Your previous output was invalid. Return ONLY valid JSON matching the required schema AND the REQUIRED_OUTPUT_LANGUAGE constraint.";
@@ -43,29 +45,20 @@ export async function analyzeScan(
     return {
       result: trimForUI(secondPass.result),
       usedFallback: false,
+      ai_parse_fallback: true,
     };
   }
 
-  // ---- Final fallback ----
-  logInternalFailure("retry_failed", [
-    ...firstPass.errors,
-    ...secondPass.errors,
-  ]);
+  logInternalFailure("retry_failed", [...firstPass.errors, ...secondPass.errors]);
 
   return {
     result: secondPass.result,
     usedFallback: true,
+    ai_parse_fallback: true,
   };
 }
 
-/* ----------------------------
-   Helpers
----------------------------- */
-
 function buildPrompt(input: AnalyzeScanInput): string {
-  // IMPORTANT:
-  // We treat input.language as the PLATFORM/UI language.
-  // Even if the message itself is English, if language="fr" then summary_sentence MUST be French.
   const requiredOutputLanguage = input.language === "mixed" ? "en" : input.language;
 
   return `
@@ -111,7 +104,6 @@ function trimForUI(result: AnalysisResult): AnalysisResult {
 }
 
 function logInternalFailure(code: string, details: string[]) {
-  // Server-side only. No raw message text.
   console.warn("[AI_PARSE_FAILURE]", {
     code,
     details,

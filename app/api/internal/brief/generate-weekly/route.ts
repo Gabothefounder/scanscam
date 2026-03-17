@@ -73,16 +73,21 @@ async function getWeekRiskData(
   if (!rows?.length) return { byNarrative, totals };
 
   for (const r of rows as { intel_features?: { narrative_category?: string }; risk_tier?: string }[]) {
-    const value = String(r?.intel_features?.narrative_category ?? "unknown").trim() || "unknown";
+    const rawNarrative = r?.intel_features?.narrative_category;
+    const value =
+      typeof rawNarrative === "string" && rawNarrative.trim().length > 0
+        ? rawNarrative.trim()
+        : "unknown";
     const tier = String(r?.risk_tier ?? "low").toLowerCase();
     const key = tier === "high" ? "high" : tier === "medium" ? "medium" : "low";
+    totals[key]++;
+    if (value === "none" || value === "unknown") continue;
     let entry = byNarrative.get(value);
     if (!entry) {
       entry = { low: 0, medium: 0, high: 0 };
       byNarrative.set(value, entry);
     }
     entry[key]++;
-    totals[key]++;
   }
   return { byNarrative, totals };
 }
