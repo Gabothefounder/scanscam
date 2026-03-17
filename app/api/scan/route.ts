@@ -32,6 +32,9 @@ const CORE_INTEL_KEYS = [
   "escalation_pattern",
 ] as const;
 
+/** Shared phone pattern for channel, callback_number_present, micro_signals.has_phone_number */
+const PHONE_CALLBACK_PATTERN = /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/;
+
 function countKnownCoreDimensions(intel: Record<string, unknown>): number {
   let n = 0;
   for (const k of CORE_INTEL_KEYS) {
@@ -129,20 +132,87 @@ function detectChannelType(
   raw: string,
   iq: { url_only: boolean; message_like: boolean }
 ): string {
-  if (iq.url_only || /^(https?:\/\/\S+|www\.\S+)$/i.test(raw.trim())) return "web";
+  const trimmed = raw.trim();
+  const lineCount = raw.split(/\n/).filter((l) => l.trim().length > 0).length;
+  const urlCharRatio =
+    trimmed.length > 0
+      ? ((trimmed.match(/https?:\/\/|www\./gi) || []).join("").length / trimmed.length)
+      : 0;
+
+  if (iq.url_only || /^(https?:\/\/\S+|www\.\S+)$/i.test(trimmed)) return "web";
+  if (urlCharRatio > 0.42) return "web";
+  if (/\/(t\.co|bit\.ly|goo\.gl)\b/i.test(raw) && urlCharRatio > 0.15) return "web";
+
   if (
-    /\b(reply|text)\s+stop\b|msg\s*&\s*data|data\s+rates|text\s+message|^sms[\s:]/i.test(raw) ||
-    /\b\d{5,10}\b.*\b(stop|help|unsubscribe)\b/i.test(text)
+    /^from:\s|^to:\s|^subject:\s|^sent:\s|^date:\s|^reply-to:\s/mi.test(raw) ||
+    /^from:\s*\S+@/im.test(raw)
+  )
+    return "email";
+  if (lineCount >= 2 && /^from:\s*\S+/im.test(raw) && /@/.test(raw)) return "email";
+
+  if (
+    /\b(reply|text)\s+stop\b|msg\s*&\s*data|data\s+(?:rates|charges|may\s+apply)|\btext\s+message\b|^sms[\s:]|^txt[\s:]/i.test(raw) ||
+    /\b\d{4,6}\b[^\n]{0,40}\b(stop|help|unsubscribe|end)\b/i.test(text) ||
+    /\bshort\s*code\b|\bmsg\s*&\s*data/i.test(text)
   )
     return "sms";
-  if (/^from:\s*\S+@|^to:\s*\S+@|^subject:\s/im.test(raw)) return "email";
+
+  if (
+    /\b(kijiji|craigslist)\b|facebook\s+marketplace|\bmarketplace\s+(listing|post|item|sale)|\bclassifieds?\s+(ad|listing)/i.test(
+      text
+    ) ||
+    (/\b(buyer|seller)\b/.test(text) && /\b(listing|item|ship|pickup|price)\b/.test(text))
+  )
+    return "marketplace";
+
+  if (
+    /whatsapp|wa\.me|telegram\.|(?<![\w.])\btelegram\b|signal\b|imessage|i-message|\bmessenger\b(?!\s+marketplace)|facebook\s+messenger|viber\b|wechat|line\s+app/i.test(
+      text
+    ) ||
+    /\b(chat|message)\s+me\s+(on|via)\s+(whatsapp|telegram|signal)/i.test(text)
+  )
+    return "messaging_app";
+
+  if (
+    /snapchat|instagram|\binsta\b|tiktok|twitter|tweet\b|x\.com\/|linkedin|reddit|\bdm\s+me\b|direct\s+message|slide\s+into\s+(my\s+)?dms/i.test(
+      text
+    ) ||
+    /\b(?:my|view|see|check\s+out)\s+(?:my\s+)?story\b/i.test(text) ||
+    (/\bfacebook\b|\bmeta\b/.test(text) && !/marketplace/i.test(text))
+  )
+    return "social";
+
   if (/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(raw) && raw.includes("@")) return "email";
-  if (/whatsapp|wa\.me/i.test(text)) return "whatsapp";
-  if ((/voicemail|call\s+(us|now|back)|ring\s+us/i.test(text) || /incoming\s+call/i.test(text)) && /\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/.test(raw))
+
+  if (
+    (/voicemail|missed\s+call|incoming\s+call|call\s+(us|now|today|back|here)|ring\s+us|dial\s+this|reach\s+us\s+at/i.test(text) &&
+      PHONE_CALLBACK_PATTERN.test(raw)) ||
+    (PHONE_CALLBACK_PATTERN.test(raw) && /\b(call|phone|dial)\b/i.test(text))
+  )
     return "phone";
-  if (/\bsms\b|text\s+message/i.test(text)) return "sms";
-  if (/\bcall\b|\bphone\b|voicemail/i.test(text)) return "phone";
-  if (iq.message_like && raw.split(/\n/).length <= 2 && raw.length < 280 && !/[@]/.test(raw)) return "none";
+
+  if (/\bsms\b|\btext\s+to\s+\d/i.test(text)) return "sms";
+
+  if (
+    /\bforwarded\s+message\b|you\s+have\s+(a\s+)?new\s+message\s+from|notification:\s*(new\s+)?(message|reply)/i.test(
+      text
+    )
+  )
+    return "other";
+
+  if (
+    iq.message_like &&
+    lineCount <= 2 &&
+    trimmed.length < 300 &&
+    !/@/.test(raw) &&
+    !PHONE_CALLBACK_PATTERN.test(raw) &&
+    !/https?:\/\/|www\./i.test(raw)
+  )
+    return "none";
+
+  if (trimmed.length >= 120 && /\b(reach\s+out|following\s+up|touch\s+base|get\s+in\s+touch)\b/i.test(text))
+    return "other";
+
   return "unknown";
 }
 
@@ -219,9 +289,6 @@ function hasCredentialRequest(text: string): boolean {
   return /password|ssn|sin\b|social\s+security|login|credentials|verify.*identity|confirm.*account|otp|verification\s+code/i.test(text);
 }
 
-/** Same pattern as callback_number_present / channel phone detection — single source for phone micro-signal. */
-const PHONE_CALLBACK_PATTERN = /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/;
-
 const DEFAULT_MICRO_SIGNALS: Record<string, boolean> = {
   has_link: false,
   has_phone_number: false,
@@ -242,11 +309,16 @@ function extractMicroSignals(raw: string, text: string): Record<string, boolean>
   const has_phone_number = PHONE_CALLBACK_PATTERN.test(raw);
   const has_email_address = /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i.test(raw);
   const has_action_request =
-    /\b(click|verify|call|reply|check|confirm|login|review|update)\b/.test(text) || /\bact\s+now\b/.test(text);
+    /\b(click|tap|verify|review|confirm|login|log\s*in|update|restore|claim|redeem|schedule|reschedule|call|reply|check|follow|complete|submit|unlock|validate)\b/.test(
+      text
+    ) ||
+    /\bact\s+now\b/.test(text);
   const urgency_detected =
     /\burgent\b|\bimmediately\b|\bright\s+now\b|\bnow\b|\btoday\b|final\s+notice|action\s+required|\bact\s+now\b/.test(text);
   const threat_detected =
-    /\bsuspension\b|\brestriction\b|\blocked\b|\bpenalty\b|\boverdue\b|\benforcement\b|final\s+warning/.test(text);
+    /\b(?:re)?strict(?:ed|ion)?s?\b|\bsuspension\b|\bsuspended\b|\blocked\b|\bdisabled\b|\bpenalt(?:y|ies)\b|\boverdue\b|\benforcement\b|final\s+warning|avoid\s+(?:restriction|penalt)|restore\s+access|account\s+(?:at\s+risk|will\s+be\s+(?:closed|suspended))|will\s+be\s+(?:closed|suspended)/i.test(
+      text
+    );
   const authority_keyword_detected =
     /\bcra\b|\birs\b|\b(?:arc)\b|tax|government|justice|\bbank\b|account\s+support|official\s+notice/.test(text);
   const delivery_keyword_detected =
@@ -472,8 +544,9 @@ function extractIntelFeatures(
       riskTier === "low" &&
       richContext &&
       intel_state === "unknown" &&
-      micro_signals.has_action_request &&
-      (micro_signals.urgency_detected || micro_signals.threat_detected)
+      ((micro_signals.has_action_request &&
+        (micro_signals.urgency_detected || micro_signals.threat_detected)) ||
+        (micro_signals.threat_detected && micro_signals.credential_request_detected))
     ) {
       intel_state = "weak_signal";
     }
