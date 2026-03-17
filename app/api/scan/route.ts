@@ -130,7 +130,8 @@ function detectBrandMentions(text: string): string[] {
 function detectChannelType(
   text: string,
   raw: string,
-  iq: { url_only: boolean; message_like: boolean }
+  iq: { url_only: boolean; message_like: boolean },
+  microSignals: Record<string, boolean>
 ): string {
   const trimmed = raw.trim();
   const lineCount = raw.split(/\n/).filter((l) => l.trim().length > 0).length;
@@ -140,8 +141,10 @@ function detectChannelType(
       : 0;
 
   if (iq.url_only || /^(https?:\/\/\S+|www\.\S+)$/i.test(trimmed)) return "web";
-  if (urlCharRatio > 0.42) return "web";
-  if (/\/(t\.co|bit\.ly|goo\.gl)\b/i.test(raw) && urlCharRatio > 0.15) return "web";
+  // Near-URL-only: only force web when not clearly communication-like.
+  if (urlCharRatio > 0.42 && !isCommunicationLike(text, microSignals)) return "web";
+  if (/\/(t\.co|bit\.ly|goo\.gl)\b/i.test(raw) && urlCharRatio > 0.15 && !isCommunicationLike(text, microSignals))
+    return "web";
 
   if (
     /^from:\s|^to:\s|^subject:\s|^sent:\s|^date:\s|^reply-to:\s/mi.test(raw) ||
@@ -152,7 +155,8 @@ function detectChannelType(
 
   if (
     /\b(reply|text)\s+stop\b|msg\s*&\s*data|data\s+(?:rates|charges|may\s+apply)|\btext\s+message\b|^sms[\s:]|^txt[\s:]/i.test(raw) ||
-    /\b\d{4,6}\b[^\n]{0,40}\b(stop|help|unsubscribe|end)\b/i.test(text) ||
+    /\btext\s+stop\s+to\s+(?:opt\s*out|unsubscribe)\b/i.test(text) ||
+    /\b\d{4,6}\b[^\n]{0,60}\b(stop|help|unsubscribe|end)\b/i.test(text) ||
     /\bshort\s*code\b|\bmsg\s*&\s*data/i.test(text)
   )
     return "sms";
@@ -214,6 +218,18 @@ function detectChannelType(
     return "other";
 
   return "unknown";
+}
+
+function isCommunicationLike(textLower: string, microSignals: Record<string, boolean>): boolean {
+  return (
+    microSignals.has_action_request ||
+    microSignals.urgency_detected ||
+    microSignals.threat_detected ||
+    microSignals.authority_keyword_detected ||
+    microSignals.delivery_keyword_detected ||
+    microSignals.financial_keyword_detected ||
+    microSignals.credential_request_detected
+  );
 }
 
 function detectEscalationPattern(text: string, contextQ: string): string {
@@ -499,7 +515,7 @@ function extractIntelFeatures(
     const micro_signals = extractMicroSignals(messageText, text);
     const contextQ = assessContextQuality(messageText, inputQuality);
     const narrative_category = detectNarrativeCategory(text, contextQ);
-    let channel_type = detectChannelType(text, messageText, inputQuality);
+    let channel_type = detectChannelType(text, messageText, inputQuality, micro_signals);
     let authority_type = detectAuthorityType(text, contextQ);
     if (authority_type === "none" && micro_signals.authority_keyword_detected) authority_type = "unknown";
     const payment_intent = detectPaymentIntent(text);
@@ -527,6 +543,25 @@ function extractIntelFeatures(
     );
 
     const richContext = contextQ === "partial" || contextQ === "full";
+    const commLike = isCommunicationLike(text, micro_signals);
+
+    // URL-only / URL-dominant artifacts with weak context and no clear communication cues → treat as web.
+    if (
+      (channel_type === "unknown" || channel_type === "none") &&
+      !commLike &&
+      (inputQuality.url_only ||
+        inputQuality.very_short ||
+        micro_signals.has_link ||
+        contextQ === "fragment" ||
+        contextQ === "thin")
+    ) {
+      channel_type = "web";
+    }
+
+    // Clear communication-like artifacts that still have unknown/none channel become generic "other".
+    if (channel_type === "unknown" && richContext && commLike) channel_type = "other";
+    if (channel_type === "none" && richContext && commLike) channel_type = "other";
+
     if (
       riskTier === "low" &&
       richContext &&
