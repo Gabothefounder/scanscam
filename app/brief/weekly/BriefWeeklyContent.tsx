@@ -55,80 +55,116 @@ function hasValue(s: string | null | undefined): boolean {
 
 const COPY = {
   en: {
-    intro: "Each week, ScanScam analyzes suspicious messages submitted by the public in Canada to identify emerging fraud patterns.",
-    titleLead: "Fraud observed this week in Canada",
+    intro: "",
+    titleLead: "Pre-fraud behavioral signals in Canada — by ScanScam",
+    titleSub: "Early behavioral signals before financial loss",
+    titleProvenance:
+      "Weekly public signal brief based on suspicious messages submitted to ScanScam in Canada.",
     weekOf: "Week of",
     generated: "Generated",
     riskIndexLabel: "Risk Index",
     riskLow: "Low",
     riskMedium: "Medium",
     riskHigh: "High",
-    riskIndexBasedOn: "Based on {count} suspicious messages analyzed this week.",
+    riskIndexBasedOn: "",
     trendUp: "up",
     trendDown: "down",
     trendFlat: "unchanged",
     noDominant: "No single dominant pattern identified this week.",
-    mostFrequent: "{fraud_label} appeared most frequently among messages analyzed this week.",
-    signalsLimited: "Signals were limited this week, but {fraud_label} appeared most frequently among scanned messages.",
-    chartNarratives: "Fraud signals observed this week",
-    chartNote: "The weekly fraud signal is selected using severity weighting, not message count.",
+    mostFrequent: "{fraud_label} appeared most frequently this week.",
+    signalsLimited: "{fraud_label} appeared most frequently this week.",
+    chartNarratives: "Distribution of signals this week",
+    chartSub: "Based on submitted messages",
     fraudSignalThisWeek: "Predominant fraud this week",
-    sectionHow: "How the fraud works",
-    sectionProtect: "How to protect yourself",
-    sectionCta: "Analyze a suspicious message",
-    ctaLead: "Use ScanScam to analyze suspicious messages for free.",
-    ctaSupport: "Every message analyzed helps improve fraud detection and protect others from scams.",
-    ctaLink: "Scan a message at scanscam.ca",
+    sectionWhatSeeing: "What we’re seeing",
+    seeingLine1: "{fraud_label} were the most frequent this week.",
+    seeingLine2: "No major surge detected this week.",
+    sectionRiskIndex: "ScanScam Risk Index",
+    riskIndexContext: "Overall level of suspicious activity this week",
+    riskIndexSub: "Moderate activity",
+    riskCaution: "Stay cautious with urgent or unexpected requests.",
+    sectionHowWorks: "How this scam works",
+    howItWorksSubhead: "How it works",
+    howWorksLine1: "Scammers claim you’ve won a prize, refund, or reward.",
+    howWorksLead: "They may ask you to:",
+    howWorksBullet1: "pay a fee",
+    howWorksBullet2: "share personal details",
+    howWorksBullet3: "click a suspicious link",
+    howWorksLine2: "They use urgency to push quick action.",
+    sectionWhatKnow: "What to know",
+    whatKnowBullet1: "Legitimate prizes do not require payment",
+    whatKnowBullet2: "Do not share personal information",
+    whatKnowBullet3: "If you didn’t enter anything → it’s likely a scam",
+    sectionCta: "Check a message",
     ctaButton: "Scan a suspicious message",
-    prefraudTitle: "Prefraud intelligence access",
-    prefraudAudience: "Researchers, institutions, journalists, and fraud professionals can access deeper intelligence products.",
-    prefraudSummary: "For researchers, media, and institutions",
-    prefraudBullet1: "Professional intelligence brief",
+    ctaSupport: "Check a message for free — help stop the next scam.",
+    prefraudTitle: "For institutions and professionals",
+    prefraudAudience: "",
+    prefraudSummary: "For institutions and professionals",
+    prefraudBullet1: "Weekly intelligence brief",
     prefraudBullet2: "Fraud radar dashboard",
     prefraudBullet3: "Emerging scam signals",
-    prefraudBullet4: "Regional and hyperlocal fraud views",
-    prefraudBullet5: "Pilot collaborations for public and private partners",
+    prefraudBullet4: "Regional and hyperlocal views",
+    prefraudBullet5: "Pilot collaborations (public & private)",
     prefraudContact: "Contact",
-    methodology: "This brief is generated from ScanScam scan data for the stated week. Narratives and risk are classified from message content; counts are aggregated. No personal data is included.",
+    methodology: "",
     loading: "Loading weekly brief…",
     noData: "No data available.",
   },
   fr: {
-    intro: "Chaque semaine, ScanScam analyse des messages suspects soumis par le public au Canada afin d'identifier les tendances émergentes de fraude.",
-    titleLead: "Fraude observée cette semaine au Canada",
+    intro: "",
+    titleLead: "Signaux pré-fraude au Canada — par ScanScam",
+    titleSub: "Signaux comportementaux avant toute perte financière",
+    titleProvenance:
+      "Bulletin hebdomadaire basé sur des messages suspects soumis à ScanScam au Canada",
     weekOf: "Semaine du",
     generated: "Généré le",
     riskIndexLabel: "Indice de risque",
     riskLow: "Faible",
     riskMedium: "Moyen",
     riskHigh: "Élevé",
-    riskIndexBasedOn: "D'après {count} messages suspects analysés cette semaine.",
+    riskIndexBasedOn: "",
     trendUp: "à la hausse",
-    trendDown: "à la baisse",
+    trendDown: "en baisse",
     trendFlat: "inchangé",
     noDominant: "Aucun schéma dominant identifié cette semaine.",
-    mostFrequent: "{fraud_label} est apparue le plus souvent parmi les messages analysés cette semaine.",
-    signalsLimited: "Les signaux étaient limités cette semaine, mais {fraud_label} est apparue le plus souvent parmi les messages analysés.",
-    chartNarratives: "Fraudes observées cette semaine",
-    chartNote: "Le signal de fraude de la semaine est déterminé selon une pondération de sévérité, et non uniquement selon le nombre de messages.",
+    mostFrequent: "{fraud_label} est apparue le plus souvent cette semaine.",
+    signalsLimited: "{fraud_label} est apparue le plus souvent cette semaine.",
+    chartNarratives: "Répartition des signaux cette semaine",
+    chartSub: "Selon les messages soumis",
     fraudSignalThisWeek: "Signal de fraude cette semaine",
-    sectionHow: "Comment fonctionne la fraude",
-    sectionProtect: "Comment vous protéger",
-    sectionCta: "Analyser un message suspect",
-    ctaLead: "Utilisez ScanScam pour analyser gratuitement les messages suspects.",
-    ctaSupport: "Chaque message analysé contribue à améliorer la détection des fraudes et à protéger les autres contre les arnaques.",
-    ctaLink: "Analyser un message sur scanscam.ca",
+    sectionWhatSeeing: "Ce qu’on observe",
+    seeingLine1: "Les arnaques {fraud_label} sont les plus fréquentes cette semaine.",
+    seeingLine2: "Aucune hausse majeure détectée cette semaine.",
+    sectionRiskIndex: "Indice de risque ScanScam",
+    riskIndexContext: "Niveau global d’activité suspecte cette semaine",
+    riskIndexSub: "Activité modérée",
+    riskCaution: "Restez prudent face aux demandes urgentes ou inattendues.",
+    sectionHowWorks: "Comment cette arnaque fonctionne",
+    howItWorksSubhead: "Comment fonctionne l’arnaque",
+    howWorksLine1: "Les fraudeurs prétendent que vous avez gagné un prix, un remboursement ou une récompense.",
+    howWorksLead: "Ils peuvent vous demander de :",
+    howWorksBullet1: "payer des frais",
+    howWorksBullet2: "fournir des informations personnelles",
+    howWorksBullet3: "cliquer sur un lien suspect",
+    howWorksLine2: "Elle utilise l’urgence pour pousser à agir rapidement.",
+    sectionWhatKnow: "À savoir",
+    whatKnowBullet1: "Un vrai prix ne demande pas de paiement",
+    whatKnowBullet2: "Ne partagez pas d’informations personnelles",
+    whatKnowBullet3: "Si vous n’avez rien demandé → c’est probablement une arnaque",
+    sectionCta: "Vérifier un message",
     ctaButton: "Analyser un message suspect",
-    prefraudTitle: "Accès à l'intelligence pré-fraude",
-    prefraudAudience: "Les chercheurs, institutions, journalistes et professionnels de la fraude peuvent accéder à des produits d'intelligence plus détaillés.",
-    prefraudSummary: "Pour les chercheurs, les médias et les institutions",
-    prefraudBullet1: "Bulletin d'intelligence professionnel",
+    ctaSupport: "Vérifiez un message gratuitement. Aidez à stopper la prochaine arnaque.",
+    prefraudTitle: "Pour les institutions et les professionnels",
+    prefraudAudience: "",
+    prefraudSummary: "Pour les institutions et professionnels",
+    prefraudBullet1: "Bulletin d’intelligence hebdomadaire",
     prefraudBullet2: "Tableau de bord radar fraude",
     prefraudBullet3: "Signaux de fraude émergents",
-    prefraudBullet4: "Vues régionales et hyperlocales sur la fraude",
-    prefraudBullet5: "Collaborations pilotes avec partenaires publics et privés",
-    prefraudContact: "Contacter",
-    methodology: "Ce bulletin est généré à partir des données d'analyse ScanScam pour la semaine indiquée. Les récits et le risque sont classés à partir du contenu des messages ; les totaux sont agrégés. Aucune donnée personnelle n'est incluse.",
+    prefraudBullet4: "Vues régionales et hyperlocales",
+    prefraudBullet5: "Collaborations pilotes (public & privé)",
+    prefraudContact: "Contact",
+    methodology: "",
     loading: "Chargement du bulletin…",
     noData: "Aucune donnée disponible.",
   },
@@ -161,6 +197,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#1a1a1a",
     letterSpacing: "-0.02em",
   },
+  titleSub: {
+    margin: "0 0 8px",
+    fontSize: 13,
+    color: "#57606a",
+    lineHeight: 1.35,
+  },
+  titleProvenance: {
+    margin: "0 0 8px",
+    fontSize: 13,
+    color: "#57606a",
+    lineHeight: 1.35,
+  },
+  smallSupport: {
+    margin: "6px 0 0",
+    fontSize: 13,
+    lineHeight: 1.35,
+    color: "#57606a",
+  },
   meta: {
     margin: "4px 0 0",
     fontSize: 14,
@@ -174,6 +228,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   chartWrap: {
     marginTop: 4,
+  },
+  chartNarrow: {
+    maxWidth: "70%",
+    margin: "0 auto",
+    padding: "10px 12px",
+    border: "1px solid rgba(208,215,222,0.22)",
+    borderRadius: "12px",
+    backgroundColor: "rgba(246,248,250,0.45)",
   },
   chartNote: {
     margin: "8px 0 0",
@@ -189,18 +251,27 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
+  sectionKicker: {
+    margin: "-4px 0 10px",
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "#1a1a1a",
+  },
   sectionBody: {
     margin: "0 0 16px",
-    fontSize: 19,
-    lineHeight: 1.7,
+    fontSize: 15,
+    lineHeight: 1.6,
     color: "#24292f",
   },
   riskBox: {
     backgroundColor: "#f6f8fa",
-    border: "1px solid #d0d7de",
-    borderRadius: "8px",
-    padding: "12px 14px",
-    marginTop: 8,
+    border: "1px solid rgba(208,215,222,0.9)",
+    borderRadius: "12px",
+    padding: "16px 18px",
+    marginTop: 10,
+    boxShadow: "0 10px 26px rgba(27,31,36,0.05)",
   },
   riskRow: {
     display: "flex",
@@ -209,10 +280,53 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
   },
   riskIndexValue: {
-    fontSize: 24,
-    fontWeight: 700,
+    fontSize: 28,
+    fontWeight: 850,
     color: "#1a1a1a",
     lineHeight: 1,
+  },
+  riskSubline: {
+    margin: "10px 0 0",
+    fontSize: 15,
+    lineHeight: 1.4,
+    color: "#1a1a1a",
+    fontWeight: 700,
+  },
+  riskCaution: {
+    margin: "6px 0 0",
+    fontSize: 15,
+    lineHeight: 1.5,
+    color: "#1a1a1a",
+  },
+  riskBarWrap: {
+    marginTop: 10,
+  },
+  riskBar: {
+    position: "relative",
+    width: "100%",
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden",
+    background:
+      "linear-gradient(90deg, rgba(35,134,54,0.85) 0%, rgba(210,153,34,0.85) 50%, rgba(218,54,51,0.85) 100%)",
+    boxShadow: "inset 0 0 0 1px rgba(27,31,36,0.10), inset 0 1px 2px rgba(27,31,36,0.12)",
+  },
+  riskMarker: {
+    position: "absolute",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#0b1320",
+    boxShadow: "0 0 0 2px #ffffff, 0 0 0 3px rgba(11,19,32,0.06)",
+  },
+  riskBarLabels: {
+    marginTop: 8,
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 12,
+    color: "#57606a",
   },
   riskTrend: {
     fontSize: 12,
@@ -249,10 +363,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   prefraudSummary: {
     marginTop: 8,
-    fontSize: 13,
+    fontSize: 15,
     cursor: "pointer",
     color: "#0969da",
-    fontWeight: 500,
+    fontWeight: 600,
     listStyle: "none",
     paddingLeft: 0,
   },
@@ -281,8 +395,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   ctaSupport: {
     margin: "6px 0 0",
-    fontSize: 13,
-    lineHeight: 1.45,
+    fontSize: 15,
+    lineHeight: 1.5,
     color: "#24292f",
   },
   ctaLink: {
@@ -313,18 +427,62 @@ const styles: Record<string, React.CSSProperties> = {
   },
   prefraudListItem: {
     marginBottom: 4,
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 1.5,
     color: "#24292f",
   },
   prefraudContact: {
     marginTop: 10,
-    fontSize: 14,
+    fontSize: 15,
     color: "#24292f",
   },
   prefraudContactLink: {
     color: "#0969da",
     textDecoration: "none",
+  },
+  simpleList: {
+    margin: "10px 0 14px 18px",
+    padding: 0,
+  },
+  simpleListItem: {
+    marginBottom: 10,
+    fontSize: 16,
+    lineHeight: 1.65,
+    color: "#24292f",
+  },
+  checkList: {
+    margin: "10px 0 14px",
+    padding: 0,
+    listStyle: "none",
+  },
+  checkListItem: {
+    display: "flex",
+    gap: 10,
+    alignItems: "flex-start",
+    marginBottom: 10,
+    fontSize: 15,
+    lineHeight: 1.6,
+    color: "#24292f",
+    fontWeight: 600,
+  },
+  checkMark: {
+    flex: "0 0 auto",
+    marginTop: 1,
+    color: "#238636",
+    fontWeight: 900,
+  },
+  prefraudLead: {
+    margin: "0 0 12px",
+    fontSize: 15,
+    lineHeight: 1.6,
+    color: "#24292f",
+    fontWeight: 600,
+  },
+  divider: {
+    margin: "20px 0 22px",
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    opacity: 0.7,
   },
   footer: {
     marginTop: 24,
@@ -498,13 +656,125 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
           ? t.trendFlat
           : null;
 
+  const headTitle = t.titleLead;
+
+  const trendArrow = trend === "up" ? "↑" : trend === "down" ? "↓" : trend === "flat" ? "→" : "";
+  const riskIndexNum = typeof data.risk_index === "number" ? data.risk_index : null;
+  const riskArrow = trendArrow;
+  const riskBand =
+    riskIndexNum == null ? null : riskIndexNum <= 33 ? "low" : riskIndexNum <= 66 ? "medium" : "high";
+  const riskBandLabel =
+    riskBand == null
+      ? "—"
+      : riskBand === "low"
+        ? lang === "fr"
+          ? "Risque faible"
+          : "Low risk"
+        : riskBand === "medium"
+          ? lang === "fr"
+            ? "Risque modéré"
+            : "Moderate risk"
+          : lang === "fr"
+            ? "Risque élevé"
+            : "High risk";
+
+  const riskBandLabelWithTrend =
+    riskBandLabel !== "—" && trendLabel
+      ? `${riskBandLabel} (${trendLabel})`
+      : riskBandLabel;
+
+  const formatPredominantFraudEn = (label: string): string => {
+    const t = String(label ?? "").trim();
+    if (!t) return "—";
+    // Avoid \"Prize Scam scams\" -> \"Prize scams\"
+    if (/\bscam\b$/i.test(t)) {
+      const base = t.replace(/\bscam\b/i, "").trim();
+      return base ? `${base} scams` : "Scams";
+    }
+    // Avoid \"Phishing\" -> \"Phishing scams\" (still reads naturally)
+    return `${t} scams`;
+  };
+
+  const formatPredominantFraudFr = (label: string): string => {
+    const raw = String(label ?? "").trim();
+    if (!raw) return "—";
+    // Convert labels like "Arnaque au faux gain" into "de faux gains" for natural phrasing:
+    // "Les arnaques de faux gains sont les plus fréquentes cette semaine."
+    const stripped = raw
+      .replace(/^Arnaque\s+au\s+/i, "")
+      .replace(/^Arnaque\s+à\s+la\s+/i, "")
+      .replace(/^Arnaque\s+aux\s+/i, "")
+      .replace(/^Arnaque\s+à\s+l[’']/i, "");
+    const base = stripped.trim();
+    if (!base) return raw;
+    const lower = base.charAt(0).toLowerCase() + base.slice(1);
+    const needsElision = /^[aeiouàâäæéèêëîïôùûüœ]/i.test(lower);
+    return needsElision ? `d’${lower}` : `de ${lower}`;
+  };
+
+  const formatScamTitleFr = (label: string): string => {
+    const raw = String(label ?? "").trim();
+    if (!raw) return "—";
+    // "Arnaque au faux gain" -> "Faux gain"
+    const stripped = raw
+      .replace(/^Arnaque\s+au\s+/i, "")
+      .replace(/^Arnaque\s+à\s+la\s+/i, "")
+      .replace(/^Arnaque\s+aux\s+/i, "")
+      .replace(/^Arnaque\s+à\s+l[’']/i, "");
+    const out = stripped.trim();
+    return out || raw;
+  };
+
+  const scamKey = String(data.top_narrative_raw ?? "").toLowerCase().trim();
+  const scamTitle =
+    lang === "fr"
+      ? formatScamTitleFr(fraudLabelDisplay || t.noDominant)
+      : fraudLabelDisplay || t.noDominant;
+
+  const howWorksContent = (() => {
+    // Lightweight branching, same structure.
+    if (scamKey === "government_impersonation") {
+      return lang === "fr"
+        ? {
+            line1: "Les fraudeurs se font passer pour une agence gouvernementale ou fiscale.",
+            bullets: ["payer des frais ou une amende", "confirmer votre identité", "cliquer sur un lien ou appeler un numéro"],
+            line2: "Ils utilisent la menace ou l’urgence pour pousser à agir vite.",
+          }
+        : {
+            line1: "Scammers impersonate a government or tax agency.",
+            bullets: ["pay a fee or fine", "confirm your identity", "click a link or call a number"],
+            line2: "They use pressure or urgency to force quick action.",
+          };
+    }
+    if (scamKey === "delivery_scam") {
+      return lang === "fr"
+        ? {
+            line1: "Les fraudeurs prétendent qu’un colis est en attente ou qu’une livraison a échoué.",
+            bullets: ["payer de petits frais", "cliquer sur un lien de suivi", "entrer des informations personnelles ou de paiement"],
+            line2: "Ils créent un sentiment d’urgence (redelivery, délai court).",
+          }
+        : {
+            line1: "Scammers claim a package is waiting or delivery failed.",
+            bullets: ["pay a small fee", "click a tracking link", "enter personal or payment details"],
+            line2: "They create urgency (redelivery, short deadlines).",
+          };
+    }
+    // Default (prize scam / general)
+    return {
+      line1: t.howWorksLine1,
+      bullets: [t.howWorksBullet1, t.howWorksBullet2, t.howWorksBullet3],
+      line2: t.howWorksLine2,
+    };
+  })();
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
       <div style={styles.wrap} className="brief-weekly brief-weekly-print-root">
-        <p style={styles.intro}>{t.intro}</p>
         <header style={styles.header} className="brief-weekly-header">
-          <h1 style={styles.title}>{t.titleLead}</h1>
+          <h1 style={styles.title}>{headTitle}</h1>
+          <p style={styles.titleSub}>{t.titleSub}</p>
+          <p style={styles.titleProvenance}>{t.titleProvenance}</p>
           {(weekLabel || generatedLabel) && (
             <p style={styles.meta}>
               {weekLabel}
@@ -514,126 +784,119 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
           )}
         </header>
 
-        {/* Risk Index — compact: index, trend, mini ratio bar, counts */}
+        {/* 2) Risk Index (with visual bar) */}
         {showRiskSection && (
           <section style={styles.section} className="brief-weekly-section">
-            <h2 style={styles.sectionTitle}>{t.riskIndexLabel}</h2>
+            <h2 style={styles.sectionTitle}>{t.sectionRiskIndex}</h2>
+            <p style={styles.smallSupport}>{t.riskIndexContext}</p>
             <div style={styles.riskBox} className="brief-weekly-risk-box">
               <div style={styles.riskRow} className="brief-weekly-risk-row">
-                <span style={styles.riskIndexValue}>{riskIndex}</span>
-                {trendLabel != null && delta != null && (
+                <span style={styles.riskIndexValue}>
+                  {riskIndexNum != null ? `${riskIndexNum} ${riskArrow}`.trim() : "—"}
+                </span>
+              </div>
+              <p style={styles.riskSubline}>{riskBandLabelWithTrend}</p>
+              <div style={styles.riskBarWrap} aria-hidden>
+                <div style={styles.riskBar}>
                   <span
                     style={{
-                      ...styles.riskTrend,
-                      ...(trend === "up" ? styles.riskTrendUp : trend === "down" ? styles.riskTrendDown : {}),
+                      ...styles.riskMarker,
+                      left: `${riskIndexNum ?? 0}%`,
                     }}
-                  >
-                    {delta > 0 ? "+" : ""}
-                    {delta} {trendLabel}
-                  </span>
-                )}
+                  />
+                </div>
+                <div style={styles.riskBarLabels}>
+                  <span>{lang === "fr" ? "Faible" : "Low"}</span>
+                  <span>{lang === "fr" ? "Moyen" : "Medium"}</span>
+                  <span>{lang === "fr" ? "Élevé" : "High"}</span>
+                </div>
               </div>
-              {riskCounts != null && riskCounts.total > 0 && (
-                <>
-                  <div style={styles.riskRatioBar} aria-hidden>
-                    <span
-                      style={{
-                        ...styles.riskRatioSegment,
-                        width: `${(riskCounts.low / riskCounts.total) * 100}%`,
-                        backgroundColor: "#9be9a8",
-                      }}
-                    />
-                    <span
-                      style={{
-                        ...styles.riskRatioSegment,
-                        width: `${(riskCounts.medium / riskCounts.total) * 100}%`,
-                        backgroundColor: "#f0e68c",
-                      }}
-                    />
-                    <span
-                      style={{
-                        ...styles.riskRatioSegment,
-                        width: `${(riskCounts.high / riskCounts.total) * 100}%`,
-                        backgroundColor: "#ff7b72",
-                      }}
-                    />
-                  </div>
-                  <div style={styles.riskCounts}>
-                    <span>{t.riskLow}: {Math.round((riskCounts.low / riskCounts.total) * 100)}% · {t.riskMedium}: {Math.round((riskCounts.medium / riskCounts.total) * 100)}% · {t.riskHigh}: {Math.round((riskCounts.high / riskCounts.total) * 100)}%</span>
-                  </div>
-                  <p style={styles.riskIndexBasedOn}>
-                    {t.riskIndexBasedOn.replace("{count}", String(riskCounts.total))}
-                  </p>
-                </>
-              )}
+              <p style={styles.riskCaution}>{t.riskCaution}</p>
             </div>
           </section>
         )}
 
-        {/* Fraud signals observed this week — chart first, then interpretation */}
-        {Array.isArray(data.narratives) && data.narratives.length > 0 && (
-          <section style={styles.section} className="brief-weekly-section">
-            <div className="brief-weekly-charts" style={styles.chartWrap}>
-              <FraudLandscapeCard
-                theme="light"
-                title={t.chartNarratives}
-                items={chartItems ?? []}
-                hideNumericScale
-                selectedValue={data.top_narrative_raw ?? null}
-                staticMode
-              />
-            </div>
-            <p style={styles.chartNote}>{t.chartNote}</p>
-          </section>
-        )}
-
-        {/* Fraud signal this week — selected fraud label and explanation */}
-        <section style={styles.section} className="brief-weekly-section">
-          <h2 style={styles.sectionTitle}>{t.fraudSignalThisWeek}</h2>
-          {hasDominant && <p style={styles.fraudLabel}>{fraudLabelDisplay}</p>}
-          <p style={styles.sectionBody}>{fraudExplanationContent}</p>
+        {/* 3) What we’re seeing */}
+        <section style={{ ...styles.section, marginTop: 52 }} className="brief-weekly-section">
+          <h2 style={styles.sectionTitle}>{t.sectionWhatSeeing}</h2>
+          <p style={styles.sectionBody}>
+            <strong>
+              {lang === "fr"
+                ? t.seeingLine1.replace("{fraud_label}", formatPredominantFraudFr(fraudLabelDisplay || "—"))
+                : t.seeingLine1.replace("{fraud_label}", formatPredominantFraudEn(fraudLabelDisplay || "—"))}
+            </strong>
+          </p>
+          <p style={styles.sectionBody}>{t.seeingLine2}</p>
         </section>
 
-        {/* How the fraud works — use French when locale is fr */}
-        {(() => {
-          const howText = lang === "fr" && data.how_it_works_fr ? data.how_it_works_fr : data.how_it_works;
-          return hasValue(howText) ? (
-            <section style={styles.section} className="brief-weekly-section">
-              <h2 style={styles.sectionTitle}>{t.sectionHow}</h2>
-              <p style={styles.sectionBody}>{howText}</p>
-            </section>
-          ) : null;
-        })()}
+        {/* 4) Signals distribution (graph) */}
+        {Array.isArray(data.narratives) && data.narratives.length > 0 && (
+          <section style={styles.section} className="brief-weekly-section">
+            <h2 style={styles.sectionTitle}>{t.chartNarratives}</h2>
+            <p style={styles.sectionBody}>{t.chartSub}</p>
+            <div style={styles.chartNarrow}>
+              <div className="brief-weekly-charts" style={styles.chartWrap}>
+                <FraudLandscapeCard
+                  theme="light"
+                  title=""
+                  items={chartItems ?? []}
+                  hideNumericScale
+                  selectedValue={data.top_narrative_raw ?? null}
+                  staticMode
+                />
+              </div>
+            </div>
+          </section>
+        )}
 
-        {/* How to protect yourself — use French when locale is fr; first sentence emphasized */}
-        {(() => {
-          const protectText =
-            lang === "fr" && data.protection_tip_fr ? data.protection_tip_fr : data.protection_tip;
-          return hasValue(protectText) ? (
-            <section style={styles.section} className="brief-weekly-section">
-              <h2 style={styles.sectionTitle}>{t.sectionProtect}</h2>
-              <p style={styles.sectionBody}>
-                {(() => {
-                  const idx = protectText.indexOf(".");
-                  const firstSentence = idx >= 0 ? protectText.slice(0, idx + 1) : protectText;
-                  const rest = idx >= 0 ? protectText.slice(idx + 1).trim() : "";
-                  return (
-                    <>
-                      <strong>{firstSentence}</strong>
-                      {rest ? ` ${rest}` : ""}
-                    </>
-                  );
-                })()}
-              </p>
-            </section>
-          ) : null;
-        })()}
+        {/* 5) Divider */}
+        <div style={styles.divider} aria-hidden />
 
-        {/* CTA: Analyze a suspicious message — title, body, link, then support line */}
+        {/* 6) Predominant scam section (dynamic) */}
+        <section style={{ ...styles.section, marginTop: 56 }} className="brief-weekly-section">
+          <h2 style={styles.sectionTitle}>
+            {`${scamTitle} — ${lang === "fr" ? "cette semaine" : "this week"}`.toUpperCase()}
+          </h2>
+          <div style={styles.sectionKicker}>{t.howItWorksSubhead}</div>
+          <p style={styles.sectionBody}>{howWorksContent.line1}</p>
+          <p style={styles.sectionBody}>{t.howWorksLead}</p>
+          <ul style={styles.simpleList}>
+            {howWorksContent.bullets.map((b: string, i: number) => (
+              <li key={i} style={styles.simpleListItem}>{b}</li>
+            ))}
+          </ul>
+          <p style={styles.sectionBody}>
+            {lang === "en" && howWorksContent.line2 === COPY.en.howWorksLine2 ? (
+              <strong>{howWorksContent.line2}</strong>
+            ) : (
+              howWorksContent.line2
+            )}
+          </p>
+        </section>
+
+        {/* 8) What to know */}
         <section style={styles.section} className="brief-weekly-section">
+          <h2 style={styles.sectionTitle}>{t.sectionWhatKnow}</h2>
+          <ul style={styles.checkList}>
+            <li style={styles.checkListItem}>
+              <span style={styles.checkMark} aria-hidden>✔</span>
+              <span>{t.whatKnowBullet1}</span>
+            </li>
+            <li style={styles.checkListItem}>
+              <span style={styles.checkMark} aria-hidden>✔</span>
+              <span>{t.whatKnowBullet2}</span>
+            </li>
+            <li style={styles.checkListItem}>
+              <span style={styles.checkMark} aria-hidden>✔</span>
+              <span>{t.whatKnowBullet3.replace("→", "—")}</span>
+            </li>
+          </ul>
+        </section>
+
+        {/* 7) CTA */}
+        <section style={{ ...styles.section, marginTop: 56 }} className="brief-weekly-section">
           <h2 style={styles.sectionTitle}>{t.sectionCta}</h2>
           <div style={styles.ctaBox} className="brief-weekly-cta-box">
-            <p style={styles.ctaLead}>{t.ctaLead}</p>
             <a
               href={`https://scanscam.ca/?lang=${lang}`}
               style={styles.ctaButton}
@@ -645,10 +908,14 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
           </div>
         </section>
 
-        {/* Prefraud intelligence access — collapsible details, contact always visible */}
-        <section style={styles.section} className="brief-weekly-section">
+        {/* 8) For institutions (collapsible) */}
+        <section style={{ ...styles.section, marginTop: 56 }} className="brief-weekly-section">
           <h2 style={styles.sectionTitle}>{t.prefraudTitle}</h2>
-          <p style={styles.sectionBody}>{t.prefraudAudience}</p>
+          <p style={styles.prefraudLead}>
+            {lang === "fr"
+              ? "Accédez à une intelligence fraude plus approfondie et à une analyse des schémas."
+              : "Access deeper fraud intelligence and pattern analysis."}
+          </p>
           <details className="brief-weekly-prefraud-details">
             <summary style={styles.prefraudSummary}>{t.prefraudSummary}</summary>
             <div className="brief-weekly-prefraud-details-content" style={styles.prefraudDetailsContent}>
@@ -662,16 +929,18 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
             </div>
           </details>
           <p style={styles.prefraudContact}>
-            {t.prefraudContact}{" "}
+            {t.prefraudContact}:{" "}
             <a href="mailto:hello@scanscam.ca" style={styles.prefraudContactLink}>
               hello@scanscam.ca
             </a>
           </p>
         </section>
 
-        <footer style={styles.footer} className="brief-weekly-footer">
-          {t.methodology}
-        </footer>
+        {hasValue(t.methodology) && (
+          <footer style={styles.footer} className="brief-weekly-footer">
+            {t.methodology}
+          </footer>
+        )}
       </div>
     </>
   );
