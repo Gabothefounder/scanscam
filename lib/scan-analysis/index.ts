@@ -25,19 +25,26 @@ export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
   const extractResult = extract({
     messageText: trimmed.toLowerCase(),
     contextQuality,
+    submissionRoute,
   });
 
   const riskResult = computeRisk({
-    riskTierFromAi: "low",
     submissionRoute,
     narrativeFamily: extractResult.narrativeFamily,
+    impersonationEntity: extractResult.impersonationEntity,
+    requestedAction: extractResult.requestedAction,
     threatStage: extractResult.threatStage,
+    contextQuality,
   });
 
   const summary = explain({
-    riskTier: riskResult.riskTier,
+    submissionRoute,
     narrativeFamily: extractResult.narrativeFamily,
+    impersonationEntity: extractResult.impersonationEntity,
+    requestedAction: extractResult.requestedAction,
     threatStage: extractResult.threatStage,
+    confidenceLevel: riskResult.confidenceLevel,
+    contextQuality,
   });
 
   return {
@@ -49,7 +56,7 @@ export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
     impersonationEntity: extractResult.impersonationEntity,
     requestedAction: extractResult.requestedAction,
     threatStage: extractResult.threatStage,
-    confidenceLevel: "low",
+    confidenceLevel: riskResult.confidenceLevel,
     sourceType: source,
     contextQuality,
   };

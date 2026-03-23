@@ -68,9 +68,10 @@ const OBVIOUS_SCAM_CUES = [
   /\baccount\s+suspend|verify\s+account|unusual\s+activity\b/i,
   /\bbank|credit\s+union|paypal\b/i,
   /\burgent|immediately|act\s+now|within\s+\d+\s*(hour|minute)\b/i,
-  /\bsuspend|close\s+account|lose\s+access|locked\s+out\b/i,
+  /\bsuspen\w*|close\s+account|lose\s+access|locked\s+out\b/i,
   /\bprize|winner|won|congratulations.*won\b/i,
   /\bjob|work\s+from\s+home|easy\s+money\b/i,
+  /\brecover\s+(your\s+)?(lost\s+)?(crypto\s+)?funds?\b|contact\s+recovery\b|crypto\s+recovery\b/i,
 ];
 
 function hasObviousScamCues(text: string): boolean {
