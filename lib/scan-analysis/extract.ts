@@ -21,6 +21,6 @@ export function extract(input: ExtractInput): ExtractResult {
     narrativeFamily: "unknown",
     impersonationEntity: "unknown",
     requestedAction: "unknown",
-    threatStage: "none",
+    threatStage: "unclear",
   };
 }

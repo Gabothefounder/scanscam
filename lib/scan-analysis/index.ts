@@ -6,30 +6,25 @@
  */
 
 import type { ScanAnalysisInput, ScanAnalysisResult } from "./types";
-import { routeSubmission } from "./router";
+import { assessContextQuality, routeSubmission } from "./router";
 import { extract } from "./extract";
 import { computeRisk } from "./risk";
 import { explain } from "./explain";
 
 export type { ScanAnalysisInput, ScanAnalysisResult } from "./types";
 export * from "./taxonomy";
+export { assessContextQuality, routeSubmission } from "./router";
 
 export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
   const { messageText, source } = input;
 
   const trimmed = messageText.trim();
-  const urlOnly = /^(https?:\/\/\S+|www\.\S+)$/i.test(trimmed);
-  const veryShort = trimmed.length >= 20 && trimmed.length < 100;
-
-  const submissionRoute = routeSubmission({
-    messageText: trimmed,
-    urlOnly,
-    veryShort,
-  });
+  const contextQuality = assessContextQuality({ messageText: trimmed });
+  const submissionRoute = routeSubmission({ messageText: trimmed });
 
   const extractResult = extract({
     messageText: trimmed.toLowerCase(),
-    contextQuality: urlOnly ? "fragment" : "partial",
+    contextQuality,
   });
 
   const riskResult = computeRisk({
@@ -54,8 +49,8 @@ export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
     impersonationEntity: extractResult.impersonationEntity,
     requestedAction: extractResult.requestedAction,
     threatStage: extractResult.threatStage,
-    confidenceLevel: "unknown",
+    confidenceLevel: "low",
     sourceType: source,
-    contextQuality: urlOnly ? "fragment" : "partial",
+    contextQuality,
   };
 }

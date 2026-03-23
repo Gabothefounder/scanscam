@@ -1,6 +1,7 @@
 /**
  * Centralized taxonomy enums for scan analysis.
  * Single source of truth for allowed values.
+ * MVP only — no multi-label support.
  */
 
 export const RISK_TIER = ["low", "medium", "high"] as const;
@@ -8,7 +9,6 @@ export type RiskTier = (typeof RISK_TIER)[number];
 
 export const SUBMISSION_ROUTE = [
   "likely_scam",
-  "likely_legit",
   "ambiguous",
   "test",
   "insufficient_context",
@@ -24,10 +24,7 @@ export const NARRATIVE_FAMILY = [
   "recovery_scam",
   "reward_claim",
   "social_engineering_opener",
-  "tech_support",
-  "romance_scam",
   "investment_fraud",
-  "none",
   "unknown",
 ] as const;
 export type NarrativeFamily = (typeof NARRATIVE_FAMILY)[number];
@@ -37,10 +34,10 @@ export const IMPERSONATION_ENTITY = [
   "service_canada",
   "rcmp",
   "canada_post",
+  "wealthsimple",
   "generic_government",
   "generic_financial",
-  "generic_corporate",
-  "none",
+  "generic_courier",
   "unknown",
 ] as const;
 export type ImpersonationEntity = (typeof IMPERSONATION_ENTITY)[number];
@@ -48,32 +45,35 @@ export type ImpersonationEntity = (typeof IMPERSONATION_ENTITY)[number];
 export const REQUESTED_ACTION = [
   "click_link",
   "call_number",
-  "reply_sms",
   "submit_credentials",
   "pay_money",
+  "reply_sms",
   "download_app",
-  "forward_message",
   "none",
   "unknown",
 ] as const;
 export type RequestedAction = (typeof REQUESTED_ACTION)[number];
 
 export const THREAT_STAGE = [
-  "time_pressure",
-  "legal_threat",
-  "account_threat",
-  "reward_lure",
-  "relationship_lure",
-  "none",
-  "unknown",
+  "initial_lure",
+  "credential_capture",
+  "payment_extraction",
+  "post_loss_recovery",
+  "unclear",
 ] as const;
 export type ThreatStage = (typeof THREAT_STAGE)[number];
 
-export const CONFIDENCE_LEVEL = ["high", "medium", "low", "unknown"] as const;
+export const CONFIDENCE_LEVEL = ["low", "medium", "high"] as const;
 export type ConfidenceLevel = (typeof CONFIDENCE_LEVEL)[number];
 
 export const SOURCE_TYPE = ["user_text", "ocr"] as const;
 export type SourceType = (typeof SOURCE_TYPE)[number];
 
-export const CONTEXT_QUALITY = ["full", "partial", "thin", "fragment", "unknown"] as const;
+export const CONTEXT_QUALITY = [
+  "full",
+  "partial",
+  "thin",
+  "fragment",
+  "unknown",
+] as const;
 export type ContextQuality = (typeof CONTEXT_QUALITY)[number];
