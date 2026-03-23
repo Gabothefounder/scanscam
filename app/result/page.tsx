@@ -46,6 +46,33 @@ const copy = {
       { action: "Pause before responding", explanation: "Legitimate services don't require immediate action." },
       { action: "Verify through the official website", explanation: "Use the official website instead of the link in the message." },
     ],
+    narrativeNextSteps: {
+      social_engineering_opener: [
+        { action: "Do not continue the conversation if it feels unexpected", explanation: "Scammers often use casual openers to build trust before asking for money or details." },
+        { action: "Do not share personal, work, or financial information", explanation: "Even small details can be used in follow-up scams." },
+        { action: "Verify identity through a separate trusted channel if needed", explanation: "Contact the person through a known official channel, not the one in the message." },
+      ],
+      recovery_scam: [
+        { action: "Do not send money or share account details", explanation: "Legitimate recovery services do not charge upfront fees." },
+        { action: "Verify through official channels", explanation: "Report losses to your bank or law enforcement through their official websites or phone numbers." },
+        { action: "Be cautious of anyone who contacts you first", explanation: "Genuine recovery options are usually initiated by you, not by unsolicited messages." },
+      ],
+      account_verification: [
+        { action: "Never use links in the message", explanation: "Log in only through the official website or app you already use." },
+        { action: "Verify through the official app or website", explanation: "Check your account status directly — legitimate services notify you in-app first." },
+        { action: "Contact the service through their official support", explanation: "Use the contact details from the company's verified website, not from the message." },
+      ],
+      delivery_scam: [
+        { action: "Verify tracking through the official carrier", explanation: "Use the carrier's website or app, not any link in the message." },
+        { action: "Do not pay fees or share details", explanation: "Real delivery issues are resolved through the official carrier, not by paying through a link." },
+        { action: "Check your actual orders", explanation: "Log into your account on the real retailer or carrier site to see if there are any issues." },
+      ],
+      government_impersonation: [
+        { action: "Government agencies do not threaten by email or SMS", explanation: "CRA, Service Canada, and similar agencies use mail for official matters." },
+        { action: "Never share your SIN, passwords, or banking details", explanation: "No legitimate agency will ask for these via text or unsolicited email." },
+        { action: "Verify through official government portals", explanation: "Go directly to canada.ca or the agency's official site — never through a link in the message." },
+      ],
+    } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
     footerAdvisory:
@@ -61,7 +88,7 @@ const copy = {
         reward_claim: "Prize or reward claim",
         law_enforcement: "Law enforcement impersonation",
         employment_scam: "Employment scam pattern",
-        social_engineering_opener: "Social or contact opener",
+        social_engineering_opener: "Unexpected personal contact or trust-building opener",
         investment_fraud: "Investment fraud pattern",
       } as Record<string, string>,
       entity: {
@@ -107,15 +134,15 @@ const copy = {
     } as Record<string, string>,
     narrativeGuidance: {
       delivery_scam:
-        "Parcel and delivery scams often ask for fees or personal details. Verify tracking through the official carrier website or app.",
+        "Parcel and delivery scams often ask for fees or personal details.",
       employment_scam:
         "Job scams may request personal information or payments upfront. Confirm job offers through the company's official channels.",
       government_impersonation:
-        "Government agencies do not threaten by email or SMS. Never share your SIN, passwords, or banking details with unsolicited contacts.",
+        "Government agencies do not threaten by email or SMS.",
       account_verification:
-        "Verify through the official website or app — never use links in the message. Legitimate services do not suspend accounts without prior notice.",
+        "Legitimate services do not suspend accounts without prior notice. Scammers use urgency and links in the message to capture credentials.",
       recovery_scam:
-        "Recovery scams target people who have already lost money, promising to get it back for a fee. Do not send money or share account details. Verify through official channels before taking any action.",
+        "Recovery scams target people who have already lost money, promising to get it back for a fee.",
       financial_phishing:
         "Avoid clicking links in the message. Log in only through the official website or app you know.",
       prize_scam:
@@ -130,6 +157,8 @@ const copy = {
         "Verify investment opportunities through official sources. Be wary of guaranteed returns or pressure to act quickly.",
       law_enforcement:
         "Law enforcement does not demand payment or personal details by text or email. Verify through official channels.",
+      social_engineering_opener:
+        "This may be an early-stage social-engineering opener. The sender may be trying to start a conversation and build trust before a later request.",
       unknown:
         "Pause before responding. Verify through a trusted contact or official source when something feels off.",
     },
@@ -169,6 +198,33 @@ const copy = {
       { action: "Prenez un moment avant de répondre", explanation: "Les services légitimes n'exigent pas d'action immédiate." },
       { action: "Vérifiez via le site officiel", explanation: "Utilisez le site officiel plutôt que le lien dans le message." },
     ],
+    narrativeNextSteps: {
+      social_engineering_opener: [
+        { action: "Ne poursuivez pas la conversation si elle semble inattendue", explanation: "Les escrocs utilisent souvent des accroches informelles pour gagner la confiance avant de demander de l'argent ou des détails." },
+        { action: "Ne partagez pas d'informations personnelles, professionnelles ou financières", explanation: "Même quelques détails peuvent servir dans des arnaques de suivi." },
+        { action: "Vérifiez l'identité par un canal distinct et fiable si nécessaire", explanation: "Contactez la personne par un canal officiel connu, pas celui indiqué dans le message." },
+      ],
+      recovery_scam: [
+        { action: "N'envoyez pas d'argent et ne partagez pas vos identifiants", explanation: "Les services de récupération légitimes ne facturent pas de frais à l'avance." },
+        { action: "Vérifiez via les canaux officiels", explanation: "Signalez les pertes à votre banque ou aux autorités via leurs sites ou numéros officiels." },
+        { action: "Méfiez-vous de quiconque vous contacte en premier", explanation: "Les options de récupération légitimes sont généralement initiées par vous, pas par des messages non sollicités." },
+      ],
+      account_verification: [
+        { action: "N'utilisez jamais les liens du message", explanation: "Connectez-vous uniquement via le site ou l'app officiels que vous utilisez déjà." },
+        { action: "Vérifiez via l'app ou le site officiel", explanation: "Consultez le statut de votre compte directement — les services légitimes vous informent d'abord dans l'app." },
+        { action: "Contactez le service via leur support officiel", explanation: "Utilisez les coordonnées du site vérifié de l'entreprise, pas celles du message." },
+      ],
+      delivery_scam: [
+        { action: "Vérifiez le suivi via le transporteur officiel", explanation: "Utilisez le site ou l'app du transporteur, pas un lien du message." },
+        { action: "Ne payez pas de frais ni ne partagez de détails", explanation: "Les vrais problèmes de livraison sont résolus par le transporteur officiel, pas en payant via un lien." },
+        { action: "Vérifiez vos commandes réelles", explanation: "Connectez-vous à votre compte sur le site du détaillant ou du transporteur pour voir s'il y a des problèmes." },
+      ],
+      government_impersonation: [
+        { action: "Les organismes gouvernementaux ne menacent pas par courriel ou SMS", explanation: "L'ARC, Service Canada et d'autres organismes utilisent le courrier pour les affaires officielles." },
+        { action: "Ne partagez jamais votre NAS, mots de passe ou informations bancaires", explanation: "Aucun organisme légitime ne demandera ces informations par texto ou courriel non sollicité." },
+        { action: "Vérifiez via les portails gouvernementaux officiels", explanation: "Allez directement sur canada.ca ou le site officiel de l'organisme — jamais via un lien du message." },
+      ],
+    } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
     footerAdvisory:
@@ -184,7 +240,7 @@ const copy = {
         reward_claim: "Promesse de gain ou de prix",
         law_enforcement: "Usurpation des forces de l'ordre",
         employment_scam: "Schéma d'arnaque à l'emploi",
-        social_engineering_opener: "Contact ou accroche sociale",
+        social_engineering_opener: "Contact personnel inattendu ou accroche de confiance",
         investment_fraud: "Schéma de fraude à l'investissement",
       } as Record<string, string>,
       entity: {
@@ -230,15 +286,15 @@ const copy = {
     } as Record<string, string>,
     narrativeGuidance: {
       delivery_scam:
-        "Les arnaques aux colis demandent souvent des frais ou des renseignements personnels. Vérifiez le suivi sur le site ou l'app officielle du transporteur.",
+        "Les arnaques aux colis demandent souvent des frais ou des renseignements personnels.",
       employment_scam:
         "Les arnaques à l'emploi peuvent demander des renseignements personnels ou des paiements. Confirmez les offres via les canaux officiels de l'entreprise.",
       government_impersonation:
-        "Les organismes gouvernementaux ne menacent pas par courriel ou SMS. Ne partagez jamais votre NAS, mots de passe ou informations bancaires.",
+        "Les organismes gouvernementaux ne menacent pas par courriel ou SMS.",
       account_verification:
-        "Vérifiez via le site ou l'app officiels — jamais via les liens du message. Les services légitimes ne suspendent pas les comptes sans avertissement.",
+        "Les services légitimes ne suspendent pas les comptes sans avertissement. Les arnaqueurs utilisent l'urgence et les liens du message pour capturer des identifiants.",
       recovery_scam:
-        "Les arnaques de récupération ciblent les personnes ayant déjà perdu de l'argent, promettant de le récupérer contre des frais. N'envoyez pas d'argent et ne partagez pas vos identifiants. Vérifiez via les canaux officiels avant toute action.",
+        "Les arnaques de récupération ciblent les personnes ayant déjà perdu de l'argent, promettant de le récupérer contre des frais.",
       financial_phishing:
         "Évitez de cliquer sur les liens. Connectez-vous uniquement via le site ou l'app officiels que vous connaissez.",
       prize_scam:
@@ -253,6 +309,8 @@ const copy = {
         "Vérifiez les opportunités d'investissement auprès de sources officielles. Méfiez-vous des rendements garantis ou de la pression.",
       law_enforcement:
         "Les forces de l'ordre ne demandent pas de paiement ou de renseignements personnels par texto ou courriel. Vérifiez via les canaux officiels.",
+      social_engineering_opener:
+        "Il peut s'agir d'une accroche d'ingénierie sociale en début de conversation. L'expéditeur peut chercher à entamer un échange et à gagner votre confiance avant une demande ultérieure.",
       unknown:
         "Prenez une pause avant de répondre. Vérifiez auprès d'un contact fiable ou d'une source officielle si quelque chose vous semble étrange.",
     },
@@ -397,6 +455,9 @@ export default function ResultPage() {
     return g[narrative] ?? null;
   })();
 
+  const narrativeFamily = intel.narrative_family ?? "";
+  const nextSteps = (t.narrativeNextSteps as Record<string, { action: string; explanation: string }[] | undefined>)?.[narrativeFamily] ?? t.guidance;
+
   const summary =
     result.summary_sentence || t.defaultSummary[risk];
 
@@ -458,7 +519,7 @@ export default function ResultPage() {
         <div style={styles.actionBlock}>
           <div style={styles.actionTitle}>{t.actionTitle}</div>
           <ul style={styles.actionList}>
-            {t.guidance.map((g, i) => (
+            {nextSteps.map((g, i) => (
               <li key={i} style={styles.actionItem}>
                 <strong>{g.action}</strong>
                 <span style={styles.actionExplanation}>{g.explanation}</span>

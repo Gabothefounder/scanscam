@@ -55,6 +55,7 @@ export function buildScanEnrichment(input: ScanAnalysisInput): ScanAnalysisResul
     threatStage: extractResult.threatStage,
     confidenceLevel: riskResult.confidenceLevel,
     contextQuality,
+    riskTier: riskResult.riskTier,
   });
 
   // 8. Return

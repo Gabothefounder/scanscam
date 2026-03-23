@@ -40,10 +40,16 @@ function shouldSkipExtraction(ctx: string, route: string): boolean {
 
 const NARRATIVE_RULES: { id: NarrativeFamily; test: RegExp }[] = [
   { id: "recovery_scam", test: /\brecover\b|funds?\s+recover|contact\s+recovery\b/i },
-  { id: "social_engineering_opener", test: /\bwrong\s+number\b|sorry.*wrong\b|who\s+is\s+this\b|reconnect\b|long\s+time\s+no\b/i },
+  {
+    id: "social_engineering_opener",
+    test: /\bwrong\s+number\b|sorry.*wrong\s+number|texted\s+the\s+wrong\s+number|who\s+is\s+this\b|reconnect\b|long\s+time\s+no\b|long\s+time\s+no\s+talk\b|did\s+you\s+get\s+my\s+last\s+message\b|found\s+your\s+number\s+in\s+my\s+contacts\b|are\s+you\s+still\s+working\s+(in|at)\b|since\s+you'?re\s+here\b/i,
+  },
   { id: "law_enforcement", test: /\brcmp\b|royal\s+canadian\s+mounted|\bpolice\b|arrest\b|warrant\b|jail\b/i },
   { id: "government_impersonation", test: /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|government\s+fine/i },
-  { id: "account_verification", test: /\bverify\s+(your\s+)?account\b|account\s+suspend|unusual\s+activity|confirm\s+identity\b/i },
+  {
+    id: "account_verification",
+    test: /\bverify\s+(your\s+)?account\b|account\s+suspend|unusual\s+activity|confirm\s+identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b/i,
+  },
   { id: "delivery_scam", test: /\bpackage\b|delivery\b|courier\b|usps\b|fedex\b|ups\b|tracking\s+number\b|redeliver/i },
   { id: "employment_scam", test: /\bjob\b|work\s+from\s+home|easy\s+money|interview\s+position\b/i },
   { id: "reward_claim", test: /\bprize\b|winner\b|won\b|congratulations.*won|redeem\s+(your\s+)?(gift|prize)\b/i },
@@ -91,10 +97,22 @@ function extractImpersonationEntity(
 // ---------------------------------------------------------------------------
 
 const ACTION_RULES: { id: RequestedAction; test: RegExp }[] = [
-  { id: "submit_credentials", test: /\bpassword\b|login\b|sign\s*in\b|otp\b|verification\s+code\b|verify\s+identity\b|enter\s+code\b/i },
-  { id: "pay_money", test: /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|bitcoin\b|etransfer\b|zelle\b|venmo\b/i },
-  { id: "click_link", test: /\bclick\b|tap\b|open\s+link\b|visit\b|follow\s+link\b|https?:\/\//i },
-  { id: "call_number", test: /\bcall\b|phone\b|dial\b|ring\s+us\b|reach\s+us\s+at\b|\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/ },
+  {
+    id: "submit_credentials",
+    test: /\b(password|otp|verification\s+code|enter\s+code|verify\s+identity)\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b/i,
+  },
+  {
+    id: "pay_money",
+    test: /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|bitcoin\b|etransfer\b|zelle\b|venmo\b/i,
+  },
+  {
+    id: "click_link",
+    test: /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+link\b/i,
+  },
+  {
+    id: "call_number",
+    test: /\b(call|phone|dial|ring\s+us|reach\s+us\s+at|contact\s+us\s+immediately|call\s+immediately|phone\s+us\s+now|call\s+to\s+resolve|contact\s+recovery\s+team|contact\s+us\s+to\s+recover|begin\s+your\s+claim)\b|\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/i,
+  },
   { id: "reply_sms", test: /\breply\b|text\s+back\b|respond\b|message\s+us\b/i },
   { id: "download_app", test: /\bdownload\b|install\s+(the\s+)?app\b/i },
 ];
@@ -117,7 +135,10 @@ const THREAT_RULES: { id: ThreatStage; test: RegExp }[] = [
   { id: "post_loss_recovery", test: /\brecover\s+funds\b|contact\s+recovery\b|get\s+your\s+money\s+back\b/i },
   { id: "credential_capture", test: /\botp\b|verification\s+code\b|password\b|login\b|verify\s+account\b|confirm\s+identity\b/i },
   { id: "payment_extraction", test: /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|fee\b|fine\b/i },
-  { id: "initial_lure", test: /\bwrong\s+number\b|hey\b|hi\b|reconnect\b|long\s+time\b|prize\b|winner\b|you('ve|\s+have)\s+won\b/i },
+  {
+    id: "initial_lure",
+    test: /\bwrong\s+number\b|sorry.*wrong|who\s+is\s+this\b|reconnect\b|long\s+time\s+no(\s+talk)?\b|did\s+you\s+get\s+my\s+last\s+message\b|found\s+your\s+number\s+in\s+my\s+contacts\b|are\s+you\s+still\s+working\s+(in|at)\b|since\s+you'?re\s+here\b|hey\b|hi\b|prize\b|winner\b|you('ve|\s+have)\s+won\b/i,
+  },
 ];
 
 function extractThreatStage(
@@ -139,10 +160,24 @@ export function extract(input: ExtractInput): ExtractResult {
   const ctx = input.contextQuality;
   const route = input.submissionRoute;
 
+  const narrative = extractNarrativeFamily(text, ctx, route);
+  const entity = extractImpersonationEntity(text, ctx, route);
+  const action = extractRequestedAction(text, ctx, route);
+  let threat = extractThreatStage(text, ctx, route);
+
+  if (
+    narrative === "social_engineering_opener" &&
+    threat === "unclear" &&
+    action !== "pay_money" &&
+    action !== "submit_credentials"
+  ) {
+    threat = "initial_lure";
+  }
+
   return {
-    narrativeFamily: extractNarrativeFamily(text, ctx, route),
-    impersonationEntity: extractImpersonationEntity(text, ctx, route),
-    requestedAction: extractRequestedAction(text, ctx, route),
-    threatStage: extractThreatStage(text, ctx, route),
+    narrativeFamily: narrative,
+    impersonationEntity: entity,
+    requestedAction: action,
+    threatStage: threat,
   };
 }

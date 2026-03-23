@@ -72,6 +72,7 @@ const OBVIOUS_SCAM_CUES = [
   /\bprize|winner|won|congratulations.*won\b/i,
   /\bjob|work\s+from\s+home|easy\s+money\b/i,
   /\brecover\s+(your\s+)?(lost\s+)?(crypto\s+)?funds?\b|contact\s+recovery\b|crypto\s+recovery\b/i,
+  /\bwrong\s+number\b|did\s+you\s+get\s+my\s+last\s+message\b|found\s+your\s+number\s+in\s+my\s+contacts\b|texted\s+the\s+wrong\s+number|long\s+time\s+no\s+talk\b|are\s+you\s+still\s+working\s+(in|at)\b|since\s+you'?re\s+here\b/i,
 ];
 
 function hasObviousScamCues(text: string): boolean {

@@ -528,6 +528,44 @@ function isBenignRoutineLowRisk(text: string, micro_signals: Record<string, bool
   return true;
 }
 
+/**
+ * Risk reconciliation: elevate risk when enrichment detects strong scam patterns.
+ * Never elevates insufficient_context/fragment (caller must skip when capped).
+ */
+function applyRiskReconciliation(
+  currentRisk: "low" | "medium" | "high",
+  enrichment: {
+    narrativeFamily: string;
+    impersonationEntity: string;
+    requestedAction: string;
+    threatStage: string;
+  }
+): "low" | "medium" | "high" {
+  let risk = currentRisk;
+  const n = enrichment.narrativeFamily ?? "";
+  const e = enrichment.impersonationEntity ?? "";
+  const a = enrichment.requestedAction ?? "";
+  const th = enrichment.threatStage ?? "";
+  const entityKnown = e && e !== "unknown";
+  const strongActions = new Set(["submit_credentials", "pay_money", "click_link", "call_number"]);
+
+  if (n === "recovery_scam") {
+    risk = "high";
+  } else if (
+    ["government_impersonation", "account_verification", "law_enforcement"].includes(n) &&
+    entityKnown
+  ) {
+    const hasStrongAction = strongActions.has(a);
+    risk = hasStrongAction && ["submit_credentials", "pay_money"].includes(a) ? "high" : "medium";
+  } else if (n === "delivery_scam" && a === "pay_money") {
+    risk = currentRisk === "low" ? "medium" : "high";
+  } else if (th === "credential_capture" && entityKnown) {
+    risk = risk === "low" ? "medium" : "high";
+  }
+
+  return risk;
+}
+
 function extractIntelFeatures(
   result: any,
   messageText: string,
@@ -984,7 +1022,7 @@ export async function POST(req: Request) {
     };
 
     /* ---------- Trust-floor guardrail: cap risk for insufficient/fragment context ---------- */
-    let finalRiskTier = riskTier;
+    let finalRiskTier = riskTier as "low" | "medium" | "high";
     let finalSummary: string | null = result.summary_sentence ?? null;
 
     const isInsufficientContext =
@@ -992,10 +1030,18 @@ export async function POST(req: Request) {
       enrichment.contextQuality === "fragment";
 
     if (isInsufficientContext) {
-      finalRiskTier = riskTier === "high" ? "medium" : riskTier;
+      finalRiskTier = riskTier === "high" ? "medium" : (riskTier as "low" | "medium");
       finalSummary = "Not enough context is available to classify this reliably. Proceed with caution.";
-    } else if (!finalSummary || String(finalSummary).trim() === "") {
-      finalSummary = enrichment.summary ?? null;
+    } else {
+      if (!finalSummary || String(finalSummary).trim() === "") {
+        finalSummary = enrichment.summary ?? null;
+      }
+      finalRiskTier = applyRiskReconciliation(finalRiskTier, {
+        narrativeFamily: enrichment.narrativeFamily,
+        impersonationEntity: enrichment.impersonationEntity,
+        requestedAction: enrichment.requestedAction,
+        threatStage: enrichment.threatStage,
+      });
     }
 
     const userVerdict =

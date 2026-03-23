@@ -11,6 +11,7 @@ export type ExplainInput = {
   threatStage: string;
   confidenceLevel: string;
   contextQuality?: string;
+  riskTier?: "low" | "medium" | "high";
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -71,6 +72,7 @@ export function explain(input: ExplainInput): string {
     requestedAction,
     confidenceLevel,
     contextQuality,
+    riskTier = "low",
   } = input;
 
   // insufficient_context: always use cautious fallback
@@ -78,9 +80,36 @@ export function explain(input: ExplainInput): string {
     return "Not enough context is available to classify this reliably. Proceed with caution.";
   }
 
-  // likely_scam + thin: use fraud-pattern message instead of generic limited-context
+  // -------------------------------------------------------------------------
+  // Narrative-specific summaries FIRST (override generic branches)
+  // social_engineering_opener: use softer tone for low risk OR medium+low confidence
+  // -------------------------------------------------------------------------
+  if (narrativeFamily === "social_engineering_opener") {
+    const useSoftTone =
+      riskTier === "low" ||
+      (riskTier === "medium" && confidenceLevel !== "high");
+    if (useSoftTone) {
+      const isHighConfidence = confidenceLevel === "high";
+      return isHighConfidence
+        ? "This message appears to be an unexpected contact."
+        : "This message may be an unexpected or unfamiliar contact.";
+    }
+    if (riskTier === "medium" && confidenceLevel === "high") {
+      return "This message shows patterns associated with fraud attempts. Proceed with caution.";
+    }
+    if (riskTier === "high") {
+      return "This message strongly resembles a trust-building opener used in fraud schemes. Proceed with caution.";
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Generic branches: "fraud attempts" ONLY when medium/high risk (no specific narrative)
+  // -------------------------------------------------------------------------
   if (submissionRoute === "likely_scam" && contextQuality === "thin") {
-    return "This message shows patterns commonly associated with fraud attempts. Proceed with caution.";
+    if (riskTier === "medium" || riskTier === "high") {
+      return "This message shows patterns commonly associated with fraud attempts. Proceed with caution.";
+    }
+    return "This message has limited context. Proceed with caution and verify through official channels.";
   }
 
   // low confidence with thin context
@@ -116,7 +145,11 @@ export function explain(input: ExplainInput): string {
   } else if (action) {
     parts.push(`This message asks you to ${action}.`);
   } else if (submissionRoute === "likely_scam") {
-    parts.push("This message shows patterns commonly associated with fraud attempts. Proceed with caution.");
+    if (riskTier === "medium" || riskTier === "high") {
+      parts.push("This message shows patterns commonly associated with fraud attempts. Proceed with caution.");
+    } else {
+      parts.push("Proceed with caution. Verify through official channels if the message seems unexpected.");
+    }
   } else if (submissionRoute === "ambiguous") {
     parts.push("This message could not be clearly classified. Verify through official channels if unsure.");
   } else {

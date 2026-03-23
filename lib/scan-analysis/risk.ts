@@ -64,21 +64,34 @@ function applyInsufficientContextCap(
 }
 
 /**
- * Derive confidence from context and signal alignment
+ * Derive confidence from context and signal alignment.
+ * fragment/insufficient stays low; thin + clear signals can be medium.
  */
 function deriveConfidence(
   contextQuality: string | undefined,
   narrativeFamily: string,
   impersonationEntity: string,
-  requestedAction: string
+  requestedAction: string,
+  submissionRoute: string
 ): ConfidenceLevel {
-  if (isThinContext(contextQuality)) return "low";
+  if (submissionRoute === "insufficient_context") return "low";
+  if (contextQuality === "fragment" || contextQuality === "unknown" || !contextQuality) return "low";
+
+  const hasNarrative = narrativeFamily && narrativeFamily !== "unknown";
+  const hasEntity = impersonationEntity && impersonationEntity !== "unknown";
+  const hasAction = requestedAction && requestedAction !== "none" && requestedAction !== "unknown";
+
+  if (contextQuality === "thin") {
+    if (narrativeFamily === "recovery_scam") return "medium";
+    if (narrativeFamily === "social_engineering_opener") return "medium";
+    if (hasNarrative && hasEntity) return "medium";
+    if (hasNarrative && hasAction) return "medium";
+    return "low";
+  }
 
   if (contextQuality === "full") {
-    const hasNarrative = narrativeFamily !== "unknown";
-    const hasEntity = impersonationEntity !== "unknown";
-    const hasAction = requestedAction !== "none" && requestedAction !== "unknown";
     if (hasNarrative && hasEntity && hasAction) return "high";
+    return "medium";
   }
 
   if (contextQuality === "partial") return "medium";
@@ -164,7 +177,8 @@ export function computeRisk(input: RiskInput): RiskResult {
     contextQuality,
     narrativeFamily,
     impersonationEntity,
-    requestedAction
+    requestedAction,
+    submissionRoute
   );
 
   return {
