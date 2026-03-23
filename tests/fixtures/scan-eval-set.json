@@ -1,0 +1,38 @@
+[
+  {
+    "label": "raw URL only",
+    "input": "https://phish-site.com/login"
+  },
+  {
+    "label": "CRA / government impersonation",
+    "input": "Your CRA refund is ready. Verify now."
+  },
+  {
+    "label": "delivery scam",
+    "input": "Your package is held. Pay fee at link."
+  },
+  {
+    "label": "account verification",
+    "input": "Wealthsimple: verify your account to avoid suspension."
+  },
+  {
+    "label": "wrong-number opener",
+    "input": "Hey, did you get my last message?"
+  },
+  {
+    "label": "recovery scam",
+    "input": "We can recover your lost crypto funds. Contact recovery team now."
+  },
+  {
+    "label": "reward lure",
+    "input": "Congratulations! You've won a $500 gift card. Claim now."
+  },
+  {
+    "label": "legit weird",
+    "input": "Can you confirm if you received my previous email?"
+  },
+  {
+    "label": "benign",
+    "input": "See you at 3pm for coffee."
+  }
+]

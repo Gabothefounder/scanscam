@@ -1,0 +1,110 @@
+[
+  {
+    "label": "raw URL only",
+    "input": "https://phish-site.com/login",
+    "submissionRoute": "insufficient_context",
+    "narrativeFamily": "unknown",
+    "impersonationEntity": "unknown",
+    "requestedAction": "unknown",
+    "threatStage": "unclear",
+    "confidenceLevel": "low",
+    "contextQuality": "fragment",
+    "summary": "Not enough context is available to classify this reliably. Proceed with caution."
+  },
+  {
+    "label": "CRA / government impersonation",
+    "input": "Your CRA refund is ready. Verify now.",
+    "submissionRoute": "likely_scam",
+    "narrativeFamily": "government_impersonation",
+    "impersonationEntity": "cra",
+    "requestedAction": "none",
+    "threatStage": "unclear",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message shows patterns commonly associated with fraud attempts. Proceed with caution."
+  },
+  {
+    "label": "delivery scam",
+    "input": "Your package is held. Pay fee at link.",
+    "submissionRoute": "likely_scam",
+    "narrativeFamily": "delivery_scam",
+    "impersonationEntity": "unknown",
+    "requestedAction": "pay_money",
+    "threatStage": "payment_extraction",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message shows patterns commonly associated with fraud attempts. Proceed with caution."
+  },
+  {
+    "label": "account verification",
+    "input": "Wealthsimple: verify your account to avoid suspension.",
+    "submissionRoute": "likely_scam",
+    "narrativeFamily": "account_verification",
+    "impersonationEntity": "wealthsimple",
+    "requestedAction": "none",
+    "threatStage": "unclear",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message shows patterns commonly associated with fraud attempts. Proceed with caution."
+  },
+  {
+    "label": "wrong-number opener",
+    "input": "Hey, did you get my last message?",
+    "submissionRoute": "ambiguous",
+    "narrativeFamily": "unknown",
+    "impersonationEntity": "unknown",
+    "requestedAction": "unknown",
+    "threatStage": "unclear",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message has limited context. Proceed with caution and verify through official channels."
+  },
+  {
+    "label": "recovery scam",
+    "input": "We can recover your lost crypto funds. Contact recovery team now.",
+    "submissionRoute": "likely_scam",
+    "narrativeFamily": "recovery_scam",
+    "impersonationEntity": "unknown",
+    "requestedAction": "none",
+    "threatStage": "post_loss_recovery",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message shows patterns commonly associated with fraud attempts. Proceed with caution."
+  },
+  {
+    "label": "reward lure",
+    "input": "Congratulations! You've won a $500 gift card. Claim now.",
+    "submissionRoute": "likely_scam",
+    "narrativeFamily": "reward_claim",
+    "impersonationEntity": "unknown",
+    "requestedAction": "pay_money",
+    "threatStage": "payment_extraction",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message shows patterns commonly associated with fraud attempts. Proceed with caution."
+  },
+  {
+    "label": "legit weird",
+    "input": "Can you confirm if you received my previous email?",
+    "submissionRoute": "ambiguous",
+    "narrativeFamily": "unknown",
+    "impersonationEntity": "unknown",
+    "requestedAction": "unknown",
+    "threatStage": "unclear",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message has limited context. Proceed with caution and verify through official channels."
+  },
+  {
+    "label": "benign",
+    "input": "See you at 3pm for coffee.",
+    "submissionRoute": "ambiguous",
+    "narrativeFamily": "unknown",
+    "impersonationEntity": "unknown",
+    "requestedAction": "unknown",
+    "threatStage": "unclear",
+    "confidenceLevel": "low",
+    "contextQuality": "thin",
+    "summary": "This message has limited context. Proceed with caution and verify through official channels."
+  }
+]
