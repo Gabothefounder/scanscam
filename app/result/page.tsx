@@ -23,6 +23,17 @@ const copy = {
       medium: "Medium",
       high: "High",
     },
+    confidenceLabel: "Confidence:",
+    confidenceLevel: {
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+    },
+    confidenceHelper: {
+      low: "This result is based on limited context.",
+      medium: "This result is based on recognizable suspicious patterns.",
+      high: "This result is based on multiple aligned scam indicators.",
+    },
     defaultSummary: {
       low: "This message does not show strong scam-related manipulation patterns.",
       medium:
@@ -40,6 +51,44 @@ const copy = {
     footerAdvisory:
       "ScanScam provides a pattern-based risk assessment. When in doubt, verify through the official source.",
     whySuspicious: "Why it looks suspicious",
+    groundedReasons: {
+      limited_context: "Limited context — not enough information to classify reliably",
+      narrative: {
+        delivery_scam: "Delivery or parcel scam pattern",
+        government_impersonation: "Government or tax impersonation",
+        account_verification: "Account verification request",
+        recovery_scam: "Funds recovery offer",
+        reward_claim: "Prize or reward claim",
+        law_enforcement: "Law enforcement impersonation",
+        employment_scam: "Employment scam pattern",
+        social_engineering_opener: "Social or contact opener",
+        investment_fraud: "Investment fraud pattern",
+      } as Record<string, string>,
+      entity: {
+        cra: "Impersonates CRA",
+        service_canada: "Impersonates Service Canada",
+        rcmp: "Impersonates RCMP",
+        canada_post: "Impersonates Canada Post",
+        wealthsimple: "Impersonates Wealthsimple",
+        generic_government: "Impersonates a government agency",
+        generic_financial: "Impersonates a financial institution",
+        generic_courier: "Impersonates a courier or delivery service",
+      } as Record<string, string>,
+      action: {
+        pay_money: "Asks for payment",
+        click_link: "Asks to click a link",
+        submit_credentials: "Asks for credentials or verification",
+        call_number: "Asks to call a number",
+        reply_sms: "Asks to reply",
+        download_app: "Asks to download an app",
+      } as Record<string, string>,
+      threat: {
+        credential_capture: "Credential capture attempt",
+        payment_extraction: "Payment or fee request",
+        post_loss_recovery: "Post-loss recovery scam",
+        initial_lure: "Initial contact or lure",
+      } as Record<string, string>,
+    },
     signalLabels: {
       urgency: "urgency language",
       payment_request: "payment request",
@@ -63,9 +112,15 @@ const copy = {
         "Job scams may request personal information or payments upfront. Confirm job offers through the company's official channels.",
       government_impersonation:
         "Government agencies do not threaten by email or SMS. Never share your SIN, passwords, or banking details with unsolicited contacts.",
+      account_verification:
+        "Verify through the official website or app — never use links in the message. Legitimate services do not suspend accounts without prior notice.",
+      recovery_scam:
+        "Recovery scams target people who have already lost money, promising to get it back for a fee. Do not send money or share account details. Verify through official channels before taking any action.",
       financial_phishing:
         "Avoid clicking links in the message. Log in only through the official website or app you know.",
       prize_scam:
+        "Real prizes do not require upfront fees. Be cautious of unexpected winnings or offers.",
+      reward_claim:
         "Real prizes do not require upfront fees. Be cautious of unexpected winnings or offers.",
       tech_support:
         "Legitimate tech support does not cold-call or pop up uninvited. Ignore unsolicited calls or alerts.",
@@ -73,6 +128,8 @@ const copy = {
         "Be cautious of requests for money or personal details from people you have not met in person.",
       investment_fraud:
         "Verify investment opportunities through official sources. Be wary of guaranteed returns or pressure to act quickly.",
+      law_enforcement:
+        "Law enforcement does not demand payment or personal details by text or email. Verify through official channels.",
       unknown:
         "Pause before responding. Verify through a trusted contact or official source when something feels off.",
     },
@@ -88,6 +145,17 @@ const copy = {
       low: "Faible",
       medium: "Moyen",
       high: "Élevé",
+    },
+    confidenceLabel: "Confiance :",
+    confidenceLevel: {
+      low: "Faible",
+      medium: "Moyenne",
+      high: "Élevée",
+    },
+    confidenceHelper: {
+      low: "Ce résultat repose sur un contexte limité.",
+      medium: "Ce résultat repose sur des schémas suspects reconnus.",
+      high: "Ce résultat repose sur plusieurs indicateurs de fraude concordants.",
     },
     defaultSummary: {
       low: "Ce message ne présente pas de signes clairs de manipulation frauduleuse.",
@@ -106,6 +174,44 @@ const copy = {
     footerAdvisory:
       "ScanScam fournit une évaluation du risque basée sur des modèles de fraude connus. En cas de doute, vérifiez auprès de la source officielle.",
     whySuspicious: "Pourquoi cela paraît suspect",
+    groundedReasons: {
+      limited_context: "Contexte limité — pas assez d'informations pour classer de façon fiable",
+      narrative: {
+        delivery_scam: "Schéma d'arnaque aux colis",
+        government_impersonation: "Usurpation gouvernementale ou fiscale",
+        account_verification: "Demande de vérification de compte",
+        recovery_scam: "Offre de récupération de fonds",
+        reward_claim: "Promesse de gain ou de prix",
+        law_enforcement: "Usurpation des forces de l'ordre",
+        employment_scam: "Schéma d'arnaque à l'emploi",
+        social_engineering_opener: "Contact ou accroche sociale",
+        investment_fraud: "Schéma de fraude à l'investissement",
+      } as Record<string, string>,
+      entity: {
+        cra: "Usurpe l'ARC",
+        service_canada: "Usurpe Service Canada",
+        rcmp: "Usurpe la GRC",
+        canada_post: "Usurpe Postes Canada",
+        wealthsimple: "Usurpe Wealthsimple",
+        generic_government: "Usurpe un organisme gouvernemental",
+        generic_financial: "Usurpe une institution financière",
+        generic_courier: "Usurpe un service de messagerie",
+      } as Record<string, string>,
+      action: {
+        pay_money: "Demande un paiement",
+        click_link: "Demande de cliquer sur un lien",
+        submit_credentials: "Demande des identifiants ou une vérification",
+        call_number: "Demande d'appeler un numéro",
+        reply_sms: "Demande de répondre",
+        download_app: "Demande de télécharger une application",
+      } as Record<string, string>,
+      threat: {
+        credential_capture: "Tentative de capture d'identifiants",
+        payment_extraction: "Demande de paiement ou de frais",
+        post_loss_recovery: "Arnaque de récupération après perte",
+        initial_lure: "Contact ou accroche initiale",
+      } as Record<string, string>,
+    },
     signalLabels: {
       urgency: "langage d'urgence",
       payment_request: "demande de paiement",
@@ -129,9 +235,15 @@ const copy = {
         "Les arnaques à l'emploi peuvent demander des renseignements personnels ou des paiements. Confirmez les offres via les canaux officiels de l'entreprise.",
       government_impersonation:
         "Les organismes gouvernementaux ne menacent pas par courriel ou SMS. Ne partagez jamais votre NAS, mots de passe ou informations bancaires.",
+      account_verification:
+        "Vérifiez via le site ou l'app officiels — jamais via les liens du message. Les services légitimes ne suspendent pas les comptes sans avertissement.",
+      recovery_scam:
+        "Les arnaques de récupération ciblent les personnes ayant déjà perdu de l'argent, promettant de le récupérer contre des frais. N'envoyez pas d'argent et ne partagez pas vos identifiants. Vérifiez via les canaux officiels avant toute action.",
       financial_phishing:
         "Évitez de cliquer sur les liens. Connectez-vous uniquement via le site ou l'app officiels que vous connaissez.",
       prize_scam:
+        "Les vrais prix ne demandent pas de frais à l'avance. Méfiez-vous des gains ou offres inattendus.",
+      reward_claim:
         "Les vrais prix ne demandent pas de frais à l'avance. Méfiez-vous des gains ou offres inattendus.",
       tech_support:
         "Le support technique légitime ne vous appelle pas sans raison. Ignorez les appels ou fenêtres non sollicités.",
@@ -139,6 +251,8 @@ const copy = {
         "Méfiez-vous des demandes d'argent ou de renseignements personnels de personnes que vous n'avez jamais rencontrées.",
       investment_fraud:
         "Vérifiez les opportunités d'investissement auprès de sources officielles. Méfiez-vous des rendements garantis ou de la pression.",
+      law_enforcement:
+        "Les forces de l'ordre ne demandent pas de paiement ou de renseignements personnels par texto ou courriel. Vérifiez via les canaux officiels.",
       unknown:
         "Prenez une pause avant de répondre. Vérifiez auprès d'un contact fiable ou d'une source officielle si quelque chose vous semble étrange.",
     },
@@ -236,25 +350,66 @@ export default function ResultPage() {
   const risk: "low" | "medium" | "high" =
     result.risk ?? result.risk_tier ?? "low";
 
-  const signalCues: string[] = (() => {
-    const signals = Array.isArray(result.signals) ? result.signals : [];
-    if (signals.length === 0) return [];
-    const labels = copy[lang].signalLabels;
+  const intel = result.intel_features ?? {};
+
+  const groundedReasons: string[] = (() => {
+    const reasons: string[] = [];
+    const gr = t.groundedReasons;
     const seen = new Set<string>();
-    return signals
-      .map((s: { type?: string }) => {
-        const typeKey = (s.type ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-        if (!typeKey) return null;
-        const label = labels[typeKey] ?? typeKey.replace(/_/g, " ");
-        if (seen.has(label)) return null;
-        seen.add(label);
-        return label.charAt(0).toUpperCase() + label.slice(1);
-      })
-      .filter((r: string | null): r is string => !!r);
+
+    const add = (s: string) => {
+      if (s && !seen.has(s)) {
+        seen.add(s);
+        reasons.push(s);
+      }
+    };
+
+    const route = intel.submission_route ?? "";
+    const ctx = intel.context_quality ?? "";
+    const narrative = intel.narrative_family ?? "";
+    const entity = intel.impersonation_entity ?? "";
+    const action = intel.requested_action ?? "";
+    const threat = intel.threat_stage ?? "";
+
+    if (route === "insufficient_context" || ctx === "fragment") {
+      add(gr.limited_context);
+    }
+    if (narrative && narrative !== "unknown" && gr.narrative[narrative]) {
+      add(gr.narrative[narrative]);
+    }
+    if (entity && entity !== "unknown" && gr.entity[entity]) {
+      add(gr.entity[entity]);
+    }
+    if (action && action !== "unknown" && action !== "none" && gr.action[action]) {
+      add(gr.action[action]);
+    }
+    if (threat && threat !== "unclear" && gr.threat[threat]) {
+      add(gr.threat[threat]);
+    }
+
+    return reasons;
+  })();
+
+  const narrativeGuidanceText: string | null = (() => {
+    const narrative = intel.narrative_family ?? "";
+    if (!narrative || narrative === "unknown") return null;
+    const g = t.narrativeGuidance as Record<string, string>;
+    return g[narrative] ?? null;
   })();
 
   const summary =
     result.summary_sentence || t.defaultSummary[risk];
+
+  const confidence: "low" | "medium" | "high" =
+    result.intel_features?.confidence_level ?? "low";
+  const confidenceText =
+    ["low", "medium", "high"].includes(confidence)
+      ? t.confidenceLevel[confidence]
+      : t.confidenceLevel.low;
+  const confidenceHelperText =
+    ["low", "medium", "high"].includes(confidence)
+      ? t.confidenceHelper[confidence]
+      : t.confidenceHelper.low;
 
   const riskBlockStyle = {
     ...styles.riskBlock,
@@ -276,17 +431,26 @@ export default function ResultPage() {
           <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
           <RiskMeter risk={risk} label={t.tier[risk]} levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`} />
           <p style={styles.summary}>{summary}</p>
+          <p style={styles.confidence}>
+            {t.confidenceLabel} {confidenceText}
+          </p>
+          <p style={styles.confidenceHelper}>{confidenceHelperText}</p>
         </div>
 
-        {/* ---------- Why it looks suspicious (signals only) ---------- */}
-        {signalCues.length > 0 && (
+        {/* ---------- Why it looks suspicious (grounded in intel_features) ---------- */}
+        {(groundedReasons.length > 0 || narrativeGuidanceText) && (
           <div style={styles.reasonsBlock}>
             <div style={styles.whySuspicious}>{t.whySuspicious}</div>
-            <ul style={styles.reasons}>
-              {signalCues.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ul>
+            {groundedReasons.length > 0 && (
+              <ul style={styles.reasons}>
+                {groundedReasons.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            )}
+            {narrativeGuidanceText && (
+              <p style={styles.narrativeGuidance}>{narrativeGuidanceText}</p>
+            )}
           </div>
         )}
 
@@ -409,6 +573,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#1F2937",
     lineHeight: 1.5,
     margin: 0,
+  },
+  confidence: {
+    fontSize: 13,
+    color: "#6B7280",
+    margin: "4px 0 0",
+    lineHeight: 1.4,
+  },
+  confidenceHelper: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    margin: "2px 0 0",
+    lineHeight: 1.4,
+  },
+  narrativeGuidance: {
+    fontSize: 15,
+    color: "#374151",
+    lineHeight: 1.5,
+    margin: "8px 0 0",
   },
 
   reasonsBlock: {
