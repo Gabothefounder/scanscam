@@ -74,8 +74,11 @@ export default function FraudLandscapeCard({
   const labelWidth = staticMode ? STATIC_MODE_LABEL_WIDTH : DEFAULT_LABEL_WIDTH;
   const minChartHeight = staticMode ? 160 : 120;
 
-  let rows = items
-    .filter((item) => String(item.value ?? "").toLowerCase() !== "unknown")
+  const cleanItems = items.filter((item) => {
+    const v = String(item.value ?? "").toLowerCase();
+    return v !== "none" && v !== "unknown";
+  });
+  let rows = cleanItems
     .slice(0, 5)
     .map((item) => ({
       label: item.label ?? formatLandscapeLabel(item.value),

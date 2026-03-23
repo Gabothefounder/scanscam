@@ -920,7 +920,7 @@ export default function RadarPage() {
    * Does NOT use raw brief.narratives for rendering. Follows the same filtered display
    * logic as the Weekly Brief narrative graph (FraudLandscapeCard):
    *
-   * 1. Exclude "unknown" completely — never displayed, never in totals, never affects bar sizes.
+   * 1. Exclude "none" and "unknown" completely — never displayed, never in totals, never affects bar sizes.
    * 2. Build graph only from known narratives.
    * 3. Normalize bar sizes using only the known narrative subset (totalKnown = sum of their scan_count).
    * 4. Take top 5 by scan_count order, then reorder so dominant (top_narrative_raw) is first.
@@ -933,8 +933,11 @@ export default function RadarPage() {
     lang: "en" | "fr"
   ): { value: string; label: string; share_of_week: number }[] => {
     const raw = brief.narratives ?? [];
-    const isUnknown = (v: string) => String(v ?? "").toLowerCase() === "unknown";
-    const knownOnly = raw.filter((n) => !isUnknown(n.value ?? ""));
+    const isExcluded = (v: string) => {
+      const l = String(v ?? "").toLowerCase();
+      return l === "none" || l === "unknown";
+    };
+    const knownOnly = raw.filter((n) => !isExcluded(n.value ?? ""));
     const top5 = knownOnly.slice(0, 5);
     const totalKnown = top5.reduce((sum, n) => sum + (Number(n.scan_count) ?? 0), 0);
     let rows = top5.map((n) => ({
@@ -946,7 +949,7 @@ export default function RadarPage() {
       share_of_week: totalKnown > 0 ? (Number(n.scan_count) ?? 0) / totalKnown : 0,
     }));
     const selectedValue = brief.top_narrative_raw ?? null;
-    if (selectedValue != null && rows.length > 1 && !isUnknown(selectedValue)) {
+    if (selectedValue != null && rows.length > 1 && !isExcluded(selectedValue)) {
       const selectedIdx = rows.findIndex((r) => String(r.value) === String(selectedValue));
       if (selectedIdx > 0) {
         const selectedRow = rows[selectedIdx];
