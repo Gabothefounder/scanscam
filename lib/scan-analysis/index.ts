@@ -1,9 +1,9 @@
 /**
- * Shared scan analysis module.
- * Single entry point: analyzeScan(input) -> ScanAnalysisResult
+ * Rule-based scan enrichment module.
+ * buildScanEnrichment() adds taxonomy and trust-floor metadata alongside AI analysis.
  *
- * No DB writes, route logic, or UI logic. Uses router, extract, risk, explain.
- * NOT wired into production yet.
+ * Enrichment layer only; does not replace lib/ai/analyzeScan.
+ * Used by /api/scan; AI remains canonical for risk/summary/signals.
  */
 
 import type { ScanAnalysisInput, ScanAnalysisResult } from "./types";
@@ -16,7 +16,11 @@ export type { ScanAnalysisInput, ScanAnalysisResult } from "./types";
 export * from "./taxonomy";
 export { assessContextQuality, routeSubmission } from "./router";
 
-export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
+/**
+ * Rule-based enrichment: taxonomy + trust-floor metadata.
+ * Complements lib/ai/analyzeScan; does not replace it.
+ */
+export function buildScanEnrichment(input: ScanAnalysisInput): ScanAnalysisResult {
   // 1. Normalize input basics
   const messageText = (input.messageText ?? "").trim();
   const sourceType = input.source;

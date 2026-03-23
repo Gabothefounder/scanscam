@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { ocrImage } from "@/lib/ocr";
 import { analyzeScan } from "@/lib/ai/analyzeScan";
+import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
@@ -955,7 +956,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { intel_features, mode: intelMode } = extractIntelFeatures(
+    const { intel_features: legacyIntel, mode: intelMode } = extractIntelFeatures(
       result,
       contentText,
       language,
@@ -964,13 +965,46 @@ export async function POST(req: Request) {
       ai_parse_fallback
     );
 
-    /* ---------- Derive user_verdict from risk_tier ---------- */
-    const userVerdict = riskTier === "high" ? "scam" : riskTier === "medium" ? "suspicious" : "safe";
+    const enrichment = buildScanEnrichment({
+      messageText: contentText,
+      language,
+      source,
+    });
+
+    const intel_features = {
+      ...legacyIntel,
+      submission_route: enrichment.submissionRoute,
+      narrative_family: enrichment.narrativeFamily,
+      impersonation_entity: enrichment.impersonationEntity,
+      requested_action: enrichment.requestedAction,
+      threat_stage: enrichment.threatStage,
+      confidence_level: enrichment.confidenceLevel,
+      source_type: enrichment.sourceType,
+      context_quality: enrichment.contextQuality ?? legacyIntel.context_quality,
+    };
+
+    /* ---------- Trust-floor guardrail: cap risk for insufficient/fragment context ---------- */
+    let finalRiskTier = riskTier;
+    let finalSummary: string | null = result.summary_sentence ?? null;
+
+    const isInsufficientContext =
+      enrichment.submissionRoute === "insufficient_context" ||
+      enrichment.contextQuality === "fragment";
+
+    if (isInsufficientContext) {
+      finalRiskTier = riskTier === "high" ? "medium" : riskTier;
+      finalSummary = "Not enough context is available to classify this reliably. Proceed with caution.";
+    } else if (!finalSummary || String(finalSummary).trim() === "") {
+      finalSummary = enrichment.summary ?? null;
+    }
+
+    const userVerdict =
+      finalRiskTier === "high" ? "scam" : finalRiskTier === "medium" ? "suspicious" : "safe";
 
     /* ---------- Insert into scans (ALWAYS) ---------- */
     const scanRow: Record<string, any> = {
-      risk_tier: riskTier,
-      summary_sentence: result.summary_sentence ?? null,
+      risk_tier: finalRiskTier,
+      summary_sentence: finalSummary,
       signals: result.signals ?? [],
       language,
       source,
@@ -1055,8 +1089,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       result: {
-        /* AI output (as-is, minus data_quality) */
+        /* AI output (trust-floor may override risk_tier, summary_sentence) */
         ...restResult,
+        risk_tier: finalRiskTier,
+        summary_sentence: finalSummary,
 
         /* Server truth */
         language,
@@ -1069,7 +1105,7 @@ export async function POST(req: Request) {
         },
 
         /* Frontend compatibility (legacy) */
-        risk: result.risk_tier,
+        risk: finalRiskTier,
         reasons: Array.isArray(result.signals)
           ? result.signals
               .map((s: any) => s.evidence ?? s.description ?? "")

@@ -1,7 +1,7 @@
 /**
  * Smoke test for scan-analysis. Run: npx tsx scripts/smoke-test-scan-analysis.ts
  */
-import { analyzeScan } from "../lib/scan-analysis";
+import { buildScanEnrichment } from "../lib/scan-analysis";
 
 const cases: { id: string; input: string }[] = [
   { id: "A", input: "https://phish-site.com/login" },
@@ -15,7 +15,7 @@ const cases: { id: string; input: string }[] = [
 ];
 
 for (const c of cases) {
-  const r = analyzeScan({
+  const r = buildScanEnrichment({
     messageText: c.input,
     language: "en",
     source: "user_text",
