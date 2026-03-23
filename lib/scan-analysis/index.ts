@@ -2,6 +2,7 @@
  * Shared scan analysis module.
  * Single entry point: analyzeScan(input) -> ScanAnalysisResult
  *
+ * No DB writes, route logic, or UI logic. Uses router, extract, risk, explain.
  * NOT wired into production yet.
  */
 
@@ -16,18 +17,22 @@ export * from "./taxonomy";
 export { assessContextQuality, routeSubmission } from "./router";
 
 export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
-  const { messageText, source } = input;
+  // 1. Normalize input basics
+  const messageText = (input.messageText ?? "").trim();
+  const sourceType = input.source;
 
-  const trimmed = messageText.trim();
-  const contextQuality = assessContextQuality({ messageText: trimmed });
-  const submissionRoute = routeSubmission({ messageText: trimmed });
+  // 2–4. Context and routing
+  const contextQuality = assessContextQuality({ messageText });
+  const submissionRoute = routeSubmission({ messageText });
 
+  // 5. Extraction
   const extractResult = extract({
-    messageText: trimmed.toLowerCase(),
+    messageText: messageText.toLowerCase(),
     contextQuality,
     submissionRoute,
   });
 
+  // 6. Risk and confidence
   const riskResult = computeRisk({
     submissionRoute,
     narrativeFamily: extractResult.narrativeFamily,
@@ -37,6 +42,7 @@ export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
     contextQuality,
   });
 
+  // 7. Summary
   const summary = explain({
     submissionRoute,
     narrativeFamily: extractResult.narrativeFamily,
@@ -47,6 +53,7 @@ export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
     contextQuality,
   });
 
+  // 8. Return
   return {
     riskTier: riskResult.riskTier,
     riskScore: riskResult.riskScore,
@@ -57,7 +64,7 @@ export function analyzeScan(input: ScanAnalysisInput): ScanAnalysisResult {
     requestedAction: extractResult.requestedAction,
     threatStage: extractResult.threatStage,
     confidenceLevel: riskResult.confidenceLevel,
-    sourceType: source,
+    sourceType,
     contextQuality,
   };
 }
