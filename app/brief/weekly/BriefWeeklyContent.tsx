@@ -53,13 +53,37 @@ function hasValue(s: string | null | undefined): boolean {
   return t.length > 0 && t !== "—";
 }
 
+const WHAT_TO_DO = {
+  en: {
+    delivery: [
+      "Do not click links in unexpected delivery messages",
+      "Do not enter personal or payment information",
+      "Check the delivery directly through the official website",
+    ],
+    default: [
+      "Be cautious with unexpected or urgent messages",
+      "Do not share personal or financial information",
+      "Verify requests through official channels",
+    ],
+  },
+  fr: {
+    delivery: [
+      "Ne cliquez pas sur les liens dans les messages de livraison inattendus",
+      "N'entrez pas d'informations personnelles ou de paiement",
+      "Vérifiez la livraison directement sur le site officiel",
+    ],
+    default: [
+      "Soyez prudent avec les messages inattendus ou urgents",
+      "Ne partagez pas d'informations personnelles ou financières",
+      "Vérifiez les demandes par les canaux officiels",
+    ],
+  },
+};
+
 const COPY = {
   en: {
     intro: "",
     titleLead: "Pre-fraud behavioral signals in Canada — by ScanScam",
-    titleSub: "Early behavioral signals before financial loss",
-    titleProvenance:
-      "Weekly public signal brief based on suspicious messages submitted to ScanScam in Canada.",
     weekOf: "Week of",
     generated: "Generated",
     riskIndexLabel: "Risk Index",
@@ -71,31 +95,27 @@ const COPY = {
     trendDown: "down",
     trendFlat: "unchanged",
     noDominant: "No single dominant pattern identified this week.",
-    mostFrequent: "{fraud_label} appeared most frequently this week.",
-    signalsLimited: "{fraud_label} appeared most frequently this week.",
+    mostFrequent: "{fraud_label} were the most frequent this week.",
+    signalsLimited: "{fraud_label} were the most frequent this week.",
     chartNarratives: "Distribution of signals this week",
     chartSub: "Based on submitted messages",
     fraudSignalThisWeek: "Predominant fraud this week",
     sectionWhatSeeing: "What we’re seeing",
     seeingLine1: "{fraud_label} were the most frequent this week.",
-    seeingLine2: "No major surge detected this week.",
+    seeingLine2: "No unusual spike in activity detected.",
     sectionRiskIndex: "ScanScam Risk Index",
     riskIndexContext: "Overall level of suspicious activity this week",
     riskIndexSub: "Moderate activity",
     riskCaution: "Stay cautious with urgent or unexpected requests.",
     sectionHowWorks: "How this scam works",
-    howItWorksSubhead: "How it works",
     howWorksLine1: "Scammers claim you’ve won a prize, refund, or reward.",
     howWorksLead: "They may ask you to:",
     howWorksBullet1: "pay a fee",
     howWorksBullet2: "share personal details",
     howWorksBullet3: "click a suspicious link",
     howWorksLine2: "They use urgency to push quick action.",
-    sectionWhatKnow: "What to know",
-    whatKnowBullet1: "Legitimate prizes do not require payment",
-    whatKnowBullet2: "Do not share personal information",
-    whatKnowBullet3: "If you didn’t enter anything → it’s likely a scam",
-    sectionCta: "Check a message",
+    sectionWhatToDo: "What to do",
+    sectionCta: "Check a message with ScanScam",
     ctaButton: "Scan a suspicious message",
     ctaSupport: "Check a message for free — help stop the next scam.",
     prefraudTitle: "For institutions and professionals",
@@ -114,9 +134,6 @@ const COPY = {
   fr: {
     intro: "",
     titleLead: "Signaux pré-fraude au Canada — par ScanScam",
-    titleSub: "Signaux comportementaux avant toute perte financière",
-    titleProvenance:
-      "Bulletin hebdomadaire basé sur des messages suspects soumis à ScanScam au Canada",
     weekOf: "Semaine du",
     generated: "Généré le",
     riskIndexLabel: "Indice de risque",
@@ -135,7 +152,7 @@ const COPY = {
     fraudSignalThisWeek: "Signal de fraude cette semaine",
     sectionWhatSeeing: "Ce qu’on observe",
     seeingLine1: "Les arnaques {fraud_label} sont les plus fréquentes cette semaine.",
-    seeingLine2: "Aucune hausse majeure détectée cette semaine.",
+    seeingLine2: "Aucune hausse inhabituelle d'activité détectée.",
     sectionRiskIndex: "Indice de risque ScanScam",
     riskIndexContext: "Niveau global d’activité suspecte cette semaine",
     riskIndexSub: "Activité modérée",
@@ -148,11 +165,8 @@ const COPY = {
     howWorksBullet2: "fournir des informations personnelles",
     howWorksBullet3: "cliquer sur un lien suspect",
     howWorksLine2: "Elle utilise l’urgence pour pousser à agir rapidement.",
-    sectionWhatKnow: "À savoir",
-    whatKnowBullet1: "Un vrai prix ne demande pas de paiement",
-    whatKnowBullet2: "Ne partagez pas d’informations personnelles",
-    whatKnowBullet3: "Si vous n’avez rien demandé → c’est probablement une arnaque",
-    sectionCta: "Vérifier un message",
+    sectionWhatToDo: "Que faire",
+    sectionCta: "Vérifier un message avec ScanScam",
     ctaButton: "Analyser un message suspect",
     ctaSupport: "Vérifiez un message gratuitement. Aidez à stopper la prochaine arnaque.",
     prefraudTitle: "Pour les institutions et les professionnels",
@@ -615,13 +629,19 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
         : fraudLabelDisplay
       : fraudLabelDisplay;
 
-  const chartItems =
+  const chartItemsRaw =
     lang === "fr" && Array.isArray(data.narratives)
       ? data.narratives.map((n) => ({
           ...n,
           label: FRAUD_LABEL_FR[formatLandscapeLabel(n.value)] ?? formatLandscapeLabel(n.value),
         }))
-      : data.narratives;
+      : data.narratives ?? [];
+  const chartItems = Array.isArray(chartItemsRaw)
+    ? chartItemsRaw.filter((d) => {
+        const v = String(d?.value ?? "").toLowerCase();
+        return v !== "none" && v !== "unknown";
+      })
+    : [];
 
   const fraudExplanationContent =
     fraudExplanationTemplate != null && data.fraud_label
@@ -755,8 +775,8 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
           }
         : {
             line1: "Scammers claim a package is waiting or delivery failed.",
-            bullets: ["pay a small fee", "click a tracking link", "enter personal or payment details"],
-            line2: "They create urgency (redelivery, short deadlines).",
+            bullets: ["click a tracking link", "pay a small fee", "enter personal or payment details"],
+            line2: "They create urgency (redelivery deadlines, final notice).",
           };
     }
     // Default (prize scam / general)
@@ -773,8 +793,6 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
       <div style={styles.wrap} className="brief-weekly brief-weekly-print-root">
         <header style={styles.header} className="brief-weekly-header">
           <h1 style={styles.title}>{headTitle}</h1>
-          <p style={styles.titleSub}>{t.titleSub}</p>
-          <p style={styles.titleProvenance}>{t.titleProvenance}</p>
           {(weekLabel || generatedLabel) && (
             <p style={styles.meta}>
               {weekLabel}
@@ -830,7 +848,7 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
         </section>
 
         {/* 4) Signals distribution (graph) */}
-        {Array.isArray(data.narratives) && data.narratives.length > 0 && (
+        {chartItems.length > 0 && (
           <section style={styles.section} className="brief-weekly-section">
             <h2 style={styles.sectionTitle}>{t.chartNarratives}</h2>
             <p style={styles.sectionBody}>{t.chartSub}</p>
@@ -839,7 +857,7 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
                 <FraudLandscapeCard
                   theme="light"
                   title=""
-                  items={chartItems ?? []}
+                  items={chartItems}
                   hideNumericScale
                   selectedValue={data.top_narrative_raw ?? null}
                   staticMode
@@ -855,10 +873,15 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
         {/* 6) Predominant scam section (dynamic) */}
         <section style={{ ...styles.section, marginTop: 56 }} className="brief-weekly-section">
           <h2 style={styles.sectionTitle}>
-            {`${scamTitle} — ${lang === "fr" ? "cette semaine" : "this week"}`.toUpperCase()}
+            {`${scamTitle} — ${lang === "fr" ? "comment ça marche" : "how it works"}`.toUpperCase()}
           </h2>
-          <div style={styles.sectionKicker}>{t.howItWorksSubhead}</div>
-          <p style={styles.sectionBody}>{howWorksContent.line1}</p>
+          <p style={styles.sectionBody}>
+            {scamKey === "delivery_scam" ? (
+              <strong>{howWorksContent.line1}</strong>
+            ) : (
+              howWorksContent.line1
+            )}
+          </p>
           <p style={styles.sectionBody}>{t.howWorksLead}</p>
           <ul style={styles.simpleList}>
             {howWorksContent.bullets.map((b: string, i: number) => (
@@ -866,7 +889,8 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
             ))}
           </ul>
           <p style={styles.sectionBody}>
-            {lang === "en" && howWorksContent.line2 === COPY.en.howWorksLine2 ? (
+            {scamKey === "delivery_scam" ||
+            (lang === "en" && howWorksContent.line2 === COPY.en.howWorksLine2) ? (
               <strong>{howWorksContent.line2}</strong>
             ) : (
               howWorksContent.line2
@@ -874,22 +898,20 @@ export default function BriefWeeklyContent({ lang }: { lang: Lang }) {
           </p>
         </section>
 
-        {/* 8) What to know */}
+        {/* 6) What to do */}
         <section style={styles.section} className="brief-weekly-section">
-          <h2 style={styles.sectionTitle}>{t.sectionWhatKnow}</h2>
+          <h2 style={styles.sectionTitle}>{t.sectionWhatToDo}</h2>
           <ul style={styles.checkList}>
-            <li style={styles.checkListItem}>
-              <span style={styles.checkMark} aria-hidden>✔</span>
-              <span>{t.whatKnowBullet1}</span>
-            </li>
-            <li style={styles.checkListItem}>
-              <span style={styles.checkMark} aria-hidden>✔</span>
-              <span>{t.whatKnowBullet2}</span>
-            </li>
-            <li style={styles.checkListItem}>
-              <span style={styles.checkMark} aria-hidden>✔</span>
-              <span>{t.whatKnowBullet3.replace("→", "—")}</span>
-            </li>
+            {(
+              WHAT_TO_DO[lang][
+                scamKey === "delivery_scam" ? "delivery" : "default"
+              ] ?? WHAT_TO_DO[lang].default
+            ).map((item, i) => (
+              <li key={i} style={styles.checkListItem}>
+                <span style={styles.checkMark} aria-hidden>✔</span>
+                <span>{item}</span>
+              </li>
+            ))}
           </ul>
         </section>
 
