@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, useRef } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
+import { getPartnerBySlug } from "@/lib/partners";
 
 const firedOnce = new Set<string>();
 
@@ -75,6 +76,29 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
+    partnerTrustLine:
+      "Scans submitted from this page can be shared with your IT provider if you choose.",
+    sendToItCta: {
+      low: "Send to my IT",
+      medium: "Share with my IT provider",
+      high: "Report to my IT provider — recommended",
+    },
+    escalationForm: {
+      title: "Send to IT provider",
+      nameLabel: "Name",
+      namePlaceholder: "Your name",
+      companyLabel: "Company",
+      companyPlaceholder: "Your company",
+      roleLabel: "Role (optional)",
+      rolePlaceholder: "e.g. Employee, Manager",
+      notice: "This will send the analysis and the original message to your IT provider.",
+      noticeImageSource: "This scan was submitted from an image upload.",
+      submitButton: "Send",
+      cancelButton: "Cancel",
+      successMessage: "Sent successfully. Your IT provider has been notified.",
+      errorMessage: "Something went wrong. Please try again.",
+      sending: "Sending…",
+    },
     footerAdvisory:
       "ScanScam provides a pattern-based risk assessment. When in doubt, verify through the official source.",
     whySuspicious: "Why it looks suspicious",
@@ -227,6 +251,29 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
+    partnerTrustLine:
+      "Les analyses soumises depuis cette page peuvent être partagées avec votre fournisseur TI si vous le souhaitez.",
+    sendToItCta: {
+      low: "Envoyer à mon TI",
+      medium: "Partager avec mon fournisseur TI",
+      high: "Signaler à mon fournisseur TI — recommandé",
+    },
+    escalationForm: {
+      title: "Envoyer au fournisseur TI",
+      nameLabel: "Nom",
+      namePlaceholder: "Votre nom",
+      companyLabel: "Entreprise",
+      companyPlaceholder: "Votre entreprise",
+      roleLabel: "Rôle (optionnel)",
+      rolePlaceholder: "p. ex. Employé, Gestionnaire",
+      notice: "Cela enverra l'analyse et le message original à votre fournisseur TI.",
+      noticeImageSource: "Cette analyse a été soumise à partir d'une image.",
+      submitButton: "Envoyer",
+      cancelButton: "Annuler",
+      successMessage: "Envoyé avec succès. Votre fournisseur TI a été averti.",
+      errorMessage: "Une erreur s'est produite. Veuillez réessayer.",
+      sending: "Envoi en cours…",
+    },
     footerAdvisory:
       "ScanScam fournit une évaluation du risque basée sur des modèles de fraude connus. En cas de doute, vérifiez auprès de la source officielle.",
     whySuspicious: "Pourquoi cela paraît suspect",
@@ -359,15 +406,29 @@ function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"
 export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [lang, setLang] = useState<"en" | "fr">("en");
+  const [partner, setPartner] = useState<{ slug: string; name: string; logoUrl?: string } | null>(null);
+  const [showEscalationForm, setShowEscalationForm] = useState(false);
+  const [escalationForm, setEscalationForm] = useState({ name: "", company: "", role: "" });
+  const [escalationStatus, setEscalationStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [escalationErrorMessage, setEscalationErrorMessage] = useState<string | null>(null);
   const conversionFiredForScanRef = useRef<string | null>(null);
 
-  /* ---------- load scan result ---------- */
+  /* ---------- load scan result and partner mode ---------- */
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const l = params.get("lang");
       setLang(l === "fr" ? "fr" : "en");
+
+      const partnerSlug =
+        params.get("partner")?.trim() || sessionStorage.getItem("scan_partner")?.trim() || null;
+      if (partnerSlug) {
+        const p = getPartnerBySlug(partnerSlug);
+        if (p && p.active) {
+          setPartner({ slug: p.slug, name: p.name, logoUrl: p.logoUrl });
+        }
+      }
 
       const stored = sessionStorage.getItem("scanResult");
       if (stored) {
@@ -477,6 +538,9 @@ export default function ResultPage() {
     backgroundColor: RISK_CONFIG[risk].bgColor,
   };
 
+  const sourceType = result.source ?? "";
+  const isImageSource = sourceType === "ocr";
+
   return (
     <main style={styles.container}>
       <section style={styles.card}>
@@ -486,6 +550,17 @@ export default function ResultPage() {
             {t.backHome}
           </a>
         </div>
+
+        {/* ---------- Partner mode: name, logo, trust line ---------- */}
+        {partner && (
+          <div style={styles.partnerHeader}>
+            {partner.logoUrl && (
+              <img src={partner.logoUrl} alt={`${partner.name} logo`} style={styles.partnerLogo} />
+            )}
+            <h2 style={styles.partnerName}>{partner.name}</h2>
+            <p style={styles.partnerTrustLine}>{t.partnerTrustLine}</p>
+          </div>
+        )}
 
         {/* ---------- A) Risk Block ---------- */}
         <div style={riskBlockStyle}>
@@ -528,8 +603,155 @@ export default function ResultPage() {
           </ul>
         </div>
 
-        {/* ---------- C) Scan Another CTA ---------- */}
-        <a href={`/scan?lang=${lang}`} style={styles.scanAnotherButton}>
+        {/* ---------- C) Send-to-IT CTA (partner mode only) ---------- */}
+        {partner && (
+          <>
+            {!showEscalationForm ? (
+              <button
+                type="button"
+                onClick={() => setShowEscalationForm(true)}
+                style={{
+                  ...styles.sendToItButton,
+                  ...(risk === "low"
+                    ? styles.sendToItButtonLow
+                    : risk === "medium"
+                      ? styles.sendToItButtonMedium
+                      : styles.sendToItButtonHigh),
+                }}
+              >
+                {t.sendToItCta[risk]}
+              </button>
+            ) : escalationStatus === "success" ? (
+              <div style={styles.escalationSuccessBlock}>
+                <p style={styles.escalationSuccessText}>{t.escalationForm.successMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEscalationForm(false);
+                    setEscalationStatus("idle");
+                  }}
+                  style={styles.escalationCancelButton}
+                >
+                  {t.escalationForm.cancelButton}
+                </button>
+              </div>
+            ) : (
+              <div style={styles.escalationFormBlock}>
+                <h3 style={styles.escalationFormTitle}>{t.escalationForm.title}</h3>
+                <p style={styles.escalationNotice}>{t.escalationForm.notice}</p>
+                {isImageSource && (
+                  <p style={styles.escalationNoticeImage}>{t.escalationForm.noticeImageSource}</p>
+                )}
+                {escalationStatus === "error" && escalationErrorMessage && (
+                  <p style={styles.escalationError} role="alert">
+                    {escalationErrorMessage}
+                  </p>
+                )}
+                <div style={styles.escalationFormFields}>
+                  <label style={styles.escalationLabel}>
+                    {t.escalationForm.nameLabel} <span style={styles.required}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={escalationForm.name}
+                    onChange={(e) => setEscalationForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder={t.escalationForm.namePlaceholder}
+                    style={styles.escalationInput}
+                  />
+                  <label style={styles.escalationLabel}>
+                    {t.escalationForm.companyLabel} <span style={styles.required}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={escalationForm.company}
+                    onChange={(e) => setEscalationForm((f) => ({ ...f, company: e.target.value }))}
+                    placeholder={t.escalationForm.companyPlaceholder}
+                    style={styles.escalationInput}
+                  />
+                  <label style={styles.escalationLabel}>{t.escalationForm.roleLabel}</label>
+                  <input
+                    type="text"
+                    value={escalationForm.role}
+                    onChange={(e) => setEscalationForm((f) => ({ ...f, role: e.target.value }))}
+                    placeholder={t.escalationForm.rolePlaceholder}
+                    style={styles.escalationInput}
+                  />
+                </div>
+                <div style={styles.escalationFormActions}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEscalationForm(false);
+                      setEscalationStatus("idle");
+                      setEscalationErrorMessage(null);
+                    }}
+                    disabled={escalationStatus === "loading"}
+                    style={styles.escalationCancelButton}
+                  >
+                    {t.escalationForm.cancelButton}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      !escalationForm.name.trim() ||
+                      !escalationForm.company.trim() ||
+                      !result.scan_id ||
+                      escalationStatus === "loading"
+                    }
+                    style={{
+                      ...styles.escalationSubmitButton,
+                      ...((!escalationForm.name.trim() ||
+                        !escalationForm.company.trim() ||
+                        !result.scan_id ||
+                        escalationStatus === "loading") && {
+                        opacity: 0.6,
+                        cursor: "not-allowed",
+                      }),
+                    }}
+                    onClick={async () => {
+                      if (!result.scan_id || !partner) return;
+                      setEscalationStatus("loading");
+                      setEscalationErrorMessage(null);
+                      try {
+                        const res = await fetch("/api/partner-escalation", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            scan_id: result.scan_id,
+                            partner_slug: partner.slug,
+                            user_name: escalationForm.name.trim(),
+                            user_company: escalationForm.company.trim(),
+                            user_role: escalationForm.role.trim() || null,
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                          setEscalationStatus("success");
+                        } else {
+                          setEscalationStatus("error");
+                          setEscalationErrorMessage(data.message ?? t.escalationForm.errorMessage);
+                        }
+                      } catch {
+                        setEscalationStatus("error");
+                        setEscalationErrorMessage(t.escalationForm.errorMessage);
+                      }
+                    }}
+                  >
+                    {escalationStatus === "loading"
+                      ? t.escalationForm.sending
+                      : t.escalationForm.submitButton}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ---------- D) Scan Another CTA ---------- */}
+        <a
+          href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
+          style={styles.scanAnotherButton}
+        >
           {t.scanAnother}
         </a>
 
@@ -573,6 +795,33 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: "none",
     fontSize: 14,
     fontWeight: 500,
+  },
+
+  partnerHeader: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 8,
+    paddingBottom: 8,
+    borderBottom: "1px solid #E5E7EB",
+  },
+  partnerLogo: {
+    maxHeight: 40,
+    maxWidth: 140,
+    objectFit: "contain",
+  },
+  partnerName: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#374151",
+    margin: 0,
+  },
+  partnerTrustLine: {
+    fontSize: 13,
+    color: "#6B7280",
+    lineHeight: 1.5,
+    margin: 0,
+    textAlign: "center",
   },
 
   riskBlock: {
@@ -703,6 +952,126 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     fontWeight: 400,
   },
+
+  sendToItButton: {
+    display: "block",
+    padding: "12px 20px",
+    fontSize: 15,
+    fontWeight: 600,
+    borderRadius: 10,
+    border: "1px solid",
+    cursor: "pointer",
+    width: "100%",
+  },
+  sendToItButtonLow: {
+    backgroundColor: "#F9FAFB",
+    borderColor: "#D1D5DB",
+    color: "#4B5563",
+  },
+  sendToItButtonMedium: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#2563EB",
+    color: "#2563EB",
+  },
+  sendToItButtonHigh: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#DC2626",
+    color: "#B91C1C",
+  },
+
+  escalationFormBlock: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 10,
+    padding: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  escalationFormTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#111827",
+    margin: 0,
+  },
+  escalationNotice: {
+    fontSize: 13,
+    color: "#4B5563",
+    lineHeight: 1.5,
+    margin: 0,
+  },
+  escalationNoticeImage: {
+    fontSize: 12,
+    color: "#6B7280",
+    margin: 0,
+  },
+  escalationError: {
+    fontSize: 14,
+    color: "#B91C1C",
+    backgroundColor: "#FEF2F2",
+    padding: "10px 12px",
+    borderRadius: 8,
+    margin: 0,
+  },
+  escalationSuccessBlock: {
+    backgroundColor: "#ECFDF5",
+    borderRadius: 10,
+    padding: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  escalationSuccessText: {
+    fontSize: 15,
+    color: "#047857",
+    fontWeight: 500,
+    margin: 0,
+  },
+  escalationFormFields: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  escalationLabel: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#374151",
+  },
+  required: {
+    color: "#DC2626",
+  },
+  escalationInput: {
+    padding: "10px 12px",
+    fontSize: 15,
+    border: "1px solid #D1D5DB",
+    borderRadius: 8,
+    outline: "none",
+  },
+  escalationFormActions: {
+    display: "flex",
+    gap: 12,
+    justifyContent: "flex-end",
+  },
+  escalationCancelButton: {
+    padding: "10px 18px",
+    fontSize: 14,
+    fontWeight: 500,
+    backgroundColor: "transparent",
+    border: "1px solid #D1D5DB",
+    borderRadius: 8,
+    color: "#4B5563",
+    cursor: "pointer",
+  },
+  escalationSubmitButton: {
+    padding: "10px 18px",
+    fontSize: 14,
+    fontWeight: 600,
+    backgroundColor: "#2563EB",
+    border: "none",
+    borderRadius: 8,
+    color: "#FFFFFF",
+    cursor: "pointer",
+  },
+
   scanAnotherButton: {
     display: "block",
     padding: "14px 24px",
