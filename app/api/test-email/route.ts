@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient(): Resend {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !apiKey.trim()) {
+    throw new Error("Email service not configured (RESEND_API_KEY missing)");
+  }
+  return new Resend(apiKey);
+}
 
 export async function GET() {
   try {
+    const resend = getResendClient();
     const { data, error } = await resend.emails.send({
       from: "ScanScam <onboarding@resend.dev>",
       to: "gestionrockwell@gmail.com",
