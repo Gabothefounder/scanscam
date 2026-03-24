@@ -61,11 +61,13 @@ export function formatEscalationBody(params: EmailParams): string {
     lines.push(``);
   }
 
+  lines.push(`--- Raw Message ---`);
   if (payload.rawMessage) {
-    lines.push(`--- Raw Message ---`);
     lines.push(payload.rawMessage);
-    lines.push(``);
+  } else {
+    lines.push(`(Raw message unavailable: user did not opt in to raw message storage.)`);
   }
+  lines.push(``);
 
   lines.push(`--- Structured Fields ---`);
   lines.push(`narrative_family: ${payload.narrativeFamily ?? "(unknown)"}`);

@@ -77,11 +77,11 @@ const copy = {
     backHome: "Back to home",
     scanAnother: "Scan another message",
     partnerTrustLine:
-      "Scans submitted from this page can be shared with your IT provider if you choose.",
+      "Only if you choose, this scan can be shared with your IT provider for review.",
     sendToItCta: {
-      low: "Send to my IT",
-      medium: "Share with my IT provider",
-      high: "Report to my IT provider — recommended",
+      low: "Optionally share with my IT provider",
+      medium: "Share with my IT provider for review",
+      high: "Urgent: share with my IT provider",
     },
     escalationForm: {
       title: "Send to IT provider",
@@ -95,8 +95,8 @@ const copy = {
       noticeImageSource: "This scan was submitted from an image upload.",
       submitButton: "Send",
       cancelButton: "Cancel",
-      successMessage: "Sent successfully. Your IT provider has been notified.",
-      errorMessage: "Something went wrong. Please try again.",
+      successMessage: "Escalation sent successfully. Your IT provider can now review this scan.",
+      errorMessage: "We could not send this escalation right now. Please try again in a moment.",
       sending: "Sending…",
     },
     footerAdvisory:
@@ -252,11 +252,11 @@ const copy = {
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
     partnerTrustLine:
-      "Les analyses soumises depuis cette page peuvent être partagées avec votre fournisseur TI si vous le souhaitez.",
+      "Seulement si vous le choisissez, cette analyse peut être partagée avec votre fournisseur TI pour révision.",
     sendToItCta: {
-      low: "Envoyer à mon TI",
-      medium: "Partager avec mon fournisseur TI",
-      high: "Signaler à mon fournisseur TI — recommandé",
+      low: "Partager avec mon TI (optionnel)",
+      medium: "Partager avec mon fournisseur TI pour révision",
+      high: "Urgent : partager avec mon fournisseur TI",
     },
     escalationForm: {
       title: "Envoyer au fournisseur TI",
@@ -270,8 +270,8 @@ const copy = {
       noticeImageSource: "Cette analyse a été soumise à partir d'une image.",
       submitButton: "Envoyer",
       cancelButton: "Annuler",
-      successMessage: "Envoyé avec succès. Votre fournisseur TI a été averti.",
-      errorMessage: "Une erreur s'est produite. Veuillez réessayer.",
+      successMessage: "Escalade envoyée avec succès. Votre fournisseur TI peut maintenant réviser cette analyse.",
+      errorMessage: "Nous n'avons pas pu envoyer cette escalade pour le moment. Veuillez réessayer dans un instant.",
       sending: "Envoi en cours…",
     },
     footerAdvisory:

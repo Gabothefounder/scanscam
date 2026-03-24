@@ -41,8 +41,8 @@ export default async function PartnerPage({ params }: Props) {
           <h1 style={styles.title}>{partner.name}</h1>
         </div>
         <p style={styles.trustLine}>
-          Scans submitted from this page can be shared with your IT provider if
-          you choose.
+          Only if you choose, scans submitted from this page can be shared with
+          your IT provider for review.
         </p>
         <PartnerScanner partner={partner} />
       </section>
