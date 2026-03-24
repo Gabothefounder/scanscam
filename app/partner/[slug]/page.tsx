@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPartnerBySlug } from "@/lib/partners";
+import { PartnerScanner } from "@/components/PartnerScanner";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -43,7 +44,7 @@ export default async function PartnerPage({ params }: Props) {
           Scans submitted from this page can be shared with your IT provider if
           you choose.
         </p>
-        {/* Scanner will be added in a later block */}
+        <PartnerScanner partner={partner} />
       </section>
     </main>
   );
@@ -66,6 +67,9 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "24px 28px",
     boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
     border: "1px solid #D1D5DB",
+    display: "flex",
+    flexDirection: "column",
+    gap: "18px",
   },
   header: {
     display: "flex",
