@@ -14,6 +14,8 @@ const supabase = createClient(
 const FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL || "ScanScam <onboarding@resend.dev>";
 
+const CLIENT_NOTE_MAX_LEN = 2000;
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -26,6 +28,26 @@ export async function POST(req: Request) {
       typeof body.user_company === "string" ? body.user_company.trim() : null;
     const userRole =
       typeof body.user_role === "string" ? body.user_role.trim() || null : null;
+    let clientNote: string | null = null;
+    if (body.client_note != null && body.client_note !== "") {
+      if (typeof body.client_note !== "string") {
+        return NextResponse.json(
+          { ok: false, message: "client_note must be a string when provided" },
+          { status: 400 }
+        );
+      }
+      const trimmed = body.client_note.trim();
+      if (trimmed.length > CLIENT_NOTE_MAX_LEN) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `client_note must be at most ${CLIENT_NOTE_MAX_LEN} characters`,
+          },
+          { status: 400 }
+        );
+      }
+      clientNote = trimmed || null;
+    }
 
     if (!scanId || !partnerSlug || !userName || !userCompany) {
       return NextResponse.json(
@@ -75,6 +97,7 @@ export async function POST(req: Request) {
       userName,
       userCompany,
       userRole,
+      clientNote,
       timestamp: scanRow.created_at
         ? new Date(scanRow.created_at).toISOString()
         : new Date().toISOString(),

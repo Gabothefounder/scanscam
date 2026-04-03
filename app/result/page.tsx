@@ -76,23 +76,28 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
-    partnerTrustLine:
-      "Only if you choose, this scan can be shared with your IT provider for review.",
+    /** Appended after partner name: "{name} — your IT security partner" */
+    partnerBrandingRole: " — your IT security partner",
+    poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
-      low: "Optionally share with my IT provider",
+      low: "Still unsure? Send to your IT provider",
       medium: "Share with my IT provider for review",
       high: "Urgent: share with my IT provider",
     },
     escalationForm: {
-      title: "Send to IT provider",
+      title: "Still unsure? Send to your IT provider",
       nameLabel: "Name",
       namePlaceholder: "Your name",
       companyLabel: "Company",
       companyPlaceholder: "Your company",
       roleLabel: "Role (optional)",
       rolePlaceholder: "e.g. Employee, Manager",
-      notice: "This will send the analysis and the original message to your IT provider.",
-      noticeImageSource: "This scan was submitted from an image upload.",
+      noteLabel: "Note for your IT provider",
+      noteHelper: "Optional — explain what feels unclear or important.",
+      notePlaceholder:
+        'Example: "This looks work-related and I’m not sure if I should ignore it."',
+      submissionInfo:
+        "Your message, analysis, and note will be shared with your IT provider.",
       submitButton: "Send",
       cancelButton: "Cancel",
       successMessage: "Escalation sent successfully. Your IT provider can now review this scan.",
@@ -251,23 +256,27 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
-    partnerTrustLine:
-      "Seulement si vous le choisissez, cette analyse peut être partagée avec votre fournisseur TI pour révision.",
+    partnerBrandingRole: " — votre partenaire de sécurité TI",
+    poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
-      low: "Partager avec mon TI (optionnel)",
+      low: "Encore un doute ? Envoyez à votre fournisseur TI",
       medium: "Partager avec mon fournisseur TI pour révision",
       high: "Urgent : partager avec mon fournisseur TI",
     },
     escalationForm: {
-      title: "Envoyer au fournisseur TI",
+      title: "Encore un doute ? Envoyez à votre fournisseur TI",
       nameLabel: "Nom",
       namePlaceholder: "Votre nom",
       companyLabel: "Entreprise",
       companyPlaceholder: "Votre entreprise",
       roleLabel: "Rôle (optionnel)",
       rolePlaceholder: "p. ex. Employé, Gestionnaire",
-      notice: "Cela enverra l'analyse et le message original à votre fournisseur TI.",
-      noticeImageSource: "Cette analyse a été soumise à partir d'une image.",
+      noteLabel: "Note pour votre fournisseur TI",
+      noteHelper: "Facultatif — expliquez ce qui semble peu clair ou important.",
+      notePlaceholder:
+        "Exemple : « Cela semble lié au travail et je ne suis pas sûr·e de l’ignorer. »",
+      submissionInfo:
+        "Votre message, l'analyse et la note seront partagés avec votre fournisseur TI.",
       submitButton: "Envoyer",
       cancelButton: "Annuler",
       successMessage: "Escalade envoyée avec succès. Votre fournisseur TI peut maintenant réviser cette analyse.",
@@ -376,7 +385,14 @@ function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"
   const config = RISK_CONFIG[risk];
 
   return (
-    <div style={styles.meterContainer} role="meter" aria-valuenow={config.percent} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+    <div
+      style={styles.meterContainer}
+      role="meter"
+      aria-valuenow={config.percent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={label}
+    >
       <div style={styles.meterTrack}>
         <div
           style={{
@@ -398,7 +414,9 @@ function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"
           />
         </div>
       </div>
-      <div style={styles.riskLevelLine}>{levelText}</div>
+      <div className="text-xs text-gray-500" style={styles.riskLevelLine}>
+        {levelText}
+      </div>
     </div>
   );
 }
@@ -408,7 +426,12 @@ export default function ResultPage() {
   const [lang, setLang] = useState<"en" | "fr">("en");
   const [partner, setPartner] = useState<{ slug: string; name: string; logoUrl?: string } | null>(null);
   const [showEscalationForm, setShowEscalationForm] = useState(false);
-  const [escalationForm, setEscalationForm] = useState({ name: "", company: "", role: "" });
+  const [escalationForm, setEscalationForm] = useState({
+    name: "",
+    company: "",
+    role: "",
+    client_note: "",
+  });
   const [escalationStatus, setEscalationStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [escalationErrorMessage, setEscalationErrorMessage] = useState<string | null>(null);
   const conversionFiredForScanRef = useRef<string | null>(null);
@@ -538,15 +561,15 @@ export default function ResultPage() {
     backgroundColor: RISK_CONFIG[risk].bgColor,
   };
 
-  const sourceType = result.source ?? "";
-  const isImageSource = sourceType === "ocr";
+  const tierColor =
+    risk === "low" ? "#15803D" : risk === "medium" ? "#B45309" : "#B91C1C";
 
   return (
     <main style={styles.container}>
-      <section style={styles.card}>
+      <section style={styles.card} className="gap-6">
         {/* ---------- Top Nav ---------- */}
         <div style={styles.topNav}>
-          <a href={`/?lang=${lang}`} style={styles.backLink}>
+          <a href={`/?lang=${lang}`} style={styles.backLink} className="text-sm font-medium">
             {t.backHome}
           </a>
         </div>
@@ -557,47 +580,64 @@ export default function ResultPage() {
             {partner.logoUrl && (
               <img src={partner.logoUrl} alt={`${partner.name} logo`} style={styles.partnerLogo} />
             )}
-            <h2 style={styles.partnerName}>{partner.name}</h2>
-            <p style={styles.partnerTrustLine}>{t.partnerTrustLine}</p>
+            <p className="text-base font-semibold text-gray-900" style={styles.partnerBrandingPrimary}>
+              {partner.name}
+              {t.partnerBrandingRole}
+            </p>
+            <p className="text-xs text-gray-500" style={styles.partnerPoweredBy}>
+              {t.poweredByScanScam}
+            </p>
           </div>
         )}
 
         {/* ---------- A) Risk Block ---------- */}
-        <div style={riskBlockStyle}>
-          <div style={styles[`tier_${risk}`]}>{t.tier[risk]}</div>
-          <RiskMeter risk={risk} label={t.tier[risk]} levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`} />
-          <p style={styles.summary}>{summary}</p>
-          <p style={styles.confidence}>
+        <div style={riskBlockStyle} className="gap-2">
+          <div className="text-xl font-semibold text-center" style={{ color: tierColor }}>
+            {t.tier[risk]}
+          </div>
+          <RiskMeter
+            risk={risk}
+            label={t.tier[risk]}
+            levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`}
+          />
+          <p className="text-sm text-gray-900" style={styles.summary}>
+            {summary}
+          </p>
+          <p className="text-xs text-gray-600" style={styles.confidence}>
             {t.confidenceLabel} {confidenceText}
           </p>
-          <p style={styles.confidenceHelper}>{confidenceHelperText}</p>
+          <p className="text-xs text-gray-500" style={styles.confidenceHelper}>
+            {confidenceHelperText}
+          </p>
         </div>
 
         {/* ---------- Why it looks suspicious (grounded in intel_features) ---------- */}
         {(groundedReasons.length > 0 || narrativeGuidanceText) && (
           <div style={styles.reasonsBlock}>
-            <div style={styles.whySuspicious}>{t.whySuspicious}</div>
+            <div className="text-base font-semibold text-gray-900">{t.whySuspicious}</div>
             {groundedReasons.length > 0 && (
-              <ul style={styles.reasons}>
+              <ul className="mt-2 list-disc pl-[18px] text-sm text-gray-900 leading-normal" style={styles.reasons}>
                 {groundedReasons.map((c, i) => (
                   <li key={i}>{c}</li>
                 ))}
               </ul>
             )}
             {narrativeGuidanceText && (
-              <p style={styles.narrativeGuidance}>{narrativeGuidanceText}</p>
+              <p className="mt-2 text-sm text-gray-800" style={styles.narrativeGuidance}>
+                {narrativeGuidanceText}
+              </p>
             )}
           </div>
         )}
 
         {/* ---------- B) Action Block (max 3 bullets) ---------- */}
-        <div style={styles.actionBlock}>
-          <div style={styles.actionTitle}>{t.actionTitle}</div>
-          <ul style={styles.actionList}>
+        <div style={styles.actionBlock} className="gap-2">
+          <div className="text-base font-semibold text-gray-900">{t.actionTitle}</div>
+          <ul className="list-disc pl-4 text-sm text-gray-900" style={styles.actionList}>
             {nextSteps.map((g, i) => (
-              <li key={i} style={styles.actionItem}>
-                <strong>{g.action}</strong>
-                <span style={styles.actionExplanation}>{g.explanation}</span>
+              <li key={i} className="mb-3 last:mb-0">
+                <span className="font-medium text-gray-900">{g.action}</span>
+                <span className="mt-1 block text-xs font-normal text-gray-500">{g.explanation}</span>
               </li>
             ))}
           </ul>
@@ -610,6 +650,7 @@ export default function ResultPage() {
               <button
                 type="button"
                 onClick={() => setShowEscalationForm(true)}
+                className="text-sm font-semibold"
                 style={{
                   ...styles.sendToItButton,
                   ...(risk === "low"
@@ -622,13 +663,16 @@ export default function ResultPage() {
                 {t.sendToItCta[risk]}
               </button>
             ) : escalationStatus === "success" ? (
-              <div style={styles.escalationSuccessBlock}>
-                <p style={styles.escalationSuccessText}>{t.escalationForm.successMessage}</p>
+              <div style={styles.escalationSuccessBlock} className="gap-4">
+                <p className="text-sm" style={styles.escalationSuccessText}>
+                  {t.escalationForm.successMessage}
+                </p>
                 <button
                   type="button"
                   onClick={() => {
                     setShowEscalationForm(false);
                     setEscalationStatus("idle");
+                    setEscalationForm({ name: "", company: "", role: "", client_note: "" });
                   }}
                   style={styles.escalationCancelButton}
                 >
@@ -636,19 +680,17 @@ export default function ResultPage() {
                 </button>
               </div>
             ) : (
-              <div style={styles.escalationFormBlock}>
-                <h3 style={styles.escalationFormTitle}>{t.escalationForm.title}</h3>
-                <p style={styles.escalationNotice}>{t.escalationForm.notice}</p>
-                {isImageSource && (
-                  <p style={styles.escalationNoticeImage}>{t.escalationForm.noticeImageSource}</p>
-                )}
+              <div style={styles.escalationFormBlock} className="gap-4">
+                <h3 className="text-base font-semibold text-gray-900" style={styles.escalationFormTitle}>
+                  {t.escalationForm.title}
+                </h3>
                 {escalationStatus === "error" && escalationErrorMessage && (
-                  <p style={styles.escalationError} role="alert">
+                  <p className="text-sm" style={styles.escalationError} role="alert">
                     {escalationErrorMessage}
                   </p>
                 )}
-                <div style={styles.escalationFormFields}>
-                  <label style={styles.escalationLabel}>
+                <div style={styles.escalationFormFields} className="gap-4">
+                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
                     {t.escalationForm.nameLabel} <span style={styles.required}>*</span>
                   </label>
                   <input
@@ -657,8 +699,10 @@ export default function ResultPage() {
                     onChange={(e) => setEscalationForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder={t.escalationForm.namePlaceholder}
                     style={styles.escalationInput}
+                    className="result-escalation-field text-sm"
+                    autoComplete="name"
                   />
-                  <label style={styles.escalationLabel}>
+                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
                     {t.escalationForm.companyLabel} <span style={styles.required}>*</span>
                   </label>
                   <input
@@ -667,16 +711,42 @@ export default function ResultPage() {
                     onChange={(e) => setEscalationForm((f) => ({ ...f, company: e.target.value }))}
                     placeholder={t.escalationForm.companyPlaceholder}
                     style={styles.escalationInput}
+                    className="result-escalation-field text-sm"
+                    autoComplete="organization"
                   />
-                  <label style={styles.escalationLabel}>{t.escalationForm.roleLabel}</label>
+                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
+                    {t.escalationForm.roleLabel}
+                  </label>
                   <input
                     type="text"
                     value={escalationForm.role}
                     onChange={(e) => setEscalationForm((f) => ({ ...f, role: e.target.value }))}
                     placeholder={t.escalationForm.rolePlaceholder}
                     style={styles.escalationInput}
+                    className="result-escalation-field text-sm"
+                    autoComplete="organization-title"
+                  />
+                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
+                    {t.escalationForm.noteLabel}
+                  </label>
+                  <span className="text-xs text-gray-500" style={styles.escalationHelper}>
+                    {t.escalationForm.noteHelper}
+                  </span>
+                  <textarea
+                    value={escalationForm.client_note}
+                    onChange={(e) =>
+                      setEscalationForm((f) => ({ ...f, client_note: e.target.value }))
+                    }
+                    placeholder={t.escalationForm.notePlaceholder}
+                    style={styles.escalationTextarea}
+                    className="result-escalation-field text-sm"
+                    rows={3}
+                    autoComplete="off"
                   />
                 </div>
+                <p className="text-xs text-gray-500" style={styles.escalationSubmissionInfo}>
+                  {t.escalationForm.submissionInfo}
+                </p>
                 <div style={styles.escalationFormActions}>
                   <button
                     type="button"
@@ -684,6 +754,7 @@ export default function ResultPage() {
                       setShowEscalationForm(false);
                       setEscalationStatus("idle");
                       setEscalationErrorMessage(null);
+                      setEscalationForm({ name: "", company: "", role: "", client_note: "" });
                     }}
                     disabled={escalationStatus === "loading"}
                     style={styles.escalationCancelButton}
@@ -722,6 +793,7 @@ export default function ResultPage() {
                             user_name: escalationForm.name.trim(),
                             user_company: escalationForm.company.trim(),
                             user_role: escalationForm.role.trim() || null,
+                            client_note: escalationForm.client_note.trim() || null,
                           }),
                         });
                         const data = await res.json();
@@ -750,13 +822,16 @@ export default function ResultPage() {
         {/* ---------- D) Scan Another CTA ---------- */}
         <a
           href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
+          className="text-sm font-semibold"
           style={styles.scanAnotherButton}
         >
           {t.scanAnother}
         </a>
 
         {/* ---------- Footer (single advisory) ---------- */}
-        <p style={styles.footerAdvisory}>{t.footerAdvisory}</p>
+        <p className="text-xs text-gray-500" style={styles.footerAdvisory}>
+          {t.footerAdvisory}
+        </p>
       </section>
     </main>
   );
@@ -781,7 +856,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "16px 20px 18px",
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
     boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
     border: "1px solid #D1D5DB",
   },
@@ -793,8 +867,6 @@ const styles: Record<string, React.CSSProperties> = {
   backLink: {
     color: "#2563EB",
     textDecoration: "none",
-    fontSize: 14,
-    fontWeight: 500,
   },
 
   partnerHeader: {
@@ -810,18 +882,15 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 140,
     objectFit: "contain",
   },
-  partnerName: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#374151",
+  partnerBrandingPrimary: {
     margin: 0,
+    lineHeight: 1.35,
+    textAlign: "center" as const,
   },
-  partnerTrustLine: {
-    fontSize: 13,
-    color: "#6B7280",
-    lineHeight: 1.5,
+  partnerPoweredBy: {
     margin: 0,
-    textAlign: "center",
+    lineHeight: 1.4,
+    textAlign: "center" as const,
   },
 
   riskBlock: {
@@ -829,11 +898,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "12px 14px",
     display: "flex",
     flexDirection: "column",
-    gap: 8,
   },
-  tier_low: { fontSize: 22, fontWeight: 700, color: "#15803D", textAlign: "center" },
-  tier_medium: { fontSize: 22, fontWeight: 700, color: "#B45309", textAlign: "center" },
-  tier_high: { fontSize: 22, fontWeight: 700, color: "#B91C1C", textAlign: "center" },
 
   meterContainer: {
     display: "flex",
@@ -874,51 +939,31 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
   },
   riskLevelLine: {
-    fontSize: 12,
-    color: "#6B7280",
     textAlign: "center",
   },
   summary: {
-    fontSize: 16,
-    color: "#1F2937",
     lineHeight: 1.5,
     margin: 0,
   },
   confidence: {
-    fontSize: 13,
-    color: "#6B7280",
     margin: "4px 0 0",
     lineHeight: 1.4,
   },
   confidenceHelper: {
-    fontSize: 12,
-    color: "#9CA3AF",
     margin: "2px 0 0",
     lineHeight: 1.4,
   },
   narrativeGuidance: {
-    fontSize: 15,
-    color: "#374151",
     lineHeight: 1.5,
-    margin: "8px 0 0",
+    margin: 0,
   },
 
   reasonsBlock: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-  },
-  whySuspicious: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#6B7280",
-    margin: 0,
+    gap: 0,
   },
   reasons: {
-    paddingLeft: 18,
-    fontSize: 16,
-    color: "#1F2937",
-    lineHeight: 1.5,
     margin: 0,
   },
 
@@ -928,36 +973,17 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "12px 14px",
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-  },
-  actionTitle: {
-    fontWeight: 700,
-    fontSize: 18,
-    color: "#111827",
   },
   actionList: {
     margin: 0,
-    paddingLeft: 16,
-    fontSize: 16,
-    color: "#1F2937",
+    paddingLeft: 0,
     lineHeight: 1.5,
     listStyle: "disc",
-  },
-  actionItem: {
-    marginBottom: 12,
-  },
-  actionExplanation: {
-    display: "block",
-    marginTop: 4,
-    fontSize: 15,
-    fontWeight: 400,
   },
 
   sendToItButton: {
     display: "block",
     padding: "12px 20px",
-    fontSize: 15,
-    fontWeight: 600,
     borderRadius: 10,
     border: "1px solid",
     cursor: "pointer",
@@ -985,27 +1011,11 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "16px",
     display: "flex",
     flexDirection: "column",
-    gap: 12,
   },
   escalationFormTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#111827",
-    margin: 0,
-  },
-  escalationNotice: {
-    fontSize: 13,
-    color: "#4B5563",
-    lineHeight: 1.5,
-    margin: 0,
-  },
-  escalationNoticeImage: {
-    fontSize: 12,
-    color: "#6B7280",
     margin: 0,
   },
   escalationError: {
-    fontSize: 14,
     color: "#B91C1C",
     backgroundColor: "#FEF2F2",
     padding: "10px 12px",
@@ -1018,33 +1028,46 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "16px",
     display: "flex",
     flexDirection: "column",
-    gap: 12,
   },
   escalationSuccessText: {
-    fontSize: 15,
+    margin: 0,
     color: "#047857",
     fontWeight: 500,
-    margin: 0,
   },
   escalationFormFields: {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
   },
   escalationLabel: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#374151",
+    margin: 0,
   },
   required: {
     color: "#DC2626",
   },
   escalationInput: {
     padding: "10px 12px",
-    fontSize: 15,
     border: "1px solid #D1D5DB",
     borderRadius: 8,
     outline: "none",
+    fontFamily: "inherit",
+  },
+  escalationHelper: {
+    display: "block",
+    lineHeight: 1.4,
+    margin: "-2px 0 0 0",
+  },
+  escalationTextarea: {
+    padding: "10px 12px",
+    border: "1px solid #D1D5DB",
+    borderRadius: 8,
+    outline: "none",
+    fontFamily: "inherit",
+    minHeight: 88,
+    resize: "vertical" as const,
+  },
+  escalationSubmissionInfo: {
+    lineHeight: 1.45,
+    margin: 0,
   },
   escalationFormActions: {
     display: "flex",
@@ -1075,8 +1098,6 @@ const styles: Record<string, React.CSSProperties> = {
   scanAnotherButton: {
     display: "block",
     padding: "14px 24px",
-    fontSize: 17,
-    fontWeight: 700,
     borderRadius: 12,
     border: "none",
     background: "#2563EB",
@@ -1089,8 +1110,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   footerAdvisory: {
-    fontSize: 11,
-    color: "#9CA3AF",
     textAlign: "center" as const,
     margin: "2px 0 0",
     lineHeight: 1.4,

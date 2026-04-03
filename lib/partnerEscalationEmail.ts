@@ -13,6 +13,8 @@ export type EscalationPayload = {
   userName: string;
   userCompany: string;
   userRole: string | null;
+  /** Optional user context for IT (API field: client_note). */
+  clientNote: string | null;
   timestamp: string;
   scanId: string;
   narrativeFamily: string | null;
@@ -81,6 +83,10 @@ export function formatEscalationBody(params: EmailParams): string {
   lines.push(`Name: ${payload.userName}`);
   lines.push(`Company: ${payload.userCompany}`);
   lines.push(`Role: ${payload.userRole ?? "(not provided)"}`);
+  lines.push(``);
+
+  lines.push(`--- User Note ---`);
+  lines.push(payload.clientNote?.trim() ? payload.clientNote.trim() : `(not provided)`);
 
   return lines.join("\n");
 }
