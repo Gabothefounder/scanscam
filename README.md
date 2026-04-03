@@ -18,6 +18,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Environment (MSP escalation links)
+
+Set `NEXT_PUBLIC_APP_URL` to your public origin (no trailing slash), e.g. `https://scanscam.ca`, so partner escalation emails include a working **View full submission** link to `/msp/view/[token]`. If unset locally, the API falls back to `VERCEL_URL` when deployed. See [`.env.example`](.env.example).
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

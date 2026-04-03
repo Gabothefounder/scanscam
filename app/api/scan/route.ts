@@ -723,6 +723,51 @@ function reject(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, code, message }, { status });
 }
 
+const SUBMISSION_IMAGES_BUCKET = "submission-images";
+
+function parseDataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string; ext: string } | null {
+  const match = /^data:([^;,]+);base64,([\s\S]+)$/.exec(dataUrl.trim());
+  if (!match) return null;
+  const contentType = match[1];
+  const ctLower = contentType.toLowerCase();
+  let ext = "bin";
+  if (ctLower.includes("jpeg") || ctLower.includes("jpg")) ext = "jpg";
+  else if (ctLower.includes("png")) ext = "png";
+  else if (ctLower.includes("webp")) ext = "webp";
+  else if (ctLower.includes("gif")) ext = "gif";
+  try {
+    const buffer = Buffer.from(match[2], "base64");
+    if (buffer.length === 0) return null;
+    return { buffer, contentType, ext };
+  } catch {
+    return null;
+  }
+}
+
+/** Private bucket; MSP view uses signed URLs. Best-effort — scan still succeeds if upload fails. */
+async function persistOcrSubmissionImage(scanId: string, dataUrl: string): Promise<boolean> {
+  const parsed = parseDataUrlToBuffer(dataUrl);
+  if (!parsed) return false;
+  const objectPath = `${scanId}/${crypto.randomUUID()}.${parsed.ext}`;
+  const { error: uploadError } = await supabase.storage.from(SUBMISSION_IMAGES_BUCKET).upload(objectPath, parsed.buffer, {
+    contentType: parsed.contentType,
+    upsert: false,
+  });
+  if (uploadError) {
+    console.error("[scan_persist_image]", uploadError.message);
+    return false;
+  }
+  const { error: updateError } = await supabase
+    .from("scans")
+    .update({ submission_image_path: objectPath })
+    .eq("id", scanId);
+  if (updateError) {
+    console.error("[scan_persist_image_path]", updateError.message);
+    return false;
+  }
+  return true;
+}
+
 function looksLikeConversation(text: string): boolean {
   const markers = [
     "i think",
@@ -1111,6 +1156,11 @@ export async function POST(req: Request) {
         if (!delErr) {
           scanId = null;
           logEvent("scan_rollback_raw_failed", "warning", "scan_api", { reason: rawError.message });
+        }
+      } else if (source === "ocr" && image && typeof image === "string" && image.startsWith("data:")) {
+        const ok = await persistOcrSubmissionImage(scanId, image);
+        if (!ok) {
+          logEvent("scan_image_upload_skipped", "info", "scan_api", { scan_id: scanId });
         }
       }
     }
