@@ -28,65 +28,89 @@ export type EmailParams = {
   payload: EscalationPayload;
   partnerName: string;
   partnerEmail: string;
+  /** Absolute URL to MSP full submission view; omitted from email if null */
+  viewSubmissionUrl?: string | null;
+  /** For debug logs only — whether scans.submission_image_path was set */
+  submissionImagePathPresent?: boolean;
 };
 
 export function formatEscalationSubject(userCompany: string, partnerName: string): string {
   return `ScanScam — Escalation from ${userCompany} for ${partnerName}`;
 }
 
+const RAW_PREVIEW_MAX_CHARS = 400;
+
+function formatSourceLine(source: string | null): string {
+  if (!source) return "(unknown)";
+  if (source === "user_text") return "Text";
+  if (source === "ocr") return "Image (OCR)";
+  return source;
+}
+
+function truncateRawPreview(text: string, maxLen: number): string {
+  const t = text.trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen)}…`;
+}
+
+/** Resend / transports can reject bodies containing NUL bytes; OCR can rarely emit them. */
+function stripNul(s: string): string {
+  return s.replace(/\0/g, "");
+}
+
 export function formatEscalationBody(params: EmailParams): string {
-  const { payload, partnerName, partnerEmail } = params;
+  const { payload, partnerName } = params;
   const lines: string[] = [];
 
-  lines.push(`ScanScam Partner Escalation`);
-  lines.push(`Partner: ${partnerName}`);
-  lines.push(`Intended recipient: ${partnerEmail}`);
-  lines.push(``);
-  lines.push(`--- Scan Details ---`);
-  lines.push(`Scan ID: ${payload.scanId}`);
-  lines.push(`Timestamp: ${payload.timestamp}`);
-  lines.push(`Risk Tier: ${payload.riskTier}`);
-  lines.push(`Summary: ${payload.summarySentence ?? "(none)"}`);
+  lines.push(`ScanScam Alert — New suspicious message`);
+  lines.push(`Submitted to: ${partnerName}`);
   lines.push(``);
 
-  if (payload.source) {
-    if (payload.source === "user_text") {
-      lines.push(`Source: text submission`);
-    } else if (payload.source === "ocr") {
-      lines.push(`Source: image upload (OCR text extracted)`);
-      lines.push(
-        `Note: This escalation includes OCR-extracted text from an uploaded image. The original image is not attached in this MVP version.`
-      );
-    } else {
-      lines.push(`Source: ${payload.source}`);
-    }
+  const viewUrl = params.viewSubmissionUrl?.trim();
+  if (viewUrl) {
+    lines.push(`View full submission:`);
+    lines.push(viewUrl);
+    lines.push(``);
     lines.push(``);
   }
 
-  lines.push(`--- Raw Message ---`);
-  if (payload.rawMessage) {
-    lines.push(payload.rawMessage);
+  lines.push(`Risk tier`);
+  lines.push(`${payload.riskTier}`);
+  lines.push(``);
+
+  lines.push(`Summary`);
+  lines.push(`${payload.summarySentence ?? "(none)"}`);
+  lines.push(``);
+
+  lines.push(`User note`);
+  lines.push(payload.clientNote?.trim() ? payload.clientNote.trim() : `(not provided)`);
+  lines.push(``);
+
+  lines.push(`Scan details`);
+  lines.push(`Scan ID: ${payload.scanId}`);
+  lines.push(`Source: ${formatSourceLine(payload.source)}`);
+  lines.push(
+    `Submitted by: ${payload.userName} / ${payload.userCompany} / ${payload.userRole?.trim() || "(role not provided)"}`
+  );
+  lines.push(``);
+
+  lines.push(`Raw message preview`);
+  const rawForPreview =
+    payload.rawMessage != null && String(payload.rawMessage).trim().length > 0
+      ? String(payload.rawMessage)
+      : "";
+  if (rawForPreview) {
+    lines.push(truncateRawPreview(rawForPreview, RAW_PREVIEW_MAX_CHARS));
+  } else if (viewUrl) {
+    lines.push(`(Not included here — open the secure link above for the full message.)`);
   } else {
-    lines.push(`(Raw message unavailable: user did not opt in to raw message storage.)`);
+    lines.push(`(Not available — user did not opt in to storing the full message.)`);
   }
   lines.push(``);
 
-  lines.push(`--- Structured Fields ---`);
-  lines.push(`narrative_family: ${payload.narrativeFamily ?? "(unknown)"}`);
-  lines.push(`impersonation_entity: ${payload.impersonationEntity ?? "(unknown)"}`);
-  lines.push(`requested_action: ${payload.requestedAction ?? "(unknown)"}`);
-  lines.push(`threat_stage: ${payload.threatStage ?? "(unknown)"}`);
-  lines.push(`confidence_level: ${payload.confidenceLevel ?? "(unknown)"}`);
-  lines.push(``);
-
-  lines.push(`--- Submitted By ---`);
-  lines.push(`Name: ${payload.userName}`);
-  lines.push(`Company: ${payload.userCompany}`);
-  lines.push(`Role: ${payload.userRole ?? "(not provided)"}`);
-  lines.push(``);
-
-  lines.push(`--- User Note ---`);
-  lines.push(payload.clientNote?.trim() ? payload.clientNote.trim() : `(not provided)`);
+  if (viewUrl) {
+    lines.push(`Use the link at the top for the complete submission, including any image and full text.`);
+  }
 
   return lines.join("\n");
 }
@@ -99,8 +123,30 @@ export async function sendPartnerEscalationEmail(
     return { ok: false, error: "Email service not configured (RESEND_API_KEY missing)" };
   }
 
+  const src = params.payload.source ?? null;
+  const hasRaw =
+    params.payload.rawMessage != null && String(params.payload.rawMessage).trim().length > 0;
+  const hasViewUrl = Boolean(params.viewSubmissionUrl?.trim());
+
+  console.log("[partner-escalation-email-debug] enter sendPartnerEscalationEmail", {
+    source: src,
+    has_raw_message: hasRaw,
+    has_submission_image_path: Boolean(params.submissionImagePathPresent),
+    has_view_submission_url: hasViewUrl,
+  });
+
   const subject = formatEscalationSubject(params.payload.userCompany, params.partnerName);
-  const body = formatEscalationBody(params);
+  let body: string;
+  try {
+    body = formatEscalationBody(params);
+  } catch (e) {
+    console.error("[partner-escalation-email-debug] formatEscalationBody threw", e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Email body formatting failed",
+    };
+  }
+  body = stripNul(body);
 
   // Resend test/sandbox: only verified inbox allowed. Partner inbox stays in body ("Intended recipient").
   // TODO: when domain + production sending is ready, set `to` from params.partnerEmail (or gate on RESEND_TEST_MODE).
@@ -113,10 +159,19 @@ export async function sendPartnerEscalationEmail(
   console.log("RESEND from:", fromValue);
   console.log("RESEND to:", toValue);
 
+  console.log("[partner-escalation-email-debug] pre-resend.send", {
+    source: src,
+    has_raw_message: hasRaw,
+    has_submission_image_path: Boolean(params.submissionImagePathPresent),
+    has_view_submission_url: hasViewUrl,
+    subject_length: subject.length,
+    body_length: body.length,
+  });
+
   const { data, error } = await resend.emails.send({
     from: fromValue,
     to: [toValue],
-    subject,
+    subject: stripNul(subject),
     text: body,
   });
 
