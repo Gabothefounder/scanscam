@@ -146,6 +146,7 @@ export async function POST(req: Request) {
       scan_id: scanId,
       input_type: isOcr ? "image_ocr" : "text",
       source: scanSource,
+      has_client_note: Boolean(clientNote?.length),
       has_raw_text: Boolean(rawText?.length),
       raw_text_length: rawText?.length ?? 0,
       has_image_path: Boolean(submissionImagePath),
