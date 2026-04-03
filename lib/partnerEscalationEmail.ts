@@ -96,18 +96,20 @@ export async function sendPartnerEscalationEmail(
   const subject = formatEscalationSubject(params.payload.userCompany, params.partnerName);
   const body = formatEscalationBody(params);
 
-  const testRecipient = "gab.gabcaron@gmail.com";
-  const useTestRecipient =
-    process.env.RESEND_TEST_MODE === "true" || process.env.NODE_ENV !== "production";
-  const recipient = useTestRecipient ? testRecipient : params.partnerEmail;
+  // Resend test/sandbox: only verified inbox allowed. Partner inbox stays in body ("Intended recipient").
+  // TODO: when domain + production sending is ready, set `to` from params.partnerEmail (or gate on RESEND_TEST_MODE).
+  const recipient = "gab.gabcaron@gmail.com";
 
   const resend = new Resend(apiKey);
 
-  console.log("Email recipient:", recipient);
+  const fromValue = params.from;
+  const toValue = recipient;
+  console.log("RESEND from:", fromValue);
+  console.log("RESEND to:", toValue);
 
   const { data, error } = await resend.emails.send({
-    from: params.from,
-    to: [recipient],
+    from: fromValue,
+    to: [toValue],
     subject,
     text: body,
   });
