@@ -792,12 +792,21 @@ export default function ResultPage() {
                             partner_slug: partner.slug,
                             user_name: escalationForm.name.trim(),
                             user_company: escalationForm.company.trim(),
-                            user_role: escalationForm.role.trim() || null,
-                            client_note: escalationForm.client_note.trim() || null,
+                            user_role: (escalationForm.role ?? "").trim() || null,
+                            client_note: (escalationForm.client_note ?? "").trim() || null,
                           }),
                         });
-                        const data = await res.json();
-                        if (data.ok) {
+                        let data: { ok?: boolean; message?: string } = {};
+                        try {
+                          const text = await res.text();
+                          if (text) data = JSON.parse(text) as { ok?: boolean; message?: string };
+                        } catch {
+                          setEscalationStatus("error");
+                          setEscalationErrorMessage(t.escalationForm.errorMessage);
+                          return;
+                        }
+                        // Require HTTP success and explicit JSON ok — do not trust body alone on 4xx/5xx
+                        if (res.ok && data.ok === true) {
                           setEscalationStatus("success");
                         } else {
                           setEscalationStatus("error");
