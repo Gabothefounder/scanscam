@@ -12,9 +12,11 @@ function getResendClient(): Resend {
 export async function GET() {
   try {
     const resend = getResendClient();
+    const recipient = "gab.gabcaron@gmail.com";
+    console.log("Email recipient:", recipient);
     const { data, error } = await resend.emails.send({
       from: "ScanScam <onboarding@resend.dev>",
-      to: "gestionrockwell@gmail.com",
+      to: recipient,
       subject: "ScanScam test email",
       text: "This is a test email from ScanScam MSP flow",
     });

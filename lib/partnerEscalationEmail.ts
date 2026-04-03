@@ -96,10 +96,14 @@ export async function sendPartnerEscalationEmail(
   const subject = formatEscalationSubject(params.payload.userCompany, params.partnerName);
   const body = formatEscalationBody(params);
 
-  const isProduction = process.env.NODE_ENV === "production";
-  const recipient = isProduction ? params.partnerEmail : "gab.gabcaron@gmail.com";
+  const testRecipient = "gab.gabcaron@gmail.com";
+  const useTestRecipient =
+    process.env.RESEND_TEST_MODE === "true" || process.env.NODE_ENV !== "production";
+  const recipient = useTestRecipient ? testRecipient : params.partnerEmail;
 
   const resend = new Resend(apiKey);
+
+  console.log("Email recipient:", recipient);
 
   const { data, error } = await resend.emails.send({
     from: params.from,
