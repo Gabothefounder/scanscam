@@ -99,7 +99,6 @@ const copy = {
       submissionInfo:
         "Your message, analysis, and note will be shared with your IT provider.",
       submitButton: "Send",
-      cancelButton: "Cancel",
       successMessage: "Escalation sent successfully. Your IT provider can now review this scan.",
       errorMessage: "We could not send this escalation right now. Please try again in a moment.",
       sending: "Sending…",
@@ -278,7 +277,6 @@ const copy = {
       submissionInfo:
         "Votre message, l'analyse et la note seront partagés avec votre fournisseur TI.",
       submitButton: "Envoyer",
-      cancelButton: "Annuler",
       successMessage: "Escalade envoyée avec succès. Votre fournisseur TI peut maintenant réviser cette analyse.",
       errorMessage: "Nous n'avons pas pu envoyer cette escalade pour le moment. Veuillez réessayer dans un instant.",
       sending: "Envoi en cours…",
@@ -663,21 +661,10 @@ export default function ResultPage() {
                 {t.sendToItCta[risk]}
               </button>
             ) : escalationStatus === "success" ? (
-              <div style={styles.escalationSuccessBlock} className="gap-4">
+              <div style={styles.escalationSuccessBlock}>
                 <p className="text-sm" style={styles.escalationSuccessText}>
                   {t.escalationForm.successMessage}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEscalationForm(false);
-                    setEscalationStatus("idle");
-                    setEscalationForm({ name: "", company: "", role: "", client_note: "" });
-                  }}
-                  style={styles.escalationCancelButton}
-                >
-                  {t.escalationForm.cancelButton}
-                </button>
               </div>
             ) : (
               <div style={styles.escalationFormBlock} className="gap-4">
@@ -750,19 +737,6 @@ export default function ResultPage() {
                 <div style={styles.escalationFormActions}>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowEscalationForm(false);
-                      setEscalationStatus("idle");
-                      setEscalationErrorMessage(null);
-                      setEscalationForm({ name: "", company: "", role: "", client_note: "" });
-                    }}
-                    disabled={escalationStatus === "loading"}
-                    style={styles.escalationCancelButton}
-                  >
-                    {t.escalationForm.cancelButton}
-                  </button>
-                  <button
-                    type="button"
                     disabled={
                       !escalationForm.name.trim() ||
                       !escalationForm.company.trim() ||
@@ -827,8 +801,10 @@ export default function ResultPage() {
             )}
           </>
         )}
+      </section>
 
-        {/* ---------- D) Scan Another CTA ---------- */}
+      {/* Page-level CTA below the result card (not inside the escalation flow) */}
+      <div style={styles.belowCard}>
         <a
           href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
           className="text-sm font-semibold"
@@ -836,12 +812,10 @@ export default function ResultPage() {
         >
           {t.scanAnother}
         </a>
-
-        {/* ---------- Footer (single advisory) ---------- */}
         <p className="text-xs text-gray-500" style={styles.footerAdvisory}>
           {t.footerAdvisory}
         </p>
-      </section>
+      </div>
     </main>
   );
 }
@@ -853,9 +827,17 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "calc(100vh - 156px)",
     backgroundColor: "#E2E4E9",
     display: "flex",
-    justifyContent: "center",
-    alignItems: "flex-start",
+    flexDirection: "column",
+    alignItems: "center",
     padding: "24px 16px 16px",
+    gap: 16,
+  },
+  belowCard: {
+    width: "100%",
+    maxWidth: "600px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
   },
   card: {
     width: "100%",
@@ -1080,21 +1062,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   escalationFormActions: {
     display: "flex",
-    gap: 12,
-    justifyContent: "flex-end",
-  },
-  escalationCancelButton: {
-    padding: "10px 18px",
-    fontSize: 14,
-    fontWeight: 500,
-    backgroundColor: "transparent",
-    border: "1px solid #D1D5DB",
-    borderRadius: 8,
-    color: "#4B5563",
-    cursor: "pointer",
+    marginTop: 4,
   },
   escalationSubmitButton: {
-    padding: "10px 18px",
+    padding: "12px 18px",
     fontSize: 14,
     fontWeight: 600,
     backgroundColor: "#2563EB",
@@ -1102,6 +1073,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     color: "#FFFFFF",
     cursor: "pointer",
+    width: "100%",
   },
 
   scanAnotherButton: {

@@ -15,8 +15,6 @@ const copy = {
     policy3: "No accounts. No personal tracking or profiling.",
     howItWorks: "How it works",
     privacyLink: "Privacy & Data Use",
-    helpOthersLabel: "Help others (optional)",
-    submitScam: "Submit a confirmed scam sample",
   },
   fr: {
     title: "Est-ce une arnaque ?",
@@ -28,8 +26,6 @@ const copy = {
     policy3: "Aucun compte. Aucun suivi personnel ni profilage.",
     howItWorks: "Comment ça marche",
     privacyLink: "Confidentialité et utilisation des données",
-    helpOthersLabel: "Aider les autres (optionnel)",
-    submitScam: "Soumettre un échantillon d'arnaque confirmée",
   },
 };
 
@@ -75,13 +71,6 @@ export default function Home() {
             {t.primaryCta}
           </a>
           <p style={styles.reassurance}>{t.reassurance}</p>
-
-          <div style={styles.secondarySection}>
-            <p style={styles.helpOthersLabel}>{t.helpOthersLabel}</p>
-            <a href={`/report?lang=${lang}`} style={styles.secondaryButton}>
-              {t.submitScam}
-            </a>
-          </div>
 
           <div style={styles.policyBlock}>
             <p style={styles.policyText}>{t.policy1}</p>
@@ -173,38 +162,6 @@ const styles = {
     fontWeight: 500,
     color: "#374151",
     textAlign: "center" as const,
-  },
-
-  secondarySection: {
-    marginTop: "8px",
-    paddingTop: "8px",
-    borderTop: "1px solid rgba(0,0,0,0.06)",
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center",
-    gap: "6px",
-  },
-
-  helpOthersLabel: {
-    margin: 0,
-    fontSize: "12px",
-    fontWeight: 500,
-    color: "#9CA3AF",
-    textAlign: "center" as const,
-  },
-
-  secondaryButton: {
-    display: "inline-block",
-    width: "auto",
-    padding: "8px 16px",
-    backgroundColor: "transparent",
-    color: "#6B7280",
-    textAlign: "center" as const,
-    borderRadius: "8px",
-    textDecoration: "none",
-    fontWeight: 500,
-    fontSize: "14px",
-    border: "1px solid #D1D5DB",
   },
 
   policyBlock: {

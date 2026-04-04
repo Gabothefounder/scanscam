@@ -22,6 +22,10 @@ export const metadata: Metadata = {
   title: "ScanScam — Check messages for scam warning signs",
   description:
     "Scan suspicious messages or screenshots to spot common scam warning signs. Anonymous, fast, and free.",
+  icons: {
+    icon: [{ url: "/Logo/scanscam-sun-mark.png", type: "image/png" }],
+    apple: [{ url: "/Logo/scanscam-sun-mark.png", type: "image/png" }],
+  },
 };
 
 /* ---------------- Root Layout ---------------- */
