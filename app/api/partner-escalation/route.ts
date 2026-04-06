@@ -11,8 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "ScanScam <onboarding@resend.dev>";
+const FROM_EMAIL = "ScanScam <alerts@scanscam.ca>";
 
 const CLIENT_NOTE_MAX_LEN = 2000;
 const MSP_ACCESS_EXPIRY_DAYS = 21;

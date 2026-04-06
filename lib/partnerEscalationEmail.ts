@@ -148,9 +148,9 @@ export async function sendPartnerEscalationEmail(
   }
   body = stripNul(body);
 
-  // Resend test/sandbox: only verified inbox allowed. Partner inbox stays in body ("Intended recipient").
-  // TODO: when domain + production sending is ready, set `to` from params.partnerEmail (or gate on RESEND_TEST_MODE).
-  const recipient = "gab.gabcaron@gmail.com";
+  // TEMP (live email testing): force partner escalation delivery to this inbox.
+  // TODO: switch back to the real partner recipient (params.partnerEmail) after testing.
+  const recipient = "gestionrockwell@gmail.com";
 
   const resend = new Resend(apiKey);
 
@@ -171,6 +171,7 @@ export async function sendPartnerEscalationEmail(
   const { data, error } = await resend.emails.send({
     from: fromValue,
     to: [toValue],
+    replyTo: "hello@scanscam.ca",
     subject: stripNul(subject),
     text: body,
   });
