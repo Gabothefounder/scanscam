@@ -156,6 +156,9 @@ export async function POST(req: Request) {
       .upsert(
         {
           scan_id: scanId,
+          submitted_by_name: userName,
+          submitted_by_company: userCompany,
+          submitted_by_role: userRole,
           client_note: clientNote,
           raw_text: rawText,
           image_path: submissionImagePath,

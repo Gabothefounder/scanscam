@@ -85,7 +85,9 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
 
   const { data: access, error: accessError } = await supabase
     .from("partner_escalation_access")
-    .select("*")
+    .select(
+      "scan_id, client_note, raw_text, image_path, expires_at, submitted_by_name, submitted_by_company, submitted_by_role"
+    )
     .eq("access_token", token.trim())
     .maybeSingle();
 
@@ -149,18 +151,17 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
     access.client_note != null && String(access.client_note).trim()
       ? String(access.client_note)
       : t.notProvided;
-  const accessRecord = access as Record<string, unknown>;
   const submittedName =
-    typeof accessRecord.user_name === "string" && accessRecord.user_name.trim()
-      ? accessRecord.user_name.trim()
+    access.submitted_by_name != null && String(access.submitted_by_name).trim()
+      ? String(access.submitted_by_name).trim()
       : t.notProvided;
   const submittedCompany =
-    typeof accessRecord.user_company === "string" && accessRecord.user_company.trim()
-      ? accessRecord.user_company.trim()
+    access.submitted_by_company != null && String(access.submitted_by_company).trim()
+      ? String(access.submitted_by_company).trim()
       : t.notProvided;
   const submittedRole =
-    typeof accessRecord.user_role === "string" && accessRecord.user_role.trim()
-      ? accessRecord.user_role.trim()
+    access.submitted_by_role != null && String(access.submitted_by_role).trim()
+      ? String(access.submitted_by_role).trim()
       : t.notProvided;
 
   return (
