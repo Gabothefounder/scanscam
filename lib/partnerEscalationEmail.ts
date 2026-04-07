@@ -70,6 +70,8 @@ function escapeHtml(text: string): string {
 export function formatEscalationBody(params: EmailParams): string {
   const { payload, partnerName } = params;
   const lines: string[] = [];
+  const submittedCompany = payload.userCompany?.trim() || "(not provided)";
+  const submittedRole = payload.userRole?.trim() || "(not provided)";
 
   lines.push(`ScanScam Alert — New suspicious message`);
   lines.push(`Submitted to: ${partnerName}`);
@@ -98,9 +100,12 @@ export function formatEscalationBody(params: EmailParams): string {
   lines.push(`Scan details`);
   lines.push(`Scan ID: ${payload.scanId}`);
   lines.push(`Source: ${formatSourceLine(payload.source)}`);
-  lines.push(
-    `Submitted by: ${payload.userName} / ${payload.userCompany} / ${payload.userRole?.trim() || "(role not provided)"}`
-  );
+  lines.push(``);
+  lines.push(`Submitted by`);
+  lines.push(``);
+  lines.push(`Name: ${payload.userName}`);
+  lines.push(`Company: ${submittedCompany}`);
+  lines.push(`Role: ${submittedRole}`);
   lines.push(``);
 
   lines.push(`Raw message preview`);
@@ -132,6 +137,8 @@ export function formatEscalationHtml(params: EmailParams): string {
   const viewUrl = params.viewSubmissionUrl?.trim() || "";
   const summary = payload.summarySentence ?? "(none)";
   const userNote = payload.clientNote?.trim() ? payload.clientNote.trim() : "(not provided)";
+  const submittedCompany = payload.userCompany?.trim() || "(not provided)";
+  const submittedRole = payload.userRole?.trim() || "(not provided)";
   const rawForPreview =
     payload.rawMessage != null && String(payload.rawMessage).trim().length > 0
       ? truncateRawPreview(String(payload.rawMessage), RAW_PREVIEW_MAX_CHARS)
@@ -158,13 +165,14 @@ export function formatEscalationHtml(params: EmailParams): string {
   <p style="margin:0 0 4px 0;"><strong>Scan details</strong></p>
   <p style="margin:0;">Scan ID: ${escapeHtml(payload.scanId)}</p>
   <p style="margin:0;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
-  <p style="margin:0 0 16px 0;">Submitted by: ${escapeHtml(
-    `${payload.userName} / ${payload.userCompany} / ${payload.userRole?.trim() || "(role not provided)"}`
-  )}</p>
+  <p style="margin:12px 0 4px 0;"><strong>Submitted by</strong></p>
+  <p style="margin:0;"><strong>Name:</strong> ${escapeHtml(payload.userName)}</p>
+  <p style="margin:0;"><strong>Company:</strong> ${escapeHtml(submittedCompany)}</p>
+  <p style="margin:0 0 16px 0;"><strong>Role:</strong> ${escapeHtml(submittedRole)}</p>
   <p style="margin:0 0 4px 0;"><strong>Raw message preview</strong></p>
   <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(rawForPreview)}</p>
   <p style="margin:0 0 16px 0;">Use the link above to review the full submission, including any image and full text.</p>
-  <p style="margin:0;">ScanScam</p>
+  <p style="margin:0;"><strong>ScanScam</strong></p>
   <p style="margin:0;">Fraud Signal Intelligence</p>
   <p style="margin:12px 0 0 0;">Your next scan could stop the next scam.</p>
   <p style="margin:4px 0 0 0;">Votre prochain scan peut arrêter la prochaine fraude.</p>
