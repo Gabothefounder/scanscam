@@ -71,8 +71,8 @@ export function formatEscalationBody(params: EmailParams): string {
     lines.push(`View full submission:`);
     lines.push(viewUrl);
     lines.push(``);
-    lines.push(``);
   }
+  lines.push(``);
 
   lines.push(`Risk tier`);
   lines.push(`${payload.riskTier}`);
@@ -107,10 +107,16 @@ export function formatEscalationBody(params: EmailParams): string {
     lines.push(`(Not available — user did not opt in to storing the full message.)`);
   }
   lines.push(``);
-
-  if (viewUrl) {
-    lines.push(`Use the link at the top for the complete submission, including any image and full text.`);
-  }
+  lines.push(`Use the link above to review the full submission, including any image and full text.`);
+  lines.push(``);
+  lines.push(`ScanScam`);
+  lines.push(`Fraud Signal Intelligence`);
+  lines.push(``);
+  lines.push(`Your next scan could stop the next scam.`);
+  lines.push(`Votre prochain scan peut arrêter la prochaine fraude.`);
+  lines.push(``);
+  lines.push(`Confidentiality: If received in error, please delete.`);
+  lines.push(`Confidentialité : Si reçu par erreur, veuillez supprimer.`);
 
   return lines.join("\n");
 }

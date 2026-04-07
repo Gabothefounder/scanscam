@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +17,61 @@ function normalizeBucketObjectPath(stored: string, bucketId: string): string {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export default async function MspViewPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-  if (!token?.trim() || !UUID_RE.test(token.trim())) notFound();
+const copy = {
+  en: {
+    submission: "Submission",
+    privateLink: "ScanScam - partner escalation (private link)",
+    riskTier: "Risk tier",
+    summary: "Summary",
+    clientNote: "Client note",
+    rawMessage: "Raw message",
+    image: "Image",
+    submittedImageAlt: "Submitted image",
+    imageLoadError: "Image could not be loaded.",
+    none: "(none)",
+    notStored: "(not stored or user did not opt in)",
+    notProvided: "(not provided)",
+    brandLine: "Fraud Signal Intelligence",
+    taglineEn: "Your next scan could stop the next scam.",
+    taglineFr: "Votre prochain scan peut arreter la prochaine fraude.",
+    invalidLink: "Link expired or invalid",
+  },
+  fr: {
+    submission: "Soumission",
+    privateLink: "ScanScam - escalation partenaire (lien prive)",
+    riskTier: "Niveau de risque",
+    summary: "Resume",
+    clientNote: "Note du client",
+    rawMessage: "Message brut",
+    image: "Image",
+    submittedImageAlt: "Image soumise",
+    imageLoadError: "Impossible de charger l'image.",
+    none: "(aucun)",
+    notStored: "(non enregistre ou l'utilisateur n'a pas accepte)",
+    notProvided: "(non fourni)",
+    brandLine: "Intelligence des signaux de fraude",
+    taglineEn: "Your next scan could stop the next scam.",
+    taglineFr: "Votre prochain scan peut arreter la prochaine fraude.",
+    invalidLink: "Lien expire ou invalide",
+  },
+} as const;
+
+type PageProps = {
+  params: Promise<{ token: string }> | { token: string };
+  searchParams?: Promise<{ lang?: string }> | { lang?: string };
+};
+
+export default async function MspViewPage({ params, searchParams }: PageProps) {
+  const tokenParams = params instanceof Promise ? await params : params;
+  const query = searchParams instanceof Promise ? await searchParams : searchParams ?? {};
+  const lang = query.lang === "fr" ? "fr" : "en";
+  const t = copy[lang];
+  const { token } = tokenParams;
+  if (!token?.trim() || !UUID_RE.test(token.trim())) return renderInvalidPage(t);
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) notFound();
+  if (!supabaseUrl || !serviceKey) return renderInvalidPage(t);
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -34,8 +81,8 @@ export default async function MspViewPage({ params }: { params: Promise<{ token:
     .eq("access_token", token.trim())
     .maybeSingle();
 
-  if (accessError || !access) notFound();
-  if (new Date(access.expires_at as string).getTime() < Date.now()) notFound();
+  if (accessError || !access) return renderInvalidPage(t);
+  if (new Date(access.expires_at as string).getTime() < Date.now()) return renderInvalidPage(t);
 
   const { data: scan, error: scanError } = await supabase
     .from("scans")
@@ -43,7 +90,7 @@ export default async function MspViewPage({ params }: { params: Promise<{ token:
     .eq("id", access.scan_id as string)
     .maybeSingle();
 
-  if (scanError || !scan) notFound();
+  if (scanError || !scan) return renderInvalidPage(t);
 
   let signedImageUrl: string | null = null;
   let signErrorMessage: string | null = null;
@@ -85,15 +132,15 @@ export default async function MspViewPage({ params }: { params: Promise<{ token:
 
   const riskTier = String(scan.risk_tier ?? "low");
   const summary =
-    scan.summary_sentence != null ? String(scan.summary_sentence) : "(none)";
+    scan.summary_sentence != null ? String(scan.summary_sentence) : t.none;
   const rawText =
     access.raw_text != null && String(access.raw_text).trim()
       ? String(access.raw_text)
-      : "(not stored or user did not opt in)";
+      : t.notStored;
   const clientNote =
     access.client_note != null && String(access.client_note).trim()
       ? String(access.client_note)
-      : "(not provided)";
+      : t.notProvided;
 
   return (
     <main
@@ -115,28 +162,28 @@ export default async function MspViewPage({ params }: { params: Promise<{ token:
           border: "1px solid #e5e7eb",
         }}
       >
-        <h1 style={{ fontSize: 20, fontWeight: 600, margin: "0 0 8px" }}>Submission</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 600, margin: "0 0 8px" }}>{t.submission}</h1>
         <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 24px" }}>
-          ScanScam — partner escalation (private link)
+          {t.privateLink}
         </p>
 
         <section style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
-            Risk tier
+            {t.riskTier}
           </h2>
           <p style={{ margin: 0, fontSize: 15 }}>{riskTier}</p>
         </section>
 
         <section style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
-            Summary
+            {t.summary}
           </h2>
           <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{summary}</p>
         </section>
 
         <section style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
-            Client note
+            {t.clientNote}
           </h2>
           <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
             {clientNote}
@@ -145,7 +192,7 @@ export default async function MspViewPage({ params }: { params: Promise<{ token:
 
         <section style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
-            Raw message
+            {t.rawMessage}
           </h2>
           <pre
             style={{
@@ -167,21 +214,74 @@ export default async function MspViewPage({ params }: { params: Promise<{ token:
         {signedImageUrl ? (
           <section>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 8px" }}>
-              Image
+              {t.image}
             </h2>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={signedImageUrl}
-              alt="Submitted image"
+              alt={t.submittedImageAlt}
               style={{ maxWidth: "100%", height: "auto", borderRadius: 8, border: "1px solid #e5e7eb" }}
             />
           </section>
         ) : imagePathRaw ? (
           <p style={{ fontSize: 13, color: "#b45309" }}>
-            Image could not be loaded.
+            {t.imageLoadError}
             {signErrorMessage ? ` (${signErrorMessage})` : ""}
           </p>
         ) : null}
+        <section
+          style={{
+            marginTop: 24,
+            paddingTop: 16,
+            borderTop: "1px solid #e5e7eb",
+            color: "#6b7280",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#374151" }}>ScanScam</p>
+          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.brandLine}</p>
+          <p style={{ margin: "10px 0 0", fontSize: 12 }}>{t.taglineEn}</p>
+          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.taglineFr}</p>
+        </section>
+      </article>
+    </main>
+  );
+}
+
+function renderInvalidPage(t: (typeof copy)["en"] | (typeof copy)["fr"]) {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#f3f4f6",
+        padding: "24px 16px",
+        fontFamily: "system-ui, sans-serif",
+        color: "#111827",
+      }}
+    >
+      <article
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          backgroundColor: "#fff",
+          borderRadius: 12,
+          padding: 24,
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <h1 style={{ fontSize: 20, fontWeight: 600, margin: "0 0 8px" }}>{t.invalidLink}</h1>
+        <section
+          style={{
+            marginTop: 16,
+            paddingTop: 16,
+            borderTop: "1px solid #e5e7eb",
+            color: "#6b7280",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#374151" }}>ScanScam</p>
+          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.brandLine}</p>
+          <p style={{ margin: "10px 0 0", fontSize: 12 }}>{t.taglineEn}</p>
+          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.taglineFr}</p>
+        </section>
       </article>
     </main>
   );
