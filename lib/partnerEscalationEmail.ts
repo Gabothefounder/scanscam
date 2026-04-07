@@ -58,6 +58,23 @@ function stripNul(s: string): string {
   return s.replace(/\0/g, "");
 }
 
+function getAppBaseUrlForEmailAssets(): string {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!explicit) return "https://scanscam.ca";
+  const normalized = explicit.replace(/\/+$/, "");
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  return `https://${normalized.replace(/^\/+/, "")}`;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function formatEscalationBody(params: EmailParams): string {
   const { payload, partnerName } = params;
   const lines: string[] = [];
@@ -121,6 +138,54 @@ export function formatEscalationBody(params: EmailParams): string {
   return lines.join("\n");
 }
 
+export function formatEscalationHtml(params: EmailParams): string {
+  const { payload, partnerName } = params;
+  const viewUrl = params.viewSubmissionUrl?.trim() || "";
+  const summary = payload.summarySentence ?? "(none)";
+  const userNote = payload.clientNote?.trim() ? payload.clientNote.trim() : "(not provided)";
+  const rawForPreview =
+    payload.rawMessage != null && String(payload.rawMessage).trim().length > 0
+      ? truncateRawPreview(String(payload.rawMessage), RAW_PREVIEW_MAX_CHARS)
+      : viewUrl
+        ? "(Not included here - open the secure link above for the full message.)"
+        : "(Not available - user did not opt in to storing the full message.)";
+  const logoUrl = `${getAppBaseUrlForEmailAssets()}/Logo/Lucid-mark.png`;
+
+  return `
+<div style="font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.5;font-size:14px;">
+  <img src="${escapeHtml(logoUrl)}" alt="ScanScam logo" width="64" style="display:block;width:64px;height:auto;margin:0 0 12px 0;" />
+  <p style="margin:0 0 8px 0;">ScanScam Alert - New suspicious message</p>
+  <p style="margin:0 0 16px 0;">Submitted to: ${escapeHtml(partnerName)}</p>
+  ${
+    viewUrl
+      ? `<p style="margin:0 0 4px 0;"><strong>View full submission:</strong></p>
+  <p style="margin:0 0 16px 0;"><a href="${escapeHtml(viewUrl)}" style="color:#2563eb;text-decoration:underline;">${escapeHtml(viewUrl)}</a></p>`
+      : ""
+  }
+  <p style="margin:0 0 4px 0;"><strong>Risk tier</strong></p>
+  <p style="margin:0 0 16px 0;">${escapeHtml(payload.riskTier)}</p>
+  <p style="margin:0 0 4px 0;"><strong>Summary</strong></p>
+  <p style="margin:0 0 16px 0;">${escapeHtml(summary)}</p>
+  <p style="margin:0 0 4px 0;"><strong>User note</strong></p>
+  <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
+  <p style="margin:0 0 4px 0;"><strong>Scan details</strong></p>
+  <p style="margin:0;">Scan ID: ${escapeHtml(payload.scanId)}</p>
+  <p style="margin:0;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
+  <p style="margin:0 0 16px 0;">Submitted by: ${escapeHtml(
+    `${payload.userName} / ${payload.userCompany} / ${payload.userRole?.trim() || "(role not provided)"}`
+  )}</p>
+  <p style="margin:0 0 4px 0;"><strong>Raw message preview</strong></p>
+  <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(rawForPreview)}</p>
+  <p style="margin:0 0 16px 0;">Use the link above to review the full submission, including any image and full text.</p>
+  <p style="margin:0;">ScanScam</p>
+  <p style="margin:0;">Fraud Signal Intelligence</p>
+  <p style="margin:12px 0 0 0;">Your next scan could stop the next scam.</p>
+  <p style="margin:4px 0 0 0;">Votre prochain scan peut arrêter la prochaine fraude.</p>
+  <p style="margin:12px 0 0 0;">Confidentiality: If received in error, please delete.</p>
+  <p style="margin:4px 0 0 0;">Confidentialité : Si reçu par erreur, veuillez supprimer.</p>
+</div>`.trim();
+}
+
 export async function sendPartnerEscalationEmail(
   params: EmailParams & { from: string }
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -143,8 +208,10 @@ export async function sendPartnerEscalationEmail(
 
   const subject = formatEscalationSubject(params.payload.userCompany, params.partnerName);
   let body: string;
+  let html: string;
   try {
     body = formatEscalationBody(params);
+    html = formatEscalationHtml(params);
   } catch (e) {
     console.error("[partner-escalation-email-debug] formatEscalationBody threw", e);
     return {
@@ -153,6 +220,7 @@ export async function sendPartnerEscalationEmail(
     };
   }
   body = stripNul(body);
+  html = stripNul(html);
 
   // TEMP (live email testing): force partner escalation delivery to this inbox.
   // TODO: switch back to the real partner recipient (params.partnerEmail) after testing.
@@ -180,6 +248,7 @@ export async function sendPartnerEscalationEmail(
     replyTo: "hello@scanscam.ca",
     subject: stripNul(subject),
     text: body,
+    html,
   });
 
   if (error) {
