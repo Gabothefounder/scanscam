@@ -22,6 +22,10 @@ const copy = {
     submission: "Submission",
     privateLink: "ScanScam - partner escalation (private link)",
     riskTier: "Risk tier",
+    submittedBy: "Submitted by",
+    nameLabel: "Name",
+    companyLabel: "Company",
+    roleLabel: "Role",
     summary: "Summary",
     clientNote: "Client note",
     rawMessage: "Raw message",
@@ -40,6 +44,10 @@ const copy = {
     submission: "Soumission",
     privateLink: "ScanScam - escalation partenaire (lien prive)",
     riskTier: "Niveau de risque",
+    submittedBy: "Soumis par",
+    nameLabel: "Nom",
+    companyLabel: "Entreprise",
+    roleLabel: "Rôle",
     summary: "Resume",
     clientNote: "Note du client",
     rawMessage: "Message brut",
@@ -77,7 +85,7 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
 
   const { data: access, error: accessError } = await supabase
     .from("partner_escalation_access")
-    .select("scan_id, client_note, raw_text, image_path, expires_at")
+    .select("*")
     .eq("access_token", token.trim())
     .maybeSingle();
 
@@ -141,6 +149,19 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
     access.client_note != null && String(access.client_note).trim()
       ? String(access.client_note)
       : t.notProvided;
+  const accessRecord = access as Record<string, unknown>;
+  const submittedName =
+    typeof accessRecord.user_name === "string" && accessRecord.user_name.trim()
+      ? accessRecord.user_name.trim()
+      : t.notProvided;
+  const submittedCompany =
+    typeof accessRecord.user_company === "string" && accessRecord.user_company.trim()
+      ? accessRecord.user_company.trim()
+      : t.notProvided;
+  const submittedRole =
+    typeof accessRecord.user_role === "string" && accessRecord.user_role.trim()
+      ? accessRecord.user_role.trim()
+      : t.notProvided;
 
   return (
     <main
@@ -166,6 +187,21 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
         <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 24px" }}>
           {t.privateLink}
         </p>
+
+        <section style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
+            {t.submittedBy}
+          </h2>
+          <p style={{ margin: "0 0 4px", fontSize: 15, lineHeight: 1.5 }}>
+            <span style={{ fontWeight: 600 }}>{t.nameLabel}:</span> {submittedName}
+          </p>
+          <p style={{ margin: "0 0 4px", fontSize: 15, lineHeight: 1.5 }}>
+            <span style={{ fontWeight: 600 }}>{t.companyLabel}:</span> {submittedCompany}
+          </p>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>
+            <span style={{ fontWeight: 600 }}>{t.roleLabel}:</span> {submittedRole}
+          </p>
+        </section>
 
         <section style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
