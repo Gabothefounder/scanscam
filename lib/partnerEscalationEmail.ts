@@ -35,7 +35,11 @@ export type EmailParams = {
 };
 
 export function formatEscalationSubject(userCompany: string, partnerName: string): string {
-  return `ScanScam — Escalation from ${userCompany} for ${partnerName}`;
+  void partnerName;
+  const company = userCompany?.trim();
+  return company
+    ? `ScanScam — New suspicious message from ${company}`
+    : "ScanScam — New suspicious message";
 }
 
 const RAW_PREVIEW_MAX_CHARS = 400;
@@ -72,34 +76,9 @@ export function formatEscalationBody(params: EmailParams): string {
   const lines: string[] = [];
   const submittedCompany = payload.userCompany?.trim() || "(not provided)";
   const submittedRole = payload.userRole?.trim() || "(not provided)";
+  const viewUrl = params.viewSubmissionUrl?.trim();
 
   lines.push(`ScanScam Alert — New suspicious message`);
-  lines.push(`Submitted to: ${partnerName}`);
-  lines.push(``);
-
-  const viewUrl = params.viewSubmissionUrl?.trim();
-  if (viewUrl) {
-    lines.push(`View full submission:`);
-    lines.push(viewUrl);
-    lines.push(``);
-  }
-  lines.push(``);
-
-  lines.push(`Risk tier`);
-  lines.push(`${payload.riskTier}`);
-  lines.push(``);
-
-  lines.push(`Summary`);
-  lines.push(`${payload.summarySentence ?? "(none)"}`);
-  lines.push(``);
-
-  lines.push(`User note`);
-  lines.push(payload.clientNote?.trim() ? payload.clientNote.trim() : `(not provided)`);
-  lines.push(``);
-
-  lines.push(`Scan details`);
-  lines.push(`Scan ID: ${payload.scanId}`);
-  lines.push(`Source: ${formatSourceLine(payload.source)}`);
   lines.push(``);
   lines.push(`Submitted by`);
   lines.push(``);
@@ -107,6 +86,23 @@ export function formatEscalationBody(params: EmailParams): string {
   lines.push(`Company: ${submittedCompany}`);
   lines.push(`Role: ${submittedRole}`);
   lines.push(``);
+  lines.push(`User note`);
+  lines.push(payload.clientNote?.trim() ? payload.clientNote.trim() : `(not provided)`);
+  lines.push(``);
+  lines.push(`Submitted to`);
+  lines.push(partnerName);
+  lines.push(``);
+  lines.push(`Risk tier`);
+  lines.push(`${payload.riskTier}`);
+  lines.push(``);
+  lines.push(`Summary`);
+  lines.push(`${payload.summarySentence ?? "(none)"}`);
+  lines.push(``);
+  if (viewUrl) {
+    lines.push(`View full submission:`);
+    lines.push(viewUrl);
+    lines.push(``);
+  }
 
   lines.push(`Raw message preview`);
   const rawForPreview =
@@ -121,7 +117,9 @@ export function formatEscalationBody(params: EmailParams): string {
     lines.push(`(Not available — user did not opt in to storing the full message.)`);
   }
   lines.push(``);
-  lines.push(`Use the link above to review the full submission, including any image and full text.`);
+  lines.push(`Scan details`);
+  lines.push(`Scan ID: ${payload.scanId}`);
+  lines.push(`Source: ${formatSourceLine(payload.source)}`);
   lines.push(``);
   lines.push(`ScanScam`);
   lines.push(`Fraud Signal Intelligence`);
@@ -149,29 +147,29 @@ export function formatEscalationHtml(params: EmailParams): string {
   return `
 <div style="font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.5;font-size:14px;">
   <p style="margin:0 0 8px 0;">ScanScam Alert - New suspicious message</p>
-  <p style="margin:0 0 16px 0;">Submitted to: ${escapeHtml(partnerName)}</p>
+  <p style="margin:0 0 4px 0;"><strong>Submitted by</strong></p>
+  <p style="margin:0;"><strong>Name:</strong> ${escapeHtml(payload.userName)}</p>
+  <p style="margin:0;"><strong>Company:</strong> ${escapeHtml(submittedCompany)}</p>
+  <p style="margin:0 0 16px 0;"><strong>Role:</strong> ${escapeHtml(submittedRole)}</p>
+  <p style="margin:0 0 4px 0;"><strong>User note</strong></p>
+  <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
+  <p style="margin:0 0 4px 0;"><strong>Submitted to</strong></p>
+  <p style="margin:0 0 16px 0;">${escapeHtml(partnerName)}</p>
+  <p style="margin:0 0 4px 0;"><strong>Risk tier</strong></p>
+  <p style="margin:0 0 16px 0;">${escapeHtml(payload.riskTier)}</p>
+  <p style="margin:0 0 4px 0;"><strong>Summary</strong></p>
+  <p style="margin:0 0 16px 0;">${escapeHtml(summary)}</p>
   ${
     viewUrl
       ? `<p style="margin:0 0 4px 0;"><strong>View full submission:</strong></p>
   <p style="margin:0 0 16px 0;"><a href="${escapeHtml(viewUrl)}" style="color:#2563eb;text-decoration:underline;">${escapeHtml(viewUrl)}</a></p>`
       : ""
   }
-  <p style="margin:0 0 4px 0;"><strong>Risk tier</strong></p>
-  <p style="margin:0 0 16px 0;">${escapeHtml(payload.riskTier)}</p>
-  <p style="margin:0 0 4px 0;"><strong>Summary</strong></p>
-  <p style="margin:0 0 16px 0;">${escapeHtml(summary)}</p>
-  <p style="margin:0 0 4px 0;"><strong>User note</strong></p>
-  <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
-  <p style="margin:0 0 4px 0;"><strong>Scan details</strong></p>
-  <p style="margin:0;">Scan ID: ${escapeHtml(payload.scanId)}</p>
-  <p style="margin:0;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
-  <p style="margin:12px 0 4px 0;"><strong>Submitted by</strong></p>
-  <p style="margin:0;"><strong>Name:</strong> ${escapeHtml(payload.userName)}</p>
-  <p style="margin:0;"><strong>Company:</strong> ${escapeHtml(submittedCompany)}</p>
-  <p style="margin:0 0 16px 0;"><strong>Role:</strong> ${escapeHtml(submittedRole)}</p>
   <p style="margin:0 0 4px 0;"><strong>Raw message preview</strong></p>
   <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(rawForPreview)}</p>
-  <p style="margin:0 0 16px 0;">Use the link above to review the full submission, including any image and full text.</p>
+  <p style="margin:0 0 4px 0;"><strong>Scan details</strong></p>
+  <p style="margin:0;">Scan ID: ${escapeHtml(payload.scanId)}</p>
+  <p style="margin:0 0 16px 0;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
   <p style="margin:0;"><strong>ScanScam</strong></p>
   <p style="margin:0;">Fraud Signal Intelligence</p>
   <p style="margin:12px 0 0 0;">Your next scan could stop the next scam.</p>
