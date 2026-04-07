@@ -170,10 +170,11 @@ export function formatEscalationHtml(params: EmailParams): string {
   <p style="margin:0 0 4px 0;"><strong>Scan details</strong></p>
   <p style="margin:0;">Scan ID: ${escapeHtml(payload.scanId)}</p>
   <p style="margin:0 0 16px 0;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
-  <p style="margin:0;"><strong>ScanScam</strong></p>
-  <p style="margin:0;">Fraud Signal Intelligence</p>
-  <p style="margin:12px 0 0 0;">Your next scan could stop the next scam.</p>
-  <p style="margin:4px 0 0 0;">Votre prochain scan peut arrêter la prochaine fraude.</p>
+  <hr style="margin-top:16px;margin-bottom:12px;border:none;border-top:1px solid #eee;" />
+  <p style="margin:0;font-size:16px;line-height:1.25;"><strong>ScanScam</strong></p>
+  <p style="margin:4px 0 0 0;">Fraud Signal Intelligence</p>
+  <p style="margin:10px 0 0 0;font-style:italic;">Your next scan could stop the next scam.</p>
+  <p style="margin:4px 0 0 0;font-style:italic;">Votre prochain scan peut arrêter la prochaine fraude.</p>
 </div>`.trim();
 }
 
