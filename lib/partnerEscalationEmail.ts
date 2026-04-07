@@ -71,12 +71,18 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function normalizeViewSubmissionUrl(viewSubmissionUrl?: string | null): string | null {
+  if (typeof viewSubmissionUrl !== "string") return null;
+  const trimmed = viewSubmissionUrl.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function formatEscalationBody(params: EmailParams): string {
   const { payload, partnerName } = params;
   const lines: string[] = [];
   const submittedCompany = payload.userCompany?.trim() || "(not provided)";
   const submittedRole = payload.userRole?.trim() || "(not provided)";
-  const viewUrl = params.viewSubmissionUrl?.trim();
+  const viewUrl = normalizeViewSubmissionUrl(params.viewSubmissionUrl);
 
   lines.push(`ScanScam Alert — New suspicious message`);
   lines.push(``);
@@ -98,7 +104,7 @@ export function formatEscalationBody(params: EmailParams): string {
   lines.push(`Summary`);
   lines.push(`${payload.summarySentence ?? "(none)"}`);
   lines.push(``);
-  if (viewUrl) {
+  if (viewUrl != null) {
     lines.push(`View full submission:`);
     lines.push(viewUrl);
     lines.push(``);
@@ -111,7 +117,7 @@ export function formatEscalationBody(params: EmailParams): string {
       : "";
   if (rawForPreview) {
     lines.push(truncateRawPreview(rawForPreview, RAW_PREVIEW_MAX_CHARS));
-  } else if (viewUrl) {
+  } else if (viewUrl != null) {
     lines.push(`(Not included here — open the secure link above for the full message.)`);
   } else {
     lines.push(`(Not available — user did not opt in to storing the full message.)`);
@@ -132,7 +138,7 @@ export function formatEscalationBody(params: EmailParams): string {
 
 export function formatEscalationHtml(params: EmailParams): string {
   const { payload, partnerName } = params;
-  const viewUrl = params.viewSubmissionUrl?.trim() || "";
+  const viewUrl = normalizeViewSubmissionUrl(params.viewSubmissionUrl);
   const summary = payload.summarySentence ?? "(none)";
   const userNote = payload.clientNote?.trim() ? payload.clientNote.trim() : "(not provided)";
   const submittedCompany = payload.userCompany?.trim() || "(not provided)";
@@ -140,7 +146,7 @@ export function formatEscalationHtml(params: EmailParams): string {
   const rawForPreview =
     payload.rawMessage != null && String(payload.rawMessage).trim().length > 0
       ? truncateRawPreview(String(payload.rawMessage), RAW_PREVIEW_MAX_CHARS)
-      : viewUrl
+      : viewUrl != null
         ? "(Not included here - open the secure link above for the full message.)"
         : "(Not available - user did not opt in to storing the full message.)";
 
@@ -160,7 +166,7 @@ export function formatEscalationHtml(params: EmailParams): string {
   <p style="margin:0 0 4px 0;"><strong>Summary</strong></p>
   <p style="margin:0 0 16px 0;">${escapeHtml(summary)}</p>
   ${
-    viewUrl
+    viewUrl != null
       ? `<p style="margin:0 0 4px 0;"><strong>View full submission:</strong></p>
   <p style="margin:0 0 16px 0;"><a href="${escapeHtml(viewUrl)}" style="color:#2563eb;text-decoration:underline;">${escapeHtml(viewUrl)}</a></p>`
       : ""
