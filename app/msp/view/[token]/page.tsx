@@ -229,19 +229,6 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
             {signErrorMessage ? ` (${signErrorMessage})` : ""}
           </p>
         ) : null}
-        <section
-          style={{
-            marginTop: 24,
-            paddingTop: 16,
-            borderTop: "1px solid #e5e7eb",
-            color: "#6b7280",
-          }}
-        >
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#374151" }}>ScanScam</p>
-          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.brandLine}</p>
-          <p style={{ margin: "10px 0 0", fontSize: 12 }}>{t.taglineEn}</p>
-          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.taglineFr}</p>
-        </section>
       </article>
     </main>
   );
@@ -269,19 +256,6 @@ function renderInvalidPage(t: (typeof copy)["en"] | (typeof copy)["fr"]) {
         }}
       >
         <h1 style={{ fontSize: 20, fontWeight: 600, margin: "0 0 8px" }}>{t.invalidLink}</h1>
-        <section
-          style={{
-            marginTop: 16,
-            paddingTop: 16,
-            borderTop: "1px solid #e5e7eb",
-            color: "#6b7280",
-          }}
-        >
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#374151" }}>ScanScam</p>
-          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.brandLine}</p>
-          <p style={{ margin: "10px 0 0", fontSize: 12 }}>{t.taglineEn}</p>
-          <p style={{ margin: "4px 0 0", fontSize: 12 }}>{t.taglineFr}</p>
-        </section>
       </article>
     </main>
   );

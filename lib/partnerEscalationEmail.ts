@@ -58,14 +58,6 @@ function stripNul(s: string): string {
   return s.replace(/\0/g, "");
 }
 
-function getAppBaseUrlForEmailAssets(): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (!explicit) return "https://scanscam.ca";
-  const normalized = explicit.replace(/\/+$/, "");
-  if (/^https?:\/\//i.test(normalized)) return normalized;
-  return `https://${normalized.replace(/^\/+/, "")}`;
-}
-
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -131,9 +123,6 @@ export function formatEscalationBody(params: EmailParams): string {
   lines.push(``);
   lines.push(`Your next scan could stop the next scam.`);
   lines.push(`Votre prochain scan peut arrêter la prochaine fraude.`);
-  lines.push(``);
-  lines.push(`Confidentiality: If received in error, please delete.`);
-  lines.push(`Confidentialité : Si reçu par erreur, veuillez supprimer.`);
 
   return lines.join("\n");
 }
@@ -149,11 +138,9 @@ export function formatEscalationHtml(params: EmailParams): string {
       : viewUrl
         ? "(Not included here - open the secure link above for the full message.)"
         : "(Not available - user did not opt in to storing the full message.)";
-  const logoUrl = `${getAppBaseUrlForEmailAssets()}/Logo/Lucid-mark.png`;
 
   return `
 <div style="font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.5;font-size:14px;">
-  <img src="${escapeHtml(logoUrl)}" alt="ScanScam logo" width="64" style="display:block;width:64px;height:auto;margin:0 0 12px 0;" />
   <p style="margin:0 0 8px 0;">ScanScam Alert - New suspicious message</p>
   <p style="margin:0 0 16px 0;">Submitted to: ${escapeHtml(partnerName)}</p>
   ${
@@ -181,8 +168,6 @@ export function formatEscalationHtml(params: EmailParams): string {
   <p style="margin:0;">Fraud Signal Intelligence</p>
   <p style="margin:12px 0 0 0;">Your next scan could stop the next scam.</p>
   <p style="margin:4px 0 0 0;">Votre prochain scan peut arrêter la prochaine fraude.</p>
-  <p style="margin:12px 0 0 0;">Confidentiality: If received in error, please delete.</p>
-  <p style="margin:4px 0 0 0;">Confidentialité : Si reçu par erreur, veuillez supprimer.</p>
 </div>`.trim();
 }
 
