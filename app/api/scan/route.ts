@@ -933,6 +933,52 @@ function classifyInputQuality(text: string): {
   };
 }
 
+function stripUrlsForShape(raw: string): string {
+  return raw
+    .replace(/https?:\/\/[^\s<>"'`]+/gi, " ")
+    .replace(/\bwww\.[^\s<>"'`]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripPhonesForShape(raw: string): string {
+  return raw
+    .replace(/\+?\d[\d\s().-]{6,}\d/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function deriveInputType(
+  rawText: string,
+  inputQuality: { url_only: boolean; very_short: boolean; message_like: boolean },
+  contextQuality: string,
+  hasPhone: boolean,
+  hasLinkArtifact: boolean
+): "full_message" | "link_only" | "phone_only" | "fragment" {
+  const trimmed = rawText.trim();
+  const withoutLinks = stripUrlsForShape(trimmed);
+  const withoutPhones = stripPhonesForShape(trimmed);
+  const hasUrlToken = /https?:\/\/|www\./i.test(trimmed);
+  const tokenCount = trimmed.split(/\s+/).filter(Boolean).length;
+  const nonLinkChars = withoutLinks.replace(/[\s`'"()[\]{}<>.,;:!?-]/g, "").length;
+  const nonPhoneChars = withoutPhones.replace(/[\s`'"()[\]{}<>.,;:!?-]/g, "").length;
+  const linkOnlyShape =
+    inputQuality.url_only ||
+    (hasLinkArtifact && nonLinkChars <= 10) ||
+    (hasLinkArtifact && tokenCount <= 4 && nonLinkChars <= 16);
+  const phoneOnlyShape =
+    hasPhone &&
+    !hasUrlToken &&
+    (nonPhoneChars <= 12 ||
+      (/^(call|text|sms|tel|telephone|phone|callback|ring)\b/i.test(withoutPhones) && tokenCount <= 6));
+
+  if (linkOnlyShape) return "link_only";
+  if (phoneOnlyShape) return "phone_only";
+  if (contextQuality === "fragment" || contextQuality === "unknown") return "fragment";
+  if (contextQuality === "thin" && !inputQuality.message_like && tokenCount <= 5) return "fragment";
+  return "full_message";
+}
+
 /* -------------------------------------------------
    POST /api/scan
 -------------------------------------------------- */
@@ -1203,10 +1249,19 @@ export async function POST(req: Request) {
       source,
     });
 
+    const inputType = deriveInputType(
+      contentText,
+      inputQuality,
+      enrichment.contextQuality ?? String(legacyIntel.context_quality ?? "unknown"),
+      PHONE_CALLBACK_PATTERN.test(contentText),
+      Boolean(linkArtifact)
+    );
+
     const intel_features = mapIntelFields(
       harmonizeNarratives({
         ...legacyIntel,
         ...(linkArtifact ? { link_artifact: linkArtifact, link_present: true } : {}),
+        input_type: inputType,
         submission_route: enrichment.submissionRoute,
         narrative_family: enrichment.narrativeFamily,
         impersonation_entity: enrichment.impersonationEntity,

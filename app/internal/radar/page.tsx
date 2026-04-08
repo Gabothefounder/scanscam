@@ -91,6 +91,64 @@ type RadarData = {
   daily_volume_timeline?: DailyVolumeRow[];
 };
 
+type SystemAnalysisV2Data = {
+  generated_at_utc: string;
+  input_reality: {
+    scan_count: number;
+    full_message_pct: number | null;
+    link_only_pct: number | null;
+    fragment_pct: number | null;
+    phone_only_pct: number | null;
+    valid_input_pct: number | null;
+    learning_input_pct: number | null;
+    context_sufficient_pct: number | null;
+  };
+  classification_quality: {
+    narrative_known_pct: number | null;
+    authority_known_pct: number | null;
+    payment_known_pct: number | null;
+    avg_core_signal_count: number | null;
+    classifiable_scan_count: number;
+  };
+  link_intelligence: {
+    shortened_link_pct: number | null;
+    suspicious_tld_pct: number | null;
+    link_scan_count: number;
+    top_domains: { root_domain: string; scan_count: number }[];
+  };
+  system_health: {
+    medium_high_pct: number | null;
+    fallback_rate_pct: number | null;
+    avg_core_signal_count: number | null;
+    learning_input_pct: number | null;
+    context_sufficient_pct: number | null;
+  };
+  recent_signals: {
+    created_at: string;
+    risk_tier: string;
+    summary_sentence: string | null;
+    narrative_category: string;
+    narrative_family: string;
+    authority_type: string;
+    payment_intent: string;
+    input_type: string;
+    root_domain: string | null;
+    city: string | null;
+    region_code: string | null;
+    core_signal_count: number;
+  }[];
+  improvement_insights: {
+    scan_count: number;
+    dominant_gap: string | null;
+    dominant_gap_pct: number | null;
+    learning_input_pct: number | null;
+    context_sufficient_pct: number | null;
+    avg_core_signal_count: number | null;
+    shortened_link_pct: number | null;
+    suspicious_tld_pct: number | null;
+  };
+};
+
 /** For values already 0–100 (e.g. signal_yield_pct, signal_coverage_pct) */
 function formatPct(val: number | null): string {
   if (val == null) return "—";
@@ -147,11 +205,12 @@ function truncateSummary(s: string | null): string {
   return t.length <= SUMMARY_MAX_LEN ? t : t.slice(0, SUMMARY_MAX_LEN) + "…";
 }
 
-function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const limit = 5;
-  const displayRows = expanded ? signals : signals.slice(0, limit);
-  const remaining = signals.length - limit;
+function RecentSignalsContent({ signals }: { signals: SystemAnalysisV2Data["recent_signals"] }) {
+  const initialLimit = 5;
+  const pageSize = 15;
+  const [visibleCount, setVisibleCount] = useState(initialLimit);
+  const displayRows = signals.slice(0, visibleCount);
+  const remaining = Math.max(0, signals.length - visibleCount);
 
   return (
     <>
@@ -161,8 +220,10 @@ function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
             <tr>
               <th style={styles.signalsTh}>Time</th>
               <th style={styles.signalsTh}>Risk</th>
-              <th style={styles.signalsTh}>City</th>
-              <th style={styles.signalsTh}>Province</th>
+              <th style={styles.signalsTh}>Narrative</th>
+              <th style={styles.signalsTh}>Input Type</th>
+              <th style={styles.signalsTh}>Source / Domain</th>
+              <th style={styles.signalsTh}>Location</th>
               <th style={styles.signalsTh}>Summary</th>
             </tr>
           </thead>
@@ -178,21 +239,13 @@ function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
                 >
                   {formatRiskTierLabel(row.risk_tier)}
                 </td>
-                <td
-                  style={{
-                    ...styles.signalsTd,
-                    ...(row.city ? {} : styles.signalsTdMuted),
-                  }}
-                >
-                  {row.city ? formatGeoValue(row.city) : "—"}
+                <td style={styles.signalsTd}>{formatLandscapeLabel(row.narrative_category)}</td>
+                <td style={styles.signalsTd}>{formatLandscapeLabel(row.input_type)}</td>
+                <td style={{ ...styles.signalsTd, ...(row.root_domain ? {} : styles.signalsTdMuted) }}>
+                  {row.root_domain ?? "—"}
                 </td>
-                <td
-                  style={{
-                    ...styles.signalsTd,
-                    ...(row.province ? {} : styles.signalsTdMuted),
-                  }}
-                >
-                  {row.province ? formatGeoValue(row.province) : "—"}
+                <td style={styles.signalsTd}>
+                  {row.city ?? "—"}{row.region_code ? ` / ${formatGeoValue(row.region_code)}` : ""}
                 </td>
                 <td
                   style={{
@@ -209,13 +262,22 @@ function RecentSignalsContent({ signals }: { signals: RecentSignal[] }) {
           </tbody>
         </table>
       </div>
-      {signals.length > limit && (
+      {remaining > 0 && (
         <button
           type="button"
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => setVisibleCount((prev) => prev + pageSize)}
           style={styles.signalsToggle}
         >
-          {expanded ? "Show less" : `Show ${remaining} more`}
+          {`Show ${Math.min(15, remaining)} more`}
+        </button>
+      )}
+      {visibleCount > initialLimit && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount(initialLimit)}
+          style={styles.signalsToggle}
+        >
+          Show less
         </button>
       )}
     </>
@@ -287,6 +349,93 @@ Analyze the dataset and identify:
 5. a short prioritized improvement recommendation for the founder
 
 Be conservative and focus on the highest-leverage system improvements.`;
+
+const SYSTEM_V2_OUTPUT_SUFFIX = `
+
+Output:
+1. Diagnosis (1–2 sentences)
+2. Root cause (choose one: input problem, classification problem, link-intelligence problem, calibration problem)
+3. Exact fix (implementation-level: what to change and where)
+4. Why this fix should move the metric`;
+
+const SYSTEM_V2_PROMPTS = {
+  systemOverview: `Analyze the overall state of the ScanScam system using the combined system-analysis metrics.
+
+Focus on:
+- whether the main constraint is input quality, classification quality, link-heavy usage, or calibration
+- how user behavior and scanner design interact
+- whether the current system is learning from the right kinds of inputs
+- which single weakness is most limiting the product right now
+- the difference between what is limiting user-facing classification and what is limiting system learning
+
+Then:
+- identify the single highest-leverage next system improvement
+- explain why it should come before other possible upgrades
+- state whether the next move should be a UX/input-shaping fix, a mapping/detector fix, or a link-intelligence fix
+
+Output:
+1. Overall diagnosis (2–3 sentences)
+2. Primary bottleneck (choose one: input problem, classification problem, link-intelligence problem, calibration problem)
+3. Exact next fix (implementation-level: what to change and where)
+4. Why this should move the system fastest`,
+  inputReality: `Analyze how users are submitting scans and what this implies for system performance and product design.
+
+Focus on:
+- the proportion of valid vs non-actionable inputs
+- the balance between full messages and artifacts (links, fragments, phone-only checks)
+- whether user behavior is helping or limiting detection quality
+
+Then:
+- identify the main bottleneck in input quality
+- state whether the bottleneck is primarily a user-behavior problem or an intake/UX design problem
+- recommend exactly one concrete product or UX improvement to increase valid inputs, with a short justification${SYSTEM_V2_OUTPUT_SUFFIX}`,
+  classificationQuality: `Analyze classifier performance on valid inputs and identify where extraction quality is weakest.
+
+Focus on:
+- narrative coverage
+- authority coverage
+- payment-intent coverage
+- whether core signal extraction is dense enough to support reliable interpretation
+
+Then:
+- identify the highest-leverage classification weakness
+- prefer the smallest change that would increase structured coverage fastest
+- recommend exactly one specific detector, mapping, or schema improvement, with a short justification${SYSTEM_V2_OUTPUT_SUFFIX}`,
+  linkIntelligence: `Analyze the link-heavy scan population and identify what link patterns are most common and most important.
+
+Focus on:
+- how much of usage is link-only
+- shortened link prevalence
+- suspicious domain ending prevalence
+- top repeated domains or root domains
+- whether current link guidance is sufficient
+
+Then:
+- identify the most important link-related product or detection improvement
+- state whether the next fix should be UX guidance, link normalization, or detection logic
+- explain why it matters for user safety and MSP value${SYSTEM_V2_OUTPUT_SUFFIX}`,
+  systemHealth: `Analyze overall scanner health and whether the system is producing enough meaningful output to support product decisions.
+
+Focus on:
+- medium/high risk share
+- fallback rate
+- signal density on valid inputs
+- whether the system appears too weak, too noisy, or reasonably calibrated
+
+Then:
+- identify the biggest system-level health concern
+- recommend exactly one concrete operational or modeling improvement, with a short justification${SYSTEM_V2_OUTPUT_SUFFIX}`,
+  improvementInsights: `Identify the single highest-leverage system improvement based on current input mix, classification quality, link intelligence, and overall system health.
+
+Focus on:
+- the dominant weakness
+- whether it is an input problem, classification problem, link-intelligence problem, or calibration problem
+- what change would most improve the system this week
+
+Then:
+- recommend exactly one next improvement
+- explain why it should come before other possible upgrades${SYSTEM_V2_OUTPUT_SUFFIX}`,
+} as const;
 
 function AnalystBlockCard({
   title,
@@ -436,6 +585,242 @@ function AnalystBlocksSection({
             </div>
           )}
           {toast && <div style={styles.analystBlocksToast}>{toast}</div>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function numOrZero(v: number | null | undefined): number {
+  return v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
+}
+
+function numOrNull(v: number | null | undefined): number | null {
+  return v == null || Number.isNaN(Number(v)) ? null : Number(v);
+}
+
+function stringOrEmpty(v: string | null | undefined): string {
+  return v == null ? "" : String(v);
+}
+
+function SystemV2AnalystBlock({
+  title,
+  description,
+  kpiLabel,
+  kpiValue,
+  promptText,
+  dataPayload,
+}: {
+  title: string;
+  description: string;
+  kpiLabel: string;
+  kpiValue: string;
+  promptText: string;
+  dataPayload: Record<string, unknown>;
+}) {
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  };
+
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      showToast("Prompt helper copied");
+    } catch {
+      showToast("Copy failed");
+    }
+  };
+
+  const handleCopyData = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(dataPayload, null, 2));
+      showToast("Dataset copied for LLM");
+    } catch {
+      showToast("Copy failed");
+    }
+  };
+
+  return (
+    <div style={styles.analystBlockCard}>
+      <div style={styles.analystBlockHeader}>
+        <h3 style={styles.analystBlockTitle}>{title}</h3>
+      </div>
+      <p style={styles.analystBlockExplanation}>{description}</p>
+      <p style={styles.analystBlockBestFor}>
+        <span style={styles.analystBlockBestForLabel}>{kpiLabel}: </span>
+        {kpiValue}
+      </p>
+      <div style={styles.analystBlockActions}>
+        <button type="button" onClick={handleCopyPrompt} style={styles.analystBlockBtn}>
+          Copy prompt helper
+        </button>
+        <button type="button" onClick={handleCopyData} style={styles.analystBlockBtn}>
+          Copy data for LLM
+        </button>
+      </div>
+      {toast && <div style={styles.analystBlocksToast}>{toast}</div>}
+    </div>
+  );
+}
+
+function SystemAnalysisV2Section({
+  data,
+  error,
+  isMobile,
+  mobileStyles,
+}: {
+  data: SystemAnalysisV2Data | null;
+  error: string | null;
+  isMobile?: boolean;
+  mobileStyles?: Record<string, React.CSSProperties>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section style={{ ...styles.section, ...(mobileStyles?.section ?? {}), ...styles.analystBlocksSection, marginTop: "24px" }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        style={{ ...styles.analystBlocksHeader, ...(isMobile ? (mobileStyles?.analystBlocksHeader ?? {}) : {}) }}
+        aria-expanded={expanded}
+      >
+        <span style={styles.analystBlocksChevron}>{expanded ? "▼" : "▶"}</span>
+        <h2 style={styles.analystBlocksTitle}>System Analysis (v2)</h2>
+      </button>
+      {expanded && (
+        <>
+          <p style={styles.analystBlocksSubtitle}>
+            Derived system-analysis view for improving detection quality and prioritizing upgrades.
+          </p>
+          <p style={{ ...styles.analystBlocksSubtitle, marginTop: "-10px" }}>
+            This section uses derived analysis data rather than raw message content.
+          </p>
+          <p style={{ ...styles.analystBlocksSubtitle, marginTop: "-10px" }}>
+            Use these blocks to identify one concrete system improvement at a time.
+          </p>
+          <p style={{ ...styles.analystBlocksSubtitle, marginTop: "-10px" }}>
+            Valid input = stronger/classifiable input; learning input = broader input useful for system improvement.
+          </p>
+          {error && (
+            <p style={{ ...styles.signalsEmpty, color: "#f0883e" }}>{error}</p>
+          )}
+          {!data ? (
+            <p style={styles.signalsEmpty}>No v2 system-analysis data available yet.</p>
+          ) : (
+            <>
+              <div style={{ ...styles.analystBlocksGrid, ...(isMobile ? (mobileStyles?.analystBlocksGrid ?? {}) : {}) }}>
+            <SystemV2AnalystBlock
+              title="System Overview"
+              description="Cross-block synthesis of input quality, classification coverage, link-heavy usage, and overall system health."
+              kpiLabel="Context-Sufficient Rate"
+              kpiValue={formatPct(data.input_reality.context_sufficient_pct)}
+              promptText={SYSTEM_V2_PROMPTS.systemOverview}
+              dataPayload={{
+                scan_count: numOrZero(data.input_reality.scan_count),
+                valid_input_pct: numOrZero(data.input_reality.valid_input_pct),
+                learning_input_pct: numOrZero(data.input_reality.learning_input_pct),
+                context_sufficient_pct: numOrZero(data.input_reality.context_sufficient_pct),
+                link_only_pct: numOrZero(data.input_reality.link_only_pct),
+                narrative_known_pct: numOrZero(data.classification_quality.narrative_known_pct),
+                authority_known_pct: numOrZero(data.classification_quality.authority_known_pct),
+                payment_known_pct: numOrZero(data.classification_quality.payment_known_pct),
+                avg_core_signal_count: numOrZero(data.classification_quality.avg_core_signal_count),
+                medium_high_pct: numOrZero(data.system_health.medium_high_pct),
+                fallback_rate_pct: numOrZero(data.system_health.fallback_rate_pct),
+                shortened_link_pct: numOrZero(data.link_intelligence.shortened_link_pct),
+                suspicious_tld_pct: numOrZero(data.link_intelligence.suspicious_tld_pct),
+                dominant_gap: stringOrEmpty(data.improvement_insights.dominant_gap),
+                dominant_gap_pct: numOrZero(data.improvement_insights.dominant_gap_pct),
+              }}
+            />
+            <SystemV2AnalystBlock
+              title="Input Reality"
+              description="Understand what users are submitting and how much of it is usable."
+              kpiLabel="Valid Input Rate"
+              kpiValue={formatPct(data.input_reality.valid_input_pct)}
+              promptText={SYSTEM_V2_PROMPTS.inputReality}
+              dataPayload={{
+                scan_count: numOrZero(data.input_reality.scan_count),
+                valid_input_pct: numOrNull(data.input_reality.valid_input_pct),
+                learning_input_pct: numOrNull(data.input_reality.learning_input_pct),
+                context_sufficient_pct: numOrNull(data.input_reality.context_sufficient_pct),
+                full_message_pct: numOrNull(data.input_reality.full_message_pct),
+                link_only_pct: numOrNull(data.input_reality.link_only_pct),
+                fragment_pct: numOrNull(data.input_reality.fragment_pct),
+                phone_only_pct: numOrNull(data.input_reality.phone_only_pct),
+              }}
+            />
+            <SystemV2AnalystBlock
+              title="Classification Quality"
+              description="Measure how well the system extracts meaning from valid inputs."
+              kpiLabel="Narrative Known %"
+              kpiValue={formatPct(data.classification_quality.narrative_known_pct)}
+              promptText={SYSTEM_V2_PROMPTS.classificationQuality}
+              dataPayload={{
+                narrative_known_pct: numOrZero(data.classification_quality.narrative_known_pct),
+                authority_known_pct: numOrZero(data.classification_quality.authority_known_pct),
+                payment_known_pct: numOrZero(data.classification_quality.payment_known_pct),
+                avg_core_signal_count: numOrZero(data.classification_quality.avg_core_signal_count),
+                classifiable_scan_count: numOrZero(data.classification_quality.classifiable_scan_count),
+              }}
+            />
+            <SystemV2AnalystBlock
+              title="Link Intelligence"
+              description="Analyze link-heavy scans and detect risky patterns."
+              kpiLabel="Link-Only Rate"
+              kpiValue={formatPct(data.input_reality.link_only_pct)}
+              promptText={SYSTEM_V2_PROMPTS.linkIntelligence}
+              dataPayload={{
+                link_only_pct: numOrZero(data.input_reality.link_only_pct),
+                shortened_link_pct: numOrZero(data.link_intelligence.shortened_link_pct),
+                suspicious_tld_pct: numOrZero(data.link_intelligence.suspicious_tld_pct),
+                link_scan_count: numOrZero(data.link_intelligence.link_scan_count),
+                top_domains: data.link_intelligence.top_domains ?? [],
+              }}
+            />
+            <SystemV2AnalystBlock
+              title="System Health"
+              description="Evaluate overall signal strength and scanner calibration."
+              kpiLabel="Medium/High Risk Share"
+              kpiValue={formatPct(data.system_health.medium_high_pct)}
+              promptText={SYSTEM_V2_PROMPTS.systemHealth}
+              dataPayload={{
+                medium_high_pct: numOrZero(data.system_health.medium_high_pct),
+                fallback_rate_pct: numOrZero(data.system_health.fallback_rate_pct),
+                avg_core_signal_count: numOrZero(data.system_health.avg_core_signal_count),
+                learning_input_pct: numOrNull(data.system_health.learning_input_pct),
+                context_sufficient_pct: numOrNull(data.system_health.context_sufficient_pct),
+              }}
+            />
+            <SystemV2AnalystBlock
+              title="Improvement Insights"
+              description="Identify the single most impactful next system upgrade."
+              kpiLabel="Dominant Gap %"
+              kpiValue={formatPct(data.improvement_insights.dominant_gap_pct)}
+              promptText={SYSTEM_V2_PROMPTS.improvementInsights}
+              dataPayload={{
+                scan_count: numOrZero(data.improvement_insights.scan_count),
+                dominant_gap: stringOrEmpty(data.improvement_insights.dominant_gap),
+                dominant_gap_pct: numOrZero(data.improvement_insights.dominant_gap_pct),
+                valid_input_pct: numOrZero(data.input_reality.valid_input_pct),
+                learning_input_pct: numOrNull(data.improvement_insights.learning_input_pct),
+                context_sufficient_pct: numOrNull(data.improvement_insights.context_sufficient_pct),
+                link_only_pct: numOrZero(data.input_reality.link_only_pct),
+                avg_core_signal_count: numOrZero(data.improvement_insights.avg_core_signal_count),
+                shortened_link_pct: numOrZero(data.improvement_insights.shortened_link_pct),
+                suspicious_tld_pct: numOrZero(data.improvement_insights.suspicious_tld_pct),
+                narrative_known_pct: numOrZero(data.classification_quality.narrative_known_pct),
+                authority_known_pct: numOrZero(data.classification_quality.authority_known_pct),
+                payment_known_pct: numOrZero(data.classification_quality.payment_known_pct),
+              }}
+            />
+              </div>
+
+            </>
+          )}
         </>
       )}
     </section>
@@ -642,6 +1027,8 @@ function MetricWoWIndicator({
 
 export default function RadarPage() {
   const [data, setData] = useState<RadarData | null>(null);
+  const [systemV2Data, setSystemV2Data] = useState<SystemAnalysisV2Data | null>(null);
+  const [systemV2Error, setSystemV2Error] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [briefGenerating, setBriefGenerating] = useState(false);
@@ -1061,6 +1448,11 @@ export default function RadarPage() {
       .then(setData)
       .catch((e) => setError(e?.message ?? "Failed to fetch"))
       .finally(() => setLoading(false));
+
+    fetch("/api/intel/system-analysis-v2")
+      .then((r) => r.json())
+      .then(setSystemV2Data)
+      .catch((e) => setSystemV2Error(e?.message ?? "Failed to fetch system-analysis-v2"));
   }, []);
 
   const sh = data?.system_health;
@@ -1508,16 +1900,23 @@ export default function RadarPage() {
             <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Recent Signals</h2>
               <p style={styles.sectionSubtitle}>
-                Latest scan examples feeding the current intelligence picture.
+                Recent scan activity using the upgraded v2 system-analysis feed.
               </p>
-              {!data.recent_signals?.length ? (
-                <p style={styles.signalsEmpty}>No recent scan signals available for this period.</p>
+              {!systemV2Data?.recent_signals?.length ? (
+                <p style={styles.signalsEmpty}>No recent signals available.</p>
               ) : (
-                <RecentSignalsContent signals={data.recent_signals} />
+                <RecentSignalsContent signals={systemV2Data.recent_signals} />
               )}
             </section>
 
             <AnalystBlocksSection isMobile={isMobile} mobileStyles={mobile} />
+
+            <SystemAnalysisV2Section
+              data={systemV2Data}
+              error={systemV2Error}
+              isMobile={isMobile}
+              mobileStyles={mobile}
+            />
 
             <section style={{ ...styles.section, ...mobile.section, ...styles.analystBlocksSection, marginTop: "24px" }}>
               <button
