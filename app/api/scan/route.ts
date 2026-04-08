@@ -8,6 +8,7 @@ import { ocrImage } from "@/lib/ocr";
 import { analyzeScan } from "@/lib/ai/analyzeScan";
 import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
+import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
 import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
@@ -1202,18 +1203,21 @@ export async function POST(req: Request) {
       source,
     });
 
-    const intel_features = harmonizeNarratives({
-      ...legacyIntel,
-      ...(linkArtifact ? { link_artifact: linkArtifact, link_present: true } : {}),
-      submission_route: enrichment.submissionRoute,
-      narrative_family: enrichment.narrativeFamily,
-      impersonation_entity: enrichment.impersonationEntity,
-      requested_action: enrichment.requestedAction,
-      threat_stage: enrichment.threatStage,
-      confidence_level: enrichment.confidenceLevel,
-      source_type: enrichment.sourceType,
-      context_quality: enrichment.contextQuality ?? legacyIntel.context_quality,
-    });
+    const intel_features = mapIntelFields(
+      harmonizeNarratives({
+        ...legacyIntel,
+        ...(linkArtifact ? { link_artifact: linkArtifact, link_present: true } : {}),
+        submission_route: enrichment.submissionRoute,
+        narrative_family: enrichment.narrativeFamily,
+        impersonation_entity: enrichment.impersonationEntity,
+        requested_action: enrichment.requestedAction,
+        threat_stage: enrichment.threatStage,
+        confidence_level: enrichment.confidenceLevel,
+        source_type: enrichment.sourceType,
+        context_quality: enrichment.contextQuality ?? legacyIntel.context_quality,
+      }),
+      contentText
+    );
 
     /* ---------- Trust-floor guardrail: cap risk for insufficient/fragment context ---------- */
     let finalRiskTier = riskTier as "low" | "medium" | "high";
