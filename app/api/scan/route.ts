@@ -8,6 +8,7 @@ import { ocrImage } from "@/lib/ocr";
 import { analyzeScan } from "@/lib/ai/analyzeScan";
 import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
+import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
@@ -357,6 +358,7 @@ const DEFAULT_MICRO_SIGNALS: Record<string, boolean> = {
   credential_request_detected: false,
   reward_keyword_detected: false,
   account_verification_detected: false,
+  link_shortened_detected: false,
 };
 
 function extractMicroSignals(raw: string, text: string): Record<string, boolean> {
@@ -569,13 +571,143 @@ function applyRiskReconciliation(
   return risk;
 }
 
+/** Strip first link from raw text so path/host tokens (e.g. login, secure) are not scored as prose. */
+function textForLinkFragmentHeuristics(messageText: string, linkArtifact: LinkArtifact): string {
+  let rest = messageText;
+  const needle = linkArtifact.url;
+  if (needle.length > 0) {
+    const idx = rest.toLowerCase().indexOf(needle.toLowerCase());
+    if (idx !== -1) {
+      rest = rest.slice(0, idx) + " " + rest.slice(idx + needle.length);
+    }
+  }
+  if (rest.trim() === messageText.trim()) {
+    rest = rest.replace(/https?:\/\/[^\s<>"'`]+/gi, " ");
+  }
+  rest = rest.replace(/\bwww\.[^\s<>"'`]+/gi, " ");
+  return rest.trim().toLowerCase();
+}
+
+function summaryForLinkOnlyFragment(linkArtifact: LinkArtifact, language: "en" | "fr"): string {
+  if (language === "fr") {
+    if (linkArtifact.is_shortened) {
+      return "Cette soumission ne contient qu'un lien raccourci. Vérifiez la destination avant de cliquer.";
+    }
+    if (linkArtifact.has_suspicious_tld) {
+      return "Cette soumission ne contient qu'un lien avec une terminaison de domaine inhabituelle. Vérifiez attentivement la destination avant de cliquer.";
+    }
+    return "Cette soumission ne contient qu'un lien. Assurez-vous que l'adresse correspond au site officiel avant de cliquer.";
+  }
+  if (linkArtifact.is_shortened) {
+    return "This submission contains only a shortened link. Verify the destination before clicking.";
+  }
+  if (linkArtifact.has_suspicious_tld) {
+    return "This submission contains only a link using an unusual domain ending. Verify the destination carefully before clicking.";
+  }
+  return "This submission contains only a link. Confirm the address matches the official website before clicking.";
+}
+
+const HUMAN_MANIPULATION_SIGNAL_TYPE =
+  /urgency|time_?pressure|deadline|immediate|threat|fear|coerc|emotion|panic|pressure|account_?threat|legal_?threat|consequence|suspend|suspension/i;
+
+const BRAND_LIKE_HOST_SUBSTRINGS =
+  /paypal|amazon|microsoft|apple|google|netflix|chase|wells\s*fargo|desjardins|interac|bank\s*of\s*america|citibank|scotiabank|tdbank|bmo\b/i;
+
+/** Known-good brand roots: do not flag brand-like hostname when registrable domain is clearly official. */
+const OFFICIAL_BRAND_ROOT = /^(paypal|amazon|microsoft|apple|google|netflix|desjardins|chase|wellsfargo)\.(com|ca|co\.uk|net|org)(\.[a-z]{2})?$/i;
+
+function isMostlyLinkOnlySubmission(messageText: string, linkArtifact: LinkArtifact): boolean {
+  const prose = textForLinkFragmentHeuristics(messageText, linkArtifact).replace(/[`'".,;:()[\]{}>\s-]/g, "");
+  return prose.length < 6;
+}
+
+function evidenceContainedInUrl(evidence: string, url: string): boolean {
+  const e = evidence.trim().toLowerCase();
+  if (e.length < 4) return false;
+  return url.toLowerCase().includes(e);
+}
+
+function suspiciousBrandLikeHostname(domain: string | null, root: string | null): boolean {
+  if (!domain || !root) return false;
+  const d = domain.toLowerCase();
+  const r = root.toLowerCase().replace(/^www\./, "");
+  if (!BRAND_LIKE_HOST_SUBSTRINGS.test(d)) return false;
+  if (OFFICIAL_BRAND_ROOT.test(r)) return false;
+  return true;
+}
+
+type ScanSignal = { type: string; evidence: string; weight?: number };
+
+/** Link-honest signals for insufficient/fragment context; does not change risk tier. */
+function buildLinkNativeSignals(linkArtifact: LinkArtifact, lang: "en" | "fr"): ScanSignal[] {
+  const cues: string[] = [];
+  if (linkArtifact.is_shortened) cues.push(lang === "fr" ? "lien raccourci" : "shortened link");
+  if (linkArtifact.has_suspicious_tld && linkArtifact.tld) {
+    cues.push(lang === "fr" ? `fin de domaine .${linkArtifact.tld}` : `.${linkArtifact.tld} domain ending`);
+  }
+  if (suspiciousBrandLikeHostname(linkArtifact.domain, linkArtifact.root_domain)) {
+    cues.push(lang === "fr" ? "nom d’hôte évoquant une marque" : "brand-like host name");
+  }
+  if (cues.length === 0) return [];
+  const evidence =
+    lang === "fr"
+      ? `Le lien seul indique : ${cues.join(", ")}.`
+      : `The link alone indicates: ${cues.join(", ")}.`;
+  return [{ type: "link_manipulation", evidence, weight: 3 }];
+}
+
+function normalizeSignalsForInsufficientLinkContext(
+  rawSignals: unknown,
+  isInsufficientContext: boolean,
+  linkArtifact: LinkArtifact | null,
+  messageText: string,
+  lang: "en" | "fr"
+): ScanSignal[] {
+  const signals: ScanSignal[] = Array.isArray(rawSignals)
+    ? rawSignals.map((s: any) => ({
+        type: String(s?.type ?? "unknown"),
+        evidence: String(s?.evidence ?? ""),
+        weight: typeof s?.weight === "number" ? s.weight : undefined,
+      }))
+    : [];
+
+  if (!isInsufficientContext || !linkArtifact) return signals;
+
+  const native = buildLinkNativeSignals(linkArtifact, lang);
+  const mostlyLink = isMostlyLinkOnlySubmission(messageText, linkArtifact);
+
+  if (mostlyLink) {
+    if (native.length > 0) return native;
+    return [
+      {
+        type: "link_only",
+        evidence:
+          lang === "fr"
+            ? "Soumission sans texte autour du lien ; le contexte est insuffisant pour interpréter le message."
+            : "Link-only submission; not enough surrounding text to interpret as a full message.",
+        weight: 2,
+      },
+    ];
+  }
+
+  const filtered = signals.filter((s) => {
+    if (!HUMAN_MANIPULATION_SIGNAL_TYPE.test(s.type)) return true;
+    return !evidenceContainedInUrl(s.evidence, linkArtifact.url);
+  });
+
+  const hasLinkNative = filtered.some((s) => /link_manipulation|link_only|link_shortener|suspicious_tld/i.test(s.type));
+  if (!hasLinkNative && native.length > 0) return [...filtered, ...native];
+  return filtered;
+}
+
 function extractIntelFeatures(
   result: any,
   messageText: string,
   platformLang: "en" | "fr",
   inputQuality: { url_only: boolean; very_short: boolean; message_like: boolean },
   riskTier: string,
-  aiParseFallback: boolean
+  aiParseFallback: boolean,
+  linkArtifact: LinkArtifact | null
 ): { intel_features: Record<string, any>; mode: "full" | "extraction_failed" } {
   const mergeCore = (base: Record<string, any>): Record<string, any> => {
     const out = { ...base };
@@ -589,17 +721,20 @@ function extractIntelFeatures(
 
   try {
     const text = messageText.toLowerCase();
-    const micro_signals = extractMicroSignals(messageText, text);
     const contextQ = assessContextQuality(messageText, inputQuality);
+    const signalText =
+      contextQ === "fragment" && linkArtifact ? textForLinkFragmentHeuristics(messageText, linkArtifact) : text;
+
+    const micro_signals = extractMicroSignals(messageText, signalText);
     const narrative_category = detectNarrativeCategory(text, contextQ);
     let channel_type = detectChannelType(text, messageText, inputQuality, micro_signals);
     let authority_type = detectAuthorityType(text, contextQ);
     if (authority_type === "none" && micro_signals.authority_keyword_detected) authority_type = "unknown";
-    const payment_intent = detectPaymentIntent(text);
+    const payment_intent = detectPaymentIntent(signalText);
     const payment_method = detectPaymentMethod(text, contextQ);
     const escalation_pattern = detectEscalationPattern(text, contextQ);
-    const urgency = computeUrgencyScore(text);
-    const threat = computeThreatScore(text);
+    const urgency = computeUrgencyScore(signalText);
+    const threat = computeThreatScore(signalText);
 
     const gatedDims = {
       narrative_category,
@@ -616,7 +751,7 @@ function extractIntelFeatures(
       urgency,
       threat,
       riskTier,
-      text
+      signalText
     );
 
     const richContext = contextQ === "partial" || contextQ === "full";
@@ -671,14 +806,14 @@ function extractIntelFeatures(
       payment_intent,
       intel_state,
       micro_signals: { ...micro_signals },
-      brand_mentions: detectBrandMentions(text),
+      brand_mentions: detectBrandMentions(signalText),
       urgency_score: urgency,
       threat_score: threat,
-      payment_request: hasPaymentPressure(text),
-      credential_request: hasCredentialRequest(text),
-      link_present: /https?:\/\/|www\./i.test(messageText),
+      payment_request: hasPaymentPressure(signalText),
+      credential_request: hasCredentialRequest(signalText),
+      link_present: Boolean(linkArtifact) || /https?:\/\/|www\./i.test(messageText),
       callback_number_present: PHONE_CALLBACK_PATTERN.test(messageText),
-      emotion_vectors: detectEmotionVectors(text),
+      emotion_vectors: detectEmotionVectors(signalText),
       language_variant: platformLang,
       risk_score_numeric: riskTierToNumeric(result.risk_tier ?? result.risk ?? "low"),
     };
@@ -707,7 +842,7 @@ function extractIntelFeatures(
         context_quality: "unknown",
         payment_intent: "unknown",
         intel_state: "unknown",
-        micro_signals: { ...DEFAULT_MICRO_SIGNALS },
+        micro_signals: { ...DEFAULT_MICRO_SIGNALS, link_shortened_detected: false },
         extraction_failed: true,
         reason: err?.message ?? "unknown_error",
       }),
@@ -1035,6 +1170,7 @@ export async function POST(req: Request) {
     /* ---------- Input quality classification ---------- */
     const inputQuality = classifyInputQuality(contentText);
     const riskTier = result.risk_tier ?? "low";
+    const linkArtifact = extractLinkArtifacts(contentText);
 
     if (ai_parse_fallback) {
       logEvent("ai_parse_fallback", "warning", "scan_api", {
@@ -1042,14 +1178,23 @@ export async function POST(req: Request) {
       });
     }
 
-    const { intel_features: legacyIntel, mode: intelMode } = extractIntelFeatures(
+    const { intel_features: rawLegacyIntel, mode: intelMode } = extractIntelFeatures(
       result,
       contentText,
       language,
       inputQuality,
       riskTier,
-      ai_parse_fallback
+      ai_parse_fallback,
+      linkArtifact
     );
+
+    const legacyIntel: Record<string, any> = {
+      ...rawLegacyIntel,
+      micro_signals: {
+        ...rawLegacyIntel.micro_signals,
+        link_shortened_detected: Boolean(linkArtifact?.is_shortened),
+      },
+    };
 
     const enrichment = buildScanEnrichment({
       messageText: contentText,
@@ -1059,6 +1204,7 @@ export async function POST(req: Request) {
 
     const intel_features = harmonizeNarratives({
       ...legacyIntel,
+      ...(linkArtifact ? { link_artifact: linkArtifact, link_present: true } : {}),
       submission_route: enrichment.submissionRoute,
       narrative_family: enrichment.narrativeFamily,
       impersonation_entity: enrichment.impersonationEntity,
@@ -1079,7 +1225,11 @@ export async function POST(req: Request) {
 
     if (isInsufficientContext) {
       finalRiskTier = riskTier === "high" ? "medium" : (riskTier as "low" | "medium");
-      finalSummary = "Not enough context is available to classify this reliably. Proceed with caution.";
+      if (linkArtifact && enrichment.contextQuality === "fragment") {
+        finalSummary = summaryForLinkOnlyFragment(linkArtifact, language);
+      } else {
+        finalSummary = "Not enough context is available to classify this reliably. Proceed with caution.";
+      }
     } else {
       if (!finalSummary || String(finalSummary).trim() === "") {
         finalSummary = enrichment.summary ?? null;
@@ -1095,11 +1245,19 @@ export async function POST(req: Request) {
     const userVerdict =
       finalRiskTier === "high" ? "scam" : finalRiskTier === "medium" ? "suspicious" : "safe";
 
+    const finalSignals = normalizeSignalsForInsufficientLinkContext(
+      result.signals,
+      isInsufficientContext,
+      linkArtifact,
+      contentText,
+      language
+    );
+
     /* ---------- Insert into scans (ALWAYS) ---------- */
     const scanRow: Record<string, any> = {
       risk_tier: finalRiskTier,
       summary_sentence: finalSummary,
-      signals: result.signals ?? [],
+      signals: finalSignals,
       language,
       source,
       data_quality: {
@@ -1188,10 +1346,11 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       result: {
-        /* AI output (trust-floor may override risk_tier, summary_sentence) */
+        /* AI output (trust-floor may override risk_tier, summary_sentence, signals) */
         ...restResult,
         risk_tier: finalRiskTier,
         summary_sentence: finalSummary,
+        signals: finalSignals,
 
         /* Server truth */
         language,
@@ -1205,11 +1364,7 @@ export async function POST(req: Request) {
 
         /* Frontend compatibility (legacy) */
         risk: finalRiskTier,
-        reasons: Array.isArray(result.signals)
-          ? result.signals
-              .map((s: any) => s.evidence ?? s.description ?? "")
-              .filter((r: string) => r.trim())
-          : [],
+        reasons: finalSignals.map((s) => s.evidence ?? "").filter((r: string) => r.trim()),
 
         /* vNext fields */
         scan_id: scanId,
