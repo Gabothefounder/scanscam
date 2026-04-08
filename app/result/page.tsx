@@ -42,6 +42,14 @@ const copy = {
       high:
         "This message strongly resembles known scam techniques and may be attempting to manipulate you.",
     },
+    linkIntel: {
+      detectedLabel: "Link detected:",
+      linkBeforeClick:
+        "Before clicking, make sure the address matches the official website.",
+      shortened: "Shortened link (destination hidden)",
+      suspiciousTld: "Unusual domain ending (e.g. .xyz)",
+      brandMimic: "Domain may mimic a known brand",
+    },
     actionTitle: "What to do next",
     guidance: [
       { action: "Pause before responding", explanation: "Legitimate services don't require immediate action." },
@@ -221,6 +229,14 @@ const copy = {
       high:
         "Ce message ressemble fortement à des techniques de fraude connues et pourrait chercher à vous manipuler.",
     },
+    linkIntel: {
+      detectedLabel: "Lien détecté :",
+      linkBeforeClick:
+        "Avant de cliquer, assurez-vous que l'adresse correspond au site officiel.",
+      shortened: "Lien raccourci (destination masquée)",
+      suspiciousTld: "Terminaison de domaine inhabituelle (p. ex. .xyz)",
+      brandMimic: "Le domaine peut évoquer une marque connue",
+    },
     actionTitle: "Que faire maintenant",
     guidance: [
       { action: "Prenez un moment avant de répondre", explanation: "Les services légitimes n'exigent pas d'action immédiate." },
@@ -371,6 +387,67 @@ const copy = {
   },
 };
 
+/* ---------- Link artifact (intel_features.link_artifact) — client-side only ---------- */
+
+type ParsedLinkArtifact = {
+  url?: string;
+  domain: string | null;
+  root_domain: string | null;
+  tld: string | null;
+  is_shortened: boolean;
+  has_suspicious_tld: boolean;
+};
+
+function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact | null {
+  const raw = intel.link_artifact;
+  if (!raw || typeof raw !== "object") return null;
+  const a = raw as Record<string, unknown>;
+  return {
+    url: typeof a.url === "string" ? a.url : undefined,
+    domain: typeof a.domain === "string" ? a.domain : null,
+    root_domain: typeof a.root_domain === "string" ? a.root_domain : null,
+    tld: typeof a.tld === "string" ? a.tld : null,
+    is_shortened: Boolean(a.is_shortened),
+    has_suspicious_tld: Boolean(a.has_suspicious_tld),
+  };
+}
+
+/** Mirrors scan API heuristics for neutral “brand-like host” messaging (no network). */
+const BRAND_LIKE_HOST_SUBSTRINGS_UI =
+  /paypal|amazon|microsoft|apple|google|netflix|chase|wells\s*fargo|desjardins|interac|bank\s*of\s*america|citibank|scotiabank|tdbank|bmo\b/i;
+
+const OFFICIAL_BRAND_ROOT_UI =
+  /^(paypal|amazon|microsoft|apple|google|netflix|desjardins|chase|wellsfargo)\.(com|ca|co\.uk|net|org)(\.[a-z]{2})?$/i;
+
+function hostnameMayMimicBrand(domain: string | null, root: string | null): boolean {
+  if (!domain || !root) return false;
+  const d = domain.toLowerCase();
+  const r = root.toLowerCase().replace(/^www\./, "");
+  if (!BRAND_LIKE_HOST_SUBSTRINGS_UI.test(d)) return false;
+  if (OFFICIAL_BRAND_ROOT_UI.test(r)) return false;
+  return true;
+}
+
+/** Strip scan-API link-fragment action clauses so the UI line below owns “before clicking” guidance. */
+function stripLinkOnlyActionFromSummary(text: string, lang: "en" | "fr"): string {
+  const t = text.trim();
+  if (lang === "fr") {
+    return t
+      .replace(/\s+Vérifiez la destination avant de cliquer\.?$/iu, "")
+      .replace(/\s+Vérifiez attentivement la destination avant de cliquer\.?$/iu, "")
+      .replace(
+        /\s+Assurez-vous que l['\u2019]adresse correspond au site officiel avant de cliquer\.?$/iu,
+        ""
+      )
+      .trim();
+  }
+  return t
+    .replace(/\s+Verify the destination before clicking\.?$/i, "")
+    .replace(/\s+Verify the destination carefully before clicking\.?$/i, "")
+    .replace(/\s+Confirm the address matches the official website before clicking\.?$/i, "")
+    .trim();
+}
+
 /* ---------- Risk Meter ---------- */
 
 const RISK_CONFIG = {
@@ -491,6 +568,8 @@ export default function ResultPage() {
     result.risk ?? result.risk_tier ?? "low";
 
   const intel = result.intel_features ?? {};
+  const linkArtifact = parseLinkArtifact(intel as Record<string, unknown>);
+  const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
   const groundedReasons: string[] = (() => {
     const reasons: string[] = [];
@@ -540,8 +619,8 @@ export default function ResultPage() {
   const narrativeFamily = intel.narrative_family ?? "";
   const nextSteps = (t.narrativeNextSteps as Record<string, { action: string; explanation: string }[] | undefined>)?.[narrativeFamily] ?? t.guidance;
 
-  const summary =
-    result.summary_sentence || t.defaultSummary[risk];
+  const summaryRaw = result.summary_sentence || t.defaultSummary[risk];
+  const summary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
 
   const confidence: "low" | "medium" | "high" =
     result.intel_features?.confidence_level ?? "low";
@@ -601,12 +680,32 @@ export default function ResultPage() {
           <p className="text-sm text-gray-900" style={styles.summary}>
             {summary}
           </p>
+          {linkArtifact && (
+            <p className="mt-2 text-sm leading-normal text-gray-800">{t.linkIntel.linkBeforeClick}</p>
+          )}
           <p className="text-xs text-gray-600" style={styles.confidence}>
             {t.confidenceLabel} {confidenceText}
           </p>
           <p className="text-xs text-gray-500" style={styles.confidenceHelper}>
             {confidenceHelperText}
           </p>
+          {linkArtifact && linkDisplayDomain && (
+            <div className="mt-3 text-sm leading-normal text-gray-900">
+              <p className="text-xs text-gray-600">{t.linkIntel.detectedLabel}</p>
+              <p className="mt-0.5 font-semibold break-all text-gray-900">{linkDisplayDomain}</p>
+              {(linkArtifact.is_shortened ||
+                linkArtifact.has_suspicious_tld ||
+                hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain)) && (
+                <ul className="mt-2 list-disc space-y-1 pl-[18px] text-xs leading-normal text-gray-600">
+                  {linkArtifact.is_shortened && <li>{t.linkIntel.shortened}</li>}
+                  {linkArtifact.has_suspicious_tld && <li>{t.linkIntel.suspiciousTld}</li>}
+                  {hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain) && (
+                    <li>{t.linkIntel.brandMimic}</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ---------- Why it looks suspicious (grounded in intel_features) ---------- */}
