@@ -44,8 +44,12 @@ const NARRATIVE_RULES: { id: NarrativeFamily; test: RegExp }[] = [
     id: "social_engineering_opener",
     test: /\bwrong\s+number\b|sorry.*wrong\s+number|texted\s+the\s+wrong\s+number|who\s+is\s+this\b|reconnect\b|long\s+time\s+no\b|long\s+time\s+no\s+talk\b|did\s+you\s+get\s+my\s+last\s+message\b|found\s+your\s+number\s+in\s+my\s+contacts\b|are\s+you\s+still\s+working\s+(in|at)\b|since\s+you'?re\s+here\b/i,
   },
+  {
+    id: "government_impersonation",
+    test:
+      /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|government\s+fine|parking\s+(violation|ticket|fine|notice)|unpaid\s+parking|plate\s+denial|permit\s+renewal\s+blocked|\bmto\b|\bdmv\b|service\s+ontario|\bserviceontario\b|\bcontraventions?\b|\bstationnement\b|billets?\s+impay(?:é|e)s?|\bamendes?\b|pénalités?|penalites?|refus\s+de\s+(?:la\s+)?plaque|renouvellement\s+du\s+permis|avis\s+officiel/iu,
+  },
   { id: "law_enforcement", test: /\brcmp\b|royal\s+canadian\s+mounted|\bpolice\b|arrest\b|warrant\b|jail\b/i },
-  { id: "government_impersonation", test: /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|government\s+fine/i },
   {
     id: "account_verification",
     test: /\bverify\s+(your\s+)?account\b|account\s+suspend|unusual\s+activity|confirm\s+identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b/i,
@@ -77,7 +81,11 @@ const IMPERSONATION_RULES: { id: ImpersonationEntity; test: RegExp }[] = [
   { id: "rcmp", test: /\brcmp\b|royal\s+canadian\s+mounted\b/i },
   { id: "canada_post", test: /\bcanada\s*post\b|canadapost\b/i },
   { id: "wealthsimple", test: /\bwealthsimple\b/i },
-  { id: "generic_government", test: /\bgovernment\b|tax\s+agency\b|police\b|court\b|warrant\b/i },
+  {
+    id: "generic_government",
+    test:
+      /\bgovernment\b|tax\s+agency\b|police\b|court\b|warrant\b|\bmto\b|service\s+ontario\b|serviceontario\b|parking\s+(violation|ticket)\b|\bcontraventions?\b|\bstationnement\b|billets?\s+impay(?:é|e)s?|\bamendes?\b|pénalités?|penalites?|refus\s+de\s+(?:la\s+)?plaque|renouvellement\s+du\s+permis|avis\s+officiel/iu,
+  },
   { id: "generic_financial", test: /\bbank\b|paypal\b|visa\b|mastercard\b|credit\s+union\b|financial\s+institution\b/i },
   { id: "generic_courier", test: /\bfedex\b|ups\b|usps\b|purolator\b|dhl\b|courier\b/i },
 ];

@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ocrImage } from "@/lib/ocr";
 import { analyzeScan } from "@/lib/ai/analyzeScan";
 import { buildScanEnrichment } from "@/lib/scan-analysis";
+import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
@@ -71,7 +72,8 @@ const NARRATIVE_SIGNALS: { id: string; test: RegExp }[] = [
   { id: "prize_scam", test: /lottery|winner|prize|won|congratulations.*won/ },
   {
     id: "government_impersonation",
-    test: /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|arrest|warrant|justice|court\s+order|government\s+fine/,
+    test:
+      /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|arrest|warrant|justice|court\s+order|government\s+fine|parking\s+(violation|ticket|fine|notice)|unpaid\s+parking|plate\s+denial|permit\s+renewal\s+blocked|\bmto\b|\bdmv\b|service\s+ontario|\bserviceontario\b|\bcontraventions?\b|\bstationnement\b|billets?\s+impay(?:é|e)s?|\bamendes?\b|pénalités?|penalites?|refus\s+de\s+(?:la\s+)?plaque|renouvellement\s+du\s+permis|avis\s+officiel/u,
   },
   { id: "financial_phishing", test: /bank|account.*suspend|verify.*account|unusual\s+activity.*account/ },
   { id: "tech_support", test: /tech support|virus|computer.*infected|malware/ },
@@ -97,7 +99,8 @@ function detectNarrativeCategory(text: string, contextQ: string): string {
 const AUTHORITY_SIGNALS: { id: string; test: RegExp }[] = [
   {
     id: "government",
-    test: /\b(cra|arc|irs|tax\s+agency|revenue\s+canada|government|police|fbi|justice|court|fine|warrant)\b/,
+    test:
+      /\b(cra|arc|irs|tax\s+agency|revenue\s+canada|government|police|fbi|justice|court|fine|warrant)\b|\bcontraventions?\b|\bstationnement\b|billets?\s+impay(?:é|e)s?|\bamendes?\b|pénalités?|penalites?|refus\s+de\s+(?:la\s+)?plaque|renouvellement\s+du\s+permis|avis\s+officiel|\bserviceontario\b|service\s+ontario|\bmto\b/u,
   },
   {
     id: "financial_institution",
@@ -1054,7 +1057,7 @@ export async function POST(req: Request) {
       source,
     });
 
-    const intel_features = {
+    const intel_features = harmonizeNarratives({
       ...legacyIntel,
       submission_route: enrichment.submissionRoute,
       narrative_family: enrichment.narrativeFamily,
@@ -1064,7 +1067,7 @@ export async function POST(req: Request) {
       confidence_level: enrichment.confidenceLevel,
       source_type: enrichment.sourceType,
       context_quality: enrichment.contextQuality ?? legacyIntel.context_quality,
-    };
+    });
 
     /* ---------- Trust-floor guardrail: cap risk for insufficient/fragment context ---------- */
     let finalRiskTier = riskTier as "low" | "medium" | "high";

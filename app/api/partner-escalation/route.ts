@@ -186,10 +186,14 @@ export async function POST(req: Request) {
     });
 
     let viewSubmissionUrl: string | null = null;
+    const base = getPublicAppBaseUrl();
+    console.log("[partner-escalation-debug] link-components", {
+      access_token: accessToken || null,
+      base_url: base,
+    });
     if (accessErr) {
       console.error("[partner-escalation] partner_escalation_access upsert:", accessErr.message);
     } else if (accessToken) {
-      const base = getPublicAppBaseUrl();
       if (base) {
         viewSubmissionUrl = `${base}/msp/view/${accessToken}`;
       } else {
@@ -202,6 +206,7 @@ export async function POST(req: Request) {
     console.log("[partner-escalation-debug] pre-send-email", {
       input_type: isOcr ? "image_ocr" : "text",
       has_view_submission_url: Boolean(viewSubmissionUrl),
+      view_submission_url: viewSubmissionUrl,
     });
 
     const result = await sendPartnerEscalationEmail({

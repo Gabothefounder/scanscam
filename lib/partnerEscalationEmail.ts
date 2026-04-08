@@ -202,6 +202,9 @@ export async function sendPartnerEscalationEmail(
     has_raw_message: hasRaw,
     has_submission_image_path: Boolean(params.submissionImagePathPresent),
     has_view_submission_url: hasViewUrl,
+    view_submission_url_raw:
+      typeof params.viewSubmissionUrl === "string" ? params.viewSubmissionUrl : null,
+    view_submission_url_normalized: normalizeViewSubmissionUrl(params.viewSubmissionUrl),
   });
 
   const subject = formatEscalationSubject(params.payload.userCompany, params.partnerName);
