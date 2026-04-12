@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
+import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
 
 const firedOnce = new Set<string>();
 
@@ -24,7 +25,7 @@ const copy = {
       medium: "Medium",
       high: "High",
     },
-    confidenceLabel: "Confidence:",
+    confidenceLabel: "System confidence:",
     confidenceLevel: {
       low: "Low",
       medium: "Medium",
@@ -36,11 +37,9 @@ const copy = {
       high: "This result is based on multiple aligned scam indicators.",
     },
     defaultSummary: {
-      low: "This message does not show strong scam-related manipulation patterns.",
-      medium:
-        "This message shows suspicious patterns commonly used in scams. Caution is advised.",
-      high:
-        "This message strongly resembles known scam techniques and may be attempting to manipulate you.",
+      low: "This message doesn’t look like a typical scam based on what we saw.",
+      medium: "This message looks suspicious. Take a moment before you act.",
+      high: "This message looks very similar to common scams. Be careful.",
     },
     linkIntel: {
       detectedLabel: "Link detected:",
@@ -50,6 +49,76 @@ const copy = {
       suspiciousTld: "Unusual domain ending (e.g. .xyz)",
       brandMimic: "Domain may mimic a known brand",
     },
+    refinementIncomplete: {
+      preliminaryBadge: "Limited analysis — a little context helps",
+      headlineLinkOnly: "We only saw a link",
+      headlinePhoneOnly: "We only saw a phone number",
+      subtextLink: "Tell us how you got it and what it’s asking you to do.",
+      subtextPhone: "Tell us how you got it and what it’s asking you to do.",
+      supporting: "One or two sentences is enough.",
+      artifactHeading: "What we noticed",
+      examplesLabel: "Example",
+      examplesLink: [
+        "Text saying I owe a parking fine",
+        "Email from my bank asking me to log in",
+        "Message about a package delivery with a link",
+      ],
+      examplesPhone: [
+        "Text or voicemail asking me to call this number back",
+        "Message claiming a problem with my bank or account",
+        "Text about a delivery, fine, or urgent notice",
+      ],
+    },
+    weakInputGate: {
+      heading: "We need more context",
+      bodyLine1: "This input is too limited for a reliable analysis.",
+      bodyLine2Public: "Add context around this link or number to improve the analysis.",
+      bodyLine2Partner:
+        "Add context around this link or number so ScanScam can better review the scam pattern.",
+      gateExamplePublic: "Canada Post says my package is on hold and I need to pay $2.99.",
+      gateExamplePartner:
+        "Claimed to be Microsoft support and asked me to install remote access software.",
+      gateExamplePublicPhone:
+        "Text said my bank account was locked and I had to call this number back.",
+      gateExamplePartnerPhone:
+        "Caller said they were IT support and needed remote access to my work laptop.",
+      gatePlaceholderPublic: "e.g. “Claimed to be RBC and asked for my verification code”",
+      gatePlaceholderPartner: "e.g. “Pretended to be RBC and asked for my verification code”",
+      limitedAnalysisLink: "Continue without adding context",
+      phoneDetectedLabel: "Phone number detected:",
+    },
+    refinementFollowUp: {
+      headline: "Improve result (optional)",
+      hint: "Add more detail if something important is missing.",
+    },
+    contextRefinement: {
+      collapsedTitle: "Improve result (optional)",
+      collapsedHint: "Add more detail if something important is missing — it helps ScanScam analyze this better.",
+      expandLink: "Add context →",
+      collapseLink: "← Hide",
+      fieldLabel: "Add context",
+      fieldHint: "A sentence or two helps ScanScam improve the analysis.",
+      examplesLabel: "Example",
+      placeholder: "e.g. how you got this, what they asked you to do…",
+      submitLabel: "Improve result",
+      loadingLabel: "Updating…",
+    } satisfies ContextRefinementStrings,
+    contextRefinementPartner: {
+      collapsedTitle: "Improve result (optional)",
+      collapsedHint: "Add more detail if something important is missing — helps ScanScam review the pattern.",
+      expandLink: "Add context →",
+      collapseLink: "← Hide",
+      fieldLabel: "Add context",
+      fieldHint: "A sentence or two helps ScanScam review the scam pattern.",
+      examplesLabel: "Example",
+      placeholder: "e.g. how you got this, what they asked you to do…",
+      submitLabel: "Improve result",
+      loadingLabel: "Updating…",
+    } satisfies ContextRefinementStrings,
+    mspTrigger: "Send to your IT provider",
+    mspBelowCardHint: "Forward this to your IT provider for security review.",
+    mspPromotedSupporting: "Your IT provider will receive the message and review it securely.",
+    mspCloseForm: "Close",
     actionTitle: "What to do next",
     guidance: [
       { action: "Pause before responding", explanation: "Legitimate services don't require immediate action." },
@@ -113,7 +182,7 @@ const copy = {
     },
     footerAdvisory:
       "ScanScam provides a pattern-based risk assessment. When in doubt, verify through the official source.",
-    whySuspicious: "Why it looks suspicious",
+    whySuspicious: "Why this was flagged",
     groundedReasons: {
       limited_context: "Limited context — not enough information to classify reliably",
       narrative: {
@@ -138,18 +207,18 @@ const copy = {
         generic_courier: "Impersonates a courier or delivery service",
       } as Record<string, string>,
       action: {
-        pay_money: "Asks for payment",
-        click_link: "Asks to click a link",
-        submit_credentials: "Asks for credentials or verification",
-        call_number: "Asks to call a number",
-        reply_sms: "Asks to reply",
-        download_app: "Asks to download an app",
+        pay_money: "Asks you to pay",
+        click_link: "Asks you to tap or click a link",
+        submit_credentials: "Asks you to log in or verify",
+        call_number: "Asks you to call a number",
+        reply_sms: "Asks you to reply",
+        download_app: "Asks you to download an app",
       } as Record<string, string>,
       threat: {
-        credential_capture: "Credential capture attempt",
-        payment_extraction: "Payment or fee request",
-        post_loss_recovery: "Post-loss recovery scam",
-        initial_lure: "Initial contact or lure",
+        credential_capture: "Tries to get your login details",
+        payment_extraction: "Tries to get a payment or fee",
+        post_loss_recovery: "Sounds like a recovery scam",
+        initial_lure: "Looks like an opening message or lure",
       } as Record<string, string>,
     },
     signalLabels: {
@@ -169,34 +238,20 @@ const copy = {
       investment: "investment fraud pattern",
     } as Record<string, string>,
     narrativeGuidance: {
-      delivery_scam:
-        "Parcel and delivery scams often ask for fees or personal details.",
-      employment_scam:
-        "Job scams may request personal information or payments upfront. Confirm job offers through the company's official channels.",
-      government_impersonation:
-        "Government agencies do not threaten by email or SMS.",
-      account_verification:
-        "Legitimate services do not suspend accounts without prior notice. Scammers use urgency and links in the message to capture credentials.",
-      recovery_scam:
-        "Recovery scams target people who have already lost money, promising to get it back for a fee.",
-      financial_phishing:
-        "Avoid clicking links in the message. Log in only through the official website or app you know.",
-      prize_scam:
-        "Real prizes do not require upfront fees. Be cautious of unexpected winnings or offers.",
-      reward_claim:
-        "Real prizes do not require upfront fees. Be cautious of unexpected winnings or offers.",
-      tech_support:
-        "Legitimate tech support does not cold-call or pop up uninvited. Ignore unsolicited calls or alerts.",
-      romance_scam:
-        "Be cautious of requests for money or personal details from people you have not met in person.",
-      investment_fraud:
-        "Verify investment opportunities through official sources. Be wary of guaranteed returns or pressure to act quickly.",
-      law_enforcement:
-        "Law enforcement does not demand payment or personal details by text or email. Verify through official channels.",
-      social_engineering_opener:
-        "This may be an early-stage social-engineering opener. The sender may be trying to start a conversation and build trust before a later request.",
-      unknown:
-        "Pause before responding. Verify through a trusted contact or official source when something feels off.",
+      delivery_scam: "Delivery scams often ask for extra fees—check with the real carrier.",
+      employment_scam: "Check job offers on the company’s official site, not through random messages.",
+      government_impersonation: "Real agencies don’t demand payment or your SIN by text or email.",
+      account_verification: "Don’t use the link in the message—log in only through the app or site you already use.",
+      recovery_scam: "Anyone promising to recover lost money for a fee is usually another scam.",
+      financial_phishing: "Don’t use links in the message—use the official site or app you trust.",
+      prize_scam: "Real prizes don’t ask you to pay first.",
+      reward_claim: "Real prizes don’t ask you to pay first.",
+      tech_support: "Real tech support won’t cold-call or pop up out of nowhere.",
+      romance_scam: "Be careful sending money to someone you’ve only met online.",
+      investment_fraud: "Watch out for “guaranteed” returns and pressure to move fast.",
+      law_enforcement: "Police don’t collect fines or personal info by random text or email.",
+      social_engineering_opener: "This can be a casual opener before a later ask for money or info.",
+      unknown: "If it feels off, pause and check with someone you trust.",
     },
   },
   fr: {
@@ -211,7 +266,7 @@ const copy = {
       medium: "Moyen",
       high: "Élevé",
     },
-    confidenceLabel: "Confiance :",
+    confidenceLabel: "Confiance du système :",
     confidenceLevel: {
       low: "Faible",
       medium: "Moyenne",
@@ -223,11 +278,9 @@ const copy = {
       high: "Ce résultat repose sur plusieurs indicateurs de fraude concordants.",
     },
     defaultSummary: {
-      low: "Ce message ne présente pas de signes clairs de manipulation frauduleuse.",
-      medium:
-        "Ce message présente des schémas suspects souvent associés à des fraudes. La prudence est recommandée.",
-      high:
-        "Ce message ressemble fortement à des techniques de fraude connues et pourrait chercher à vous manipuler.",
+      low: "D’après ce qu’on voit, ce message ne ressemble pas à une arnaque typique.",
+      medium: "Ce message semble suspect. Prenez un moment avant d’agir.",
+      high: "Ce message ressemble beaucoup à des arnaques courantes. Soyez prudent.",
     },
     linkIntel: {
       detectedLabel: "Lien détecté :",
@@ -237,6 +290,81 @@ const copy = {
       suspiciousTld: "Terminaison de domaine inhabituelle (p. ex. .xyz)",
       brandMimic: "Le domaine peut évoquer une marque connue",
     },
+    refinementIncomplete: {
+      preliminaryBadge: "Analyse limitée — un peu de contexte aide",
+      headlineLinkOnly: "Nous n’avons vu qu’un lien",
+      headlinePhoneOnly: "Nous n’avons vu qu’un numéro",
+      subtextLink: "Dites-nous comment vous l’avez reçu et ce qu’on vous demande.",
+      subtextPhone: "Dites-nous comment vous l’avez reçu et ce qu’on vous demande.",
+      supporting: "Une ou deux phrases suffisent.",
+      artifactHeading: "Ce qu’on a remarqué",
+      examplesLabel: "Exemple",
+      examplesLink: [
+        "Un texto disant que je dois une contravention de stationnement",
+        "Un courriel de ma banque me demandant de me connecter",
+        "Un message sur un colis avec un lien",
+      ],
+      examplesPhone: [
+        "Un texto ou une boîte vocale me demandant de rappeler ce numéro",
+        "Un message évoquant un problème avec ma banque ou mon compte",
+        "Un texto sur une livraison, une amende ou un avis urgent",
+      ],
+    },
+    weakInputGate: {
+      heading: "Il nous faut plus de contexte",
+      bodyLine1: "Cette entrée est trop limitée pour une analyse fiable.",
+      bodyLine2Public:
+        "Ajoutez du contexte autour de ce lien ou numéro pour améliorer l’analyse.",
+      bodyLine2Partner:
+        "Ajoutez du contexte autour de ce lien ou numéro afin que ScanScam puisse mieux examiner le schéma d’arnaques.",
+      gateExamplePublic:
+        "Postes Canada dit que mon colis est retenu et que je dois payer 2,99 $.",
+      gateExamplePartner:
+        "Se prétendant du soutien Microsoft et m’a demandé d’installer un logiciel d’accès à distance.",
+      gateExamplePublicPhone:
+        "Un texto disait que mon compte bancaire était bloqué et que je devais rappeler ce numéro.",
+      gateExamplePartnerPhone:
+        "L’appelant disait être le soutien TI et voulait un accès à distance à mon ordinateur professionnel.",
+      gatePlaceholderPublic: "p. ex. « Se disant la RBC et demandant mon code de vérification »",
+      gatePlaceholderPartner: "p. ex. « S’est fait passer pour la RBC et a demandé mon code de vérification »",
+      limitedAnalysisLink: "Continuer sans ajouter de contexte",
+      phoneDetectedLabel: "Numéro détecté :",
+    },
+    refinementFollowUp: {
+      headline: "Améliorer le résultat (facultatif)",
+      hint: "Ajoutez des précisions si quelque chose d’important manque.",
+    },
+    contextRefinement: {
+      collapsedTitle: "Améliorer le résultat (facultatif)",
+      collapsedHint:
+        "Ajoutez un détail si quelque chose d’important manque — cela aide ScanScam à mieux analyser ceci.",
+      expandLink: "Ajouter du contexte →",
+      collapseLink: "← Masquer",
+      fieldLabel: "Ajouter du contexte",
+      fieldHint: "Une ou deux phrases aident ScanScam à affiner l’analyse.",
+      examplesLabel: "Exemple",
+      placeholder: "p. ex. comment vous l’avez reçu, ce qu’on vous demande…",
+      submitLabel: "Améliorer le résultat",
+      loadingLabel: "Mise à jour…",
+    } satisfies ContextRefinementStrings,
+    contextRefinementPartner: {
+      collapsedTitle: "Améliorer le résultat (facultatif)",
+      collapsedHint:
+        "Ajoutez des précisions si quelque chose d’important manque — cela aide ScanScam à examiner le schéma.",
+      expandLink: "Ajouter du contexte →",
+      collapseLink: "← Masquer",
+      fieldLabel: "Ajouter du contexte",
+      fieldHint: "Une ou deux phrases aident ScanScam à examiner le schéma d’arnaques.",
+      examplesLabel: "Exemple",
+      placeholder: "p. ex. comment vous l’avez reçu, ce qu’on vous demande…",
+      submitLabel: "Améliorer le résultat",
+      loadingLabel: "Mise à jour…",
+    } satisfies ContextRefinementStrings,
+    mspTrigger: "Envoyer à votre fournisseur TI",
+    mspBelowCardHint: "Transférez ceci à votre fournisseur TI pour examen de sécurité.",
+    mspPromotedSupporting:
+      "Votre fournisseur TI recevra le message et l’examinera de façon sécurisée.",
+    mspCloseForm: "Fermer",
     actionTitle: "Que faire maintenant",
     guidance: [
       { action: "Prenez un moment avant de répondre", explanation: "Les services légitimes n'exigent pas d'action immédiate." },
@@ -299,7 +427,7 @@ const copy = {
     },
     footerAdvisory:
       "ScanScam fournit une évaluation du risque basée sur des modèles de fraude connus. En cas de doute, vérifiez auprès de la source officielle.",
-    whySuspicious: "Pourquoi cela paraît suspect",
+    whySuspicious: "Pourquoi nous l’avons signalé",
     groundedReasons: {
       limited_context: "Contexte limité — pas assez d'informations pour classer de façon fiable",
       narrative: {
@@ -324,18 +452,18 @@ const copy = {
         generic_courier: "Usurpe un service de messagerie",
       } as Record<string, string>,
       action: {
-        pay_money: "Demande un paiement",
-        click_link: "Demande de cliquer sur un lien",
-        submit_credentials: "Demande des identifiants ou une vérification",
-        call_number: "Demande d'appeler un numéro",
-        reply_sms: "Demande de répondre",
-        download_app: "Demande de télécharger une application",
+        pay_money: "Vous demande de payer",
+        click_link: "Vous demande d’ouvrir ou de cliquer un lien",
+        submit_credentials: "Vous demande de vous connecter ou de vérifier",
+        call_number: "Vous demande d’appeler un numéro",
+        reply_sms: "Vous demande de répondre",
+        download_app: "Vous demande de télécharger une application",
       } as Record<string, string>,
       threat: {
-        credential_capture: "Tentative de capture d'identifiants",
-        payment_extraction: "Demande de paiement ou de frais",
-        post_loss_recovery: "Arnaque de récupération après perte",
-        initial_lure: "Contact ou accroche initiale",
+        credential_capture: "Cherche à obtenir vos identifiants",
+        payment_extraction: "Cherche un paiement ou des frais",
+        post_loss_recovery: "Ressemble à une arnaque de récupération",
+        initial_lure: "Ressemble à un premier contact ou une accroche",
       } as Record<string, string>,
     },
     signalLabels: {
@@ -355,34 +483,20 @@ const copy = {
       investment: "schéma de fraude à l'investissement",
     } as Record<string, string>,
     narrativeGuidance: {
-      delivery_scam:
-        "Les arnaques aux colis demandent souvent des frais ou des renseignements personnels.",
-      employment_scam:
-        "Les arnaques à l'emploi peuvent demander des renseignements personnels ou des paiements. Confirmez les offres via les canaux officiels de l'entreprise.",
-      government_impersonation:
-        "Les organismes gouvernementaux ne menacent pas par courriel ou SMS.",
-      account_verification:
-        "Les services légitimes ne suspendent pas les comptes sans avertissement. Les arnaqueurs utilisent l'urgence et les liens du message pour capturer des identifiants.",
-      recovery_scam:
-        "Les arnaques de récupération ciblent les personnes ayant déjà perdu de l'argent, promettant de le récupérer contre des frais.",
-      financial_phishing:
-        "Évitez de cliquer sur les liens. Connectez-vous uniquement via le site ou l'app officiels que vous connaissez.",
-      prize_scam:
-        "Les vrais prix ne demandent pas de frais à l'avance. Méfiez-vous des gains ou offres inattendus.",
-      reward_claim:
-        "Les vrais prix ne demandent pas de frais à l'avance. Méfiez-vous des gains ou offres inattendus.",
-      tech_support:
-        "Le support technique légitime ne vous appelle pas sans raison. Ignorez les appels ou fenêtres non sollicités.",
-      romance_scam:
-        "Méfiez-vous des demandes d'argent ou de renseignements personnels de personnes que vous n'avez jamais rencontrées.",
-      investment_fraud:
-        "Vérifiez les opportunités d'investissement auprès de sources officielles. Méfiez-vous des rendements garantis ou de la pression.",
-      law_enforcement:
-        "Les forces de l'ordre ne demandent pas de paiement ou de renseignements personnels par texto ou courriel. Vérifiez via les canaux officiels.",
-      social_engineering_opener:
-        "Il peut s'agir d'une accroche d'ingénierie sociale en début de conversation. L'expéditeur peut chercher à entamer un échange et à gagner votre confiance avant une demande ultérieure.",
-      unknown:
-        "Prenez une pause avant de répondre. Vérifiez auprès d'un contact fiable ou d'une source officielle si quelque chose vous semble étrange.",
+      delivery_scam: "Les fausses livraisons demandent souvent des frais — vérifiez avec le vrai transporteur.",
+      employment_scam: "Vérifiez les offres sur le site officiel de l’entreprise.",
+      government_impersonation: "Les vrais organismes ne demandent pas votre NAS ni un paiement par texto.",
+      account_verification: "N’utilisez pas le lien du message — connectez-vous seulement via l’app ou le site habituel.",
+      recovery_scam: "Qui promet de récupérer votre argent contre des frais est souvent une autre arnaque.",
+      financial_phishing: "Évitez les liens du message — utilisez le site ou l’app officiel.",
+      prize_scam: "Les vrais gains ne vous demandent pas d’avancer de l’argent.",
+      reward_claim: "Les vrais gains ne vous demandent pas d’avancer de l’argent.",
+      tech_support: "Le vrai support ne vous appelle pas au hasard.",
+      romance_scam: "Méfiez-vous des demandes d’argent en ligne.",
+      investment_fraud: "Méfiez-vous des rendements « garantis » et de la pression.",
+      law_enforcement: "La police ne réclame pas d’argent par texto.",
+      social_engineering_opener: "Ça peut être une accroche avant une demande d’argent ou d’infos.",
+      unknown: "Si ça vous semble bizarre, faites une pause et vérifiez.",
     },
   },
 };
@@ -419,6 +533,12 @@ const BRAND_LIKE_HOST_SUBSTRINGS_UI =
 const OFFICIAL_BRAND_ROOT_UI =
   /^(paypal|amazon|microsoft|apple|google|netflix|desjardins|chase|wellsfargo)\.(com|ca|co\.uk|net|org)(\.[a-z]{2})?$/i;
 
+function extractPhoneSnippet(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const m = raw.trim().match(/\+?\d[\d\s().-]{6,}\d/);
+  return m ? m[0].replace(/\s+/g, " ").trim() : null;
+}
+
 function hostnameMayMimicBrand(domain: string | null, root: string | null): boolean {
   if (!domain || !root) return false;
   const d = domain.toLowerCase();
@@ -446,6 +566,90 @@ function stripLinkOnlyActionFromSummary(text: string, lang: "en" | "fr"): string
     .replace(/\s+Verify the destination carefully before clicking\.?$/i, "")
     .replace(/\s+Confirm the address matches the official website before clicking\.?$/i, "")
     .trim();
+}
+
+/**
+ * Plain-language summary when intel slots are concrete; otherwise returns null (caller uses API summary).
+ */
+function buildPlainSummaryFromIntel(
+  intel: Record<string, unknown>,
+  lang: "en" | "fr",
+  risk: "low" | "medium" | "high"
+): string | null {
+  const action = String(intel.requested_action ?? "");
+  const nf = String(intel.narrative_family ?? "");
+  const nc = String(intel.narrative_category ?? "");
+  const entity = String(intel.impersonation_entity ?? "");
+  const state = String(intel.intel_state ?? "");
+
+  if (state === "insufficient_context") return null;
+  if (risk === "low" && (state === "no_signal" || state === "unknown")) return null;
+
+  const enEntity: Record<string, string> = {
+    cra: "may pretend to be the CRA",
+    service_canada: "may pretend to be Service Canada",
+    rcmp: "may pretend to be the RCMP",
+    canada_post: "may pretend to be Canada Post",
+    wealthsimple: "may pretend to be Wealthsimple",
+    generic_government: "may pretend to be a government agency",
+    generic_financial: "may pretend to be a bank or financial company",
+    generic_courier: "may pretend to be a delivery company",
+  };
+  const frEntity: Record<string, string> = {
+    cra: "pourrait imiter l’ARC",
+    service_canada: "pourrait imiter Service Canada",
+    rcmp: "pourrait imiter la GRC",
+    canada_post: "pourrait imiter Postes Canada",
+    wealthsimple: "pourrait imiter Wealthsimple",
+    generic_government: "pourrait imiter un organisme gouvernemental",
+    generic_financial: "pourrait imiter une banque ou une institution financière",
+    generic_courier: "pourrait imiter un service de livraison",
+  };
+  const entMap = lang === "fr" ? frEntity : enEntity;
+
+  if (lang === "en") {
+    let core = "";
+    if (action === "submit_credentials") {
+      core = "This message asks you to log in or verify your account.";
+    } else if (action === "pay_money" && (nf === "delivery_scam" || nc === "delivery_scam")) {
+      core = "This message asks you to pay a delivery fee.";
+    } else if (action === "pay_money") {
+      core = "This message asks you to pay money or a fee.";
+    } else if ((nf === "reward_claim" || nc === "prize_scam") && action === "click_link") {
+      core = "This message asks you to click a link to claim a reward or prize.";
+    } else if (action === "click_link") {
+      core = "This message asks you to click a link.";
+    } else if (action === "call_number") {
+      core = "This message asks you to call a number.";
+    } else {
+      return null;
+    }
+    if (entity !== "unknown" && entMap[entity]) {
+      core = core.replace(/\.$/, "") + ` It ${entMap[entity]}.`;
+    }
+    return core;
+  }
+
+  let coreFr = "";
+  if (action === "submit_credentials") {
+    coreFr = "Ce message vous demande de vous connecter ou de vérifier votre compte.";
+  } else if (action === "pay_money" && (nf === "delivery_scam" || nc === "delivery_scam")) {
+    coreFr = "Ce message demande le paiement de frais de livraison.";
+  } else if (action === "pay_money") {
+    coreFr = "Ce message vous demande de payer de l’argent ou des frais.";
+  } else if ((nf === "reward_claim" || nc === "prize_scam") && action === "click_link") {
+    coreFr = "Ce message vous demande de cliquer sur un lien pour réclamer un prix ou une récompense.";
+  } else if (action === "click_link") {
+    coreFr = "Ce message vous demande de cliquer sur un lien.";
+  } else if (action === "call_number") {
+    coreFr = "Ce message vous demande d’appeler un numéro.";
+  } else {
+    return null;
+  }
+  if (entity !== "unknown" && entMap[entity]) {
+    coreFr = coreFr.replace(/\.$/, "") + ` Il ou elle ${entMap[entity]}.`;
+  }
+  return coreFr;
 }
 
 /* ---------- Risk Meter ---------- */
@@ -509,7 +713,15 @@ export default function ResultPage() {
   });
   const [escalationStatus, setEscalationStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [escalationErrorMessage, setEscalationErrorMessage] = useState<string | null>(null);
+  const [contextMode, setContextMode] = useState<"required" | "suggested" | "hidden" | "light_followup">("hidden");
+  const [contextTriggerReason, setContextTriggerReason] = useState<string>("none");
+  const [contextText, setContextText] = useState("");
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [initialSubmissionText, setInitialSubmissionText] = useState<string | null>(null);
+  const [weakGateBypass, setWeakGateBypass] = useState(false);
   const conversionFiredForScanRef = useRef<string | null>(null);
+  const shownRefinementOnceRef = useRef(new Set<string>());
 
   /* ---------- load scan result and partner mode ---------- */
 
@@ -532,11 +744,33 @@ export default function ResultPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         setResult(parsed);
+        const parsedScanId = parsed.scan_id ? String(parsed.scan_id) : "";
+        const draftRaw = parsedScanId
+          ? sessionStorage.getItem(`context_refinement_draft:${parsedScanId}`)
+          : null;
+        let loadedContextFromDraft = false;
+        if (draftRaw) {
+          try {
+            const draft = JSON.parse(draftRaw);
+            if (draft && typeof draft.text === "string" && Number(draft.expires_at ?? 0) > Date.now()) {
+              setContextText(draft.text);
+              loadedContextFromDraft = true;
+            }
+          } catch {
+            // ignore malformed draft
+          }
+        }
+        if (!loadedContextFromDraft && parsedScanId) {
+          const lastCtx = sessionStorage.getItem(`context_refinement_last:${parsedScanId}`);
+          const intelRefined = parsed?.intel_features?.context_refined === true;
+          if (intelRefined && typeof lastCtx === "string" && lastCtx.length > 0) {
+            setContextText(lastCtx);
+          }
+        }
 
         const riskTier = parsed.risk ?? parsed.risk_tier ?? "low";
-        const scanId = parsed.scan_id;
-        const key = scanId ? `scan_shown:${scanId}` : null;
-        if (scanId && key && !firedOnce.has(key)) {
+        const key = parsedScanId ? `scan_shown:${parsedScanId}` : null;
+        if (parsedScanId && key && !firedOnce.has(key)) {
           firedOnce.add(key);
           let attrProps: Record<string, string> = {};
           try {
@@ -546,13 +780,24 @@ export default function ResultPage() {
             /* ignore */
           }
           logScanEvent("scan_shown", {
-            scan_id: scanId,
+            scan_id: parsedScanId,
             props: { risk_tier: riskTier, ...attrProps },
           });
         }
-        if (scanId && conversionFiredForScanRef.current !== scanId) {
-          conversionFiredForScanRef.current = scanId;
+        if (parsedScanId && conversionFiredForScanRef.current !== parsedScanId) {
+          conversionFiredForScanRef.current = parsedScanId;
           trackConversion("AW-16787240010/-lHQCNrulP0bEMro48Q-");
+        }
+      }
+      const storedSubmission = sessionStorage.getItem("scan_submission");
+      if (storedSubmission) {
+        try {
+          const parsedSubmission = JSON.parse(storedSubmission) as { text?: string; source?: string };
+          if (parsedSubmission.source === "user_text" && typeof parsedSubmission.text === "string") {
+            setInitialSubmissionText(parsedSubmission.text);
+          }
+        } catch {
+          // ignore malformed submission cache
         }
       }
     } catch {
@@ -560,14 +805,196 @@ export default function ResultPage() {
     }
   }, []);
 
-  if (!result) return null;
-
   const t = copy[lang];
+  const risk: "low" | "medium" | "high" = result?.risk ?? result?.risk_tier ?? "low";
+  const intel = result?.intel_features ?? {};
+  const scanIdForContext = result?.scan_id ? String(result.scan_id) : "";
+  const inputType = String(intel.input_type ?? "unknown");
+  const contextQuality = String(intel.context_quality ?? "unknown");
+  const intelState = String(intel.intel_state ?? "unknown");
+  const submissionRoute = String(intel.submission_route ?? "");
+  const knownCoreCount = Number(intel.known_core_dimension_count ?? 0);
+  const wasRefined = intel.context_refined === true;
+  const dataQuality = result?.data_quality as { url_only?: boolean } | undefined;
+  const urlOnlyFlag = Boolean(dataQuality?.url_only);
 
-  const risk: "low" | "medium" | "high" =
-    result.risk ?? result.risk_tier ?? "low";
+  const weakInputShape =
+    inputType === "link_only" || inputType === "phone_only" || inputType === "fragment";
 
-  const intel = result.intel_features ?? {};
+  const fragmentaryContext = ["thin", "fragment", "unknown"].includes(contextQuality);
+  const explicitInsufficient =
+    intelState === "insufficient_context" || submissionRoute === "insufficient_context";
+  const weakMetadataGate =
+    (intelState === "weak_signal" || explicitInsufficient) && fragmentaryContext;
+
+  const weakInputGateEligible =
+    Boolean(result) &&
+    !wasRefined &&
+    (weakInputShape || urlOnlyFlag || weakMetadataGate);
+
+  const weakInputGateActive = weakInputGateEligible && !weakGateBypass;
+
+  const scanIdForBypassReset = result?.scan_id != null ? String(result.scan_id) : "";
+
+  const showSuggestedRefinement =
+    !weakInputGateActive &&
+    !wasRefined &&
+    (intelState === "insufficient_context" ||
+      ["thin", "unknown", "fragment"].includes(contextQuality) ||
+      knownCoreCount <= 1);
+
+  const hasMeaningfulClassification =
+    ["weak_signal", "structured_signal", "no_signal"].includes(intelState) ||
+    knownCoreCount >= 2 ||
+    (["partial", "full", "thin"].includes(contextQuality) &&
+      submissionRoute !== "insufficient_context" &&
+      intelState !== "insufficient_context");
+
+  const showLightFollowUp = wasRefined && hasMeaningfulClassification;
+
+  const resolvedContextMode: "required" | "suggested" | "hidden" | "light_followup" =
+    weakInputGateActive
+      ? "required"
+      : showSuggestedRefinement
+        ? "suggested"
+        : showLightFollowUp
+          ? "light_followup"
+          : "hidden";
+
+  const resolvedTriggerReason = showLightFollowUp
+    ? "post_refinement_followup"
+    : weakInputGateActive
+      ? urlOnlyFlag && !weakInputShape
+        ? "data_quality_url_only"
+        : weakInputShape
+          ? `weak_input_${inputType}`
+          : "weak_metadata_fragmentary_context"
+      : showSuggestedRefinement
+        ? intelState === "insufficient_context"
+          ? "intel_state_insufficient_context"
+          : ["thin", "unknown", "fragment"].includes(contextQuality)
+            ? `context_quality_${contextQuality}`
+            : knownCoreCount <= 1
+              ? "low_core_signal"
+              : "suggested_misc"
+        : "none";
+
+  useEffect(() => {
+    setContextMode(resolvedContextMode);
+    setContextTriggerReason(resolvedTriggerReason);
+  }, [resolvedContextMode, resolvedTriggerReason]);
+
+  useEffect(() => {
+    if (!scanIdForBypassReset) return;
+    setWeakGateBypass(false);
+  }, [scanIdForBypassReset]);
+
+  useEffect(() => {
+    if (!scanIdForContext) return;
+    sessionStorage.setItem(
+      `context_refinement_draft:${scanIdForContext}`,
+      JSON.stringify({
+        text: contextText,
+        expires_at: Date.now() + 30 * 60 * 1000,
+      })
+    );
+  }, [contextText, scanIdForContext]);
+
+  useEffect(() => {
+    if (!result || contextMode === "hidden" || !scanIdForContext) return;
+    const key = `${scanIdForContext}:${contextMode}:${contextTriggerReason}`;
+    if (shownRefinementOnceRef.current.has(key)) return;
+    shownRefinementOnceRef.current.add(key);
+    logScanEvent("context_refinement_shown", {
+      scan_id: scanIdForContext,
+      props: {
+        mode: contextMode,
+        trigger_reason: contextTriggerReason,
+        input_type: inputType,
+      },
+    });
+  }, [contextMode, contextTriggerReason, scanIdForContext, inputType, result]);
+
+  function isMeaningfulContext(v: string): boolean {
+    const cleaned = v.replace(/[\s`'"()[\]{}<>.,;:!?-]/g, "");
+    return cleaned.length >= 8;
+  }
+
+  function charLenBucket(v: string): string {
+    const n = v.trim().length;
+    if (n < 20) return "8_19";
+    if (n < 60) return "20_59";
+    if (n < 140) return "60_139";
+    return "140_plus";
+  }
+
+  const submitContextRefinement = async () => {
+    if (!result) return;
+    if (!isMeaningfulContext(contextText)) {
+      setContextError("Please add a bit more context so we can continue analysis.");
+      return;
+    }
+    if (!initialSubmissionText || initialSubmissionText.trim().length === 0) {
+      setContextError("Original submission is unavailable for refinement.");
+      return;
+    }
+    setContextError(null);
+    setContextLoading(true);
+
+    try {
+      logScanEvent("context_refinement_submitted", {
+        scan_id: scanIdForContext || undefined,
+        props: {
+          mode: contextMode,
+          input_type: inputType,
+          char_len_bucket: charLenBucket(contextText),
+        },
+      });
+
+      const refinementNonce = crypto.randomUUID();
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: initialSubmissionText,
+          lang,
+          raw_opt_in: true,
+          analysis_mode: "refined",
+          user_context_text: contextText.trim(),
+          refinement_nonce: refinementNonce,
+          refinement_parent_scan_id: scanIdForContext || null,
+        }),
+      });
+      const data = await res.json();
+      if (!data?.ok || !data?.result) {
+        setContextError("We couldn't refine this analysis right now. Please try again.");
+        setContextLoading(false);
+        return;
+      }
+
+      setResult(data.result);
+      sessionStorage.setItem("scanResult", JSON.stringify(data.result));
+      const refinedText = contextText.trim();
+      if (scanIdForContext) {
+        sessionStorage.setItem(`context_refinement_last:${scanIdForContext}`, refinedText);
+        sessionStorage.removeItem(`context_refinement_draft:${scanIdForContext}`);
+      }
+      setContextText(refinedText);
+      setContextLoading(false);
+      logScanEvent("context_refinement_completed_analysis", {
+        scan_id: String((data.result.scan_id ?? scanIdForContext) || ""),
+        props: {
+          mode: contextMode,
+          input_type: inputType,
+        },
+      });
+    } catch {
+      setContextError("We couldn't refine this analysis right now. Please try again.");
+      setContextLoading(false);
+    }
+  };
+
+  if (!result) return null;
   const linkArtifact = parseLinkArtifact(intel as Record<string, unknown>);
   const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
@@ -590,7 +1017,10 @@ export default function ResultPage() {
     const action = intel.requested_action ?? "";
     const threat = intel.threat_stage ?? "";
 
-    if (route === "insufficient_context" || ctx === "fragment") {
+    if (
+      (route === "insufficient_context" || ctx === "fragment") &&
+      !(wasRefined && hasMeaningfulClassification)
+    ) {
       add(gr.limited_context);
     }
     if (narrative && narrative !== "unknown" && gr.narrative[narrative]) {
@@ -620,7 +1050,9 @@ export default function ResultPage() {
   const nextSteps = (t.narrativeNextSteps as Record<string, { action: string; explanation: string }[] | undefined>)?.[narrativeFamily] ?? t.guidance;
 
   const summaryRaw = result.summary_sentence || t.defaultSummary[risk];
-  const summary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
+  const apiSummary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
+  const plainSummary = buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
+  const summary = plainSummary ?? apiSummary;
 
   const confidence: "low" | "medium" | "high" =
     result.intel_features?.confidence_level ?? "low";
@@ -636,14 +1068,220 @@ export default function ResultPage() {
   const riskBlockStyle = {
     ...styles.riskBlock,
     backgroundColor: RISK_CONFIG[risk].bgColor,
+    border: "1px solid #D1D5DB",
   };
 
   const tierColor =
     risk === "low" ? "#15803D" : risk === "medium" ? "#B45309" : "#B91C1C";
 
+  const ri = t.refinementIncomplete;
+  const wg = t.weakInputGate;
+  const phoneSnippet = extractPhoneSnippet(initialSubmissionText);
+  const showGateLinkLine = Boolean(linkArtifact && linkDisplayDomain);
+  const showGatePhoneLine =
+    Boolean(phoneSnippet) &&
+    (inputType === "phone_only" || Boolean(intel.callback_number_present));
+
+  const contextRefinementDisplay: ContextRefinementStrings = partner
+    ? t.contextRefinementPartner
+    : t.contextRefinement;
+
+  const weakGateRefinementStrings: ContextRefinementStrings = {
+    ...contextRefinementDisplay,
+    placeholder: partner ? wg.gatePlaceholderPartner : wg.gatePlaceholderPublic,
+  };
+  const weakGateExampleSingle =
+    inputType === "phone_only"
+      ? partner
+        ? wg.gateExamplePartnerPhone
+        : wg.gateExamplePublicPhone
+      : partner
+        ? wg.gateExamplePartner
+        : wg.gateExamplePublic;
+
+  const prioritizePartnerEscalation =
+    Boolean(partner) && (risk === "medium" || risk === "high");
+
+  const renderPartnerEscalationSuccess = () => (
+    <div style={styles.escalationSuccessBlock}>
+      <p className="text-sm" style={styles.escalationSuccessText}>
+        {t.escalationForm.successMessage}
+      </p>
+    </div>
+  );
+
+  const renderPartnerEscalationForm = () => (
+    <div style={styles.escalationFormShell}>
+      <div style={styles.escalationFormHeader}>
+        <h3 className="text-sm font-semibold text-gray-900" style={styles.escalationFormTitle}>
+          {t.escalationForm.title}
+        </h3>
+        <button
+          type="button"
+          onClick={() => {
+            setShowEscalationForm(false);
+            setEscalationErrorMessage(null);
+          }}
+          style={styles.mspCloseButton}
+        >
+          {t.mspCloseForm}
+        </button>
+      </div>
+      <div style={styles.escalationFormBlock} className="gap-4">
+        {escalationStatus === "error" && escalationErrorMessage && (
+          <p className="text-sm" style={styles.escalationError} role="alert">
+            {escalationErrorMessage}
+          </p>
+        )}
+        <div style={styles.escalationFormFields} className="gap-4">
+          <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
+            {t.escalationForm.nameLabel} <span style={styles.required}>*</span>
+          </label>
+          <input
+            type="text"
+            value={escalationForm.name}
+            onChange={(e) => setEscalationForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder={t.escalationForm.namePlaceholder}
+            style={styles.escalationInput}
+            className="result-escalation-field text-sm"
+            autoComplete="name"
+          />
+          <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
+            {t.escalationForm.companyLabel} <span style={styles.required}>*</span>
+          </label>
+          <input
+            type="text"
+            value={escalationForm.company}
+            onChange={(e) => setEscalationForm((f) => ({ ...f, company: e.target.value }))}
+            placeholder={t.escalationForm.companyPlaceholder}
+            style={styles.escalationInput}
+            className="result-escalation-field text-sm"
+            autoComplete="organization"
+          />
+          <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
+            {t.escalationForm.roleLabel}
+          </label>
+          <input
+            type="text"
+            value={escalationForm.role}
+            onChange={(e) => setEscalationForm((f) => ({ ...f, role: e.target.value }))}
+            placeholder={t.escalationForm.rolePlaceholder}
+            style={styles.escalationInput}
+            className="result-escalation-field text-sm"
+            autoComplete="organization-title"
+          />
+          <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
+            {t.escalationForm.noteLabel}
+          </label>
+          <span className="text-xs text-gray-500" style={styles.escalationHelper}>
+            {t.escalationForm.noteHelper}
+          </span>
+          <textarea
+            value={escalationForm.client_note}
+            onChange={(e) => setEscalationForm((f) => ({ ...f, client_note: e.target.value }))}
+            placeholder={t.escalationForm.notePlaceholder}
+            style={styles.escalationTextarea}
+            className="result-escalation-field text-sm"
+            rows={3}
+            autoComplete="off"
+          />
+        </div>
+        <p className="text-xs text-gray-500" style={styles.escalationSubmissionInfo}>
+          {t.escalationForm.submissionInfo}
+        </p>
+        <div style={styles.escalationFormActions}>
+          <button
+            type="button"
+            disabled={
+              !escalationForm.name.trim() ||
+              !escalationForm.company.trim() ||
+              !result.scan_id ||
+              escalationStatus === "loading"
+            }
+            style={{
+              ...styles.escalationSubmitButton,
+              ...((!escalationForm.name.trim() ||
+                !escalationForm.company.trim() ||
+                !result.scan_id ||
+                escalationStatus === "loading") && {
+                opacity: 0.6,
+                cursor: "not-allowed",
+              }),
+            }}
+            onClick={async () => {
+              if (!result.scan_id || !partner) return;
+              setEscalationStatus("loading");
+              setEscalationErrorMessage(null);
+              try {
+                const res = await fetch("/api/partner-escalation", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    scan_id: result.scan_id,
+                    partner_slug: partner.slug,
+                    user_name: escalationForm.name.trim(),
+                    user_company: escalationForm.company.trim(),
+                    user_role: (escalationForm.role ?? "").trim() || null,
+                    client_note: (escalationForm.client_note ?? "").trim() || null,
+                  }),
+                });
+                let data: { ok?: boolean; message?: string } = {};
+                try {
+                  const text = await res.text();
+                  if (text) data = JSON.parse(text) as { ok?: boolean; message?: string };
+                } catch {
+                  setEscalationStatus("error");
+                  setEscalationErrorMessage(t.escalationForm.errorMessage);
+                  return;
+                }
+                if (res.ok && data.ok === true) {
+                  setEscalationStatus("success");
+                } else {
+                  setEscalationStatus("error");
+                  setEscalationErrorMessage(data.message ?? t.escalationForm.errorMessage);
+                }
+              } catch {
+                setEscalationStatus("error");
+                setEscalationErrorMessage(t.escalationForm.errorMessage);
+              }
+            }}
+          >
+            {escalationStatus === "loading"
+              ? t.escalationForm.sending
+              : t.escalationForm.submitButton}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPartnerEscalationResultTrigger = () => {
+    if (!partner || showEscalationForm || escalationStatus === "success") return null;
+    if (prioritizePartnerEscalation) {
+      return (
+        <>
+          <p style={styles.mspBelowCardHint}>{t.mspBelowCardHint}</p>
+          <button
+            type="button"
+            onClick={() => setShowEscalationForm(true)}
+            style={styles.primaryMspCtaButton}
+          >
+            {t.mspTrigger}
+          </button>
+          <p style={styles.mspPromotedSupporting}>{t.mspPromotedSupporting}</p>
+        </>
+      );
+    }
+    return (
+      <button type="button" onClick={() => setShowEscalationForm(true)} style={styles.mspTrigger}>
+        {t.mspTrigger}
+      </button>
+    );
+  };
+
   return (
     <main style={styles.container}>
-      <section style={styles.card} className="gap-6">
+      <section style={styles.card}>
         {/* ---------- Top Nav ---------- */}
         <div style={styles.topNav}>
           <a href={`/?lang=${lang}`} style={styles.backLink} className="text-sm font-medium">
@@ -667,250 +1305,214 @@ export default function ResultPage() {
           </div>
         )}
 
-        {/* ---------- A) Risk Block ---------- */}
-        <div style={riskBlockStyle} className="gap-2">
-          <div className="text-xl font-semibold text-center" style={{ color: tierColor }}>
-            {t.tier[risk]}
-          </div>
-          <RiskMeter
-            risk={risk}
-            label={t.tier[risk]}
-            levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`}
-          />
-          <p className="text-sm text-gray-900" style={styles.summary}>
-            {summary}
-          </p>
-          {linkArtifact && (
-            <p className="mt-2 text-sm leading-normal text-gray-800">{t.linkIntel.linkBeforeClick}</p>
-          )}
-          <p className="text-xs text-gray-600" style={styles.confidence}>
-            {t.confidenceLabel} {confidenceText}
-          </p>
-          <p className="text-xs text-gray-500" style={styles.confidenceHelper}>
-            {confidenceHelperText}
-          </p>
-          {linkArtifact && linkDisplayDomain && (
-            <div className="mt-3 text-sm leading-normal text-gray-900">
-              <p className="text-xs text-gray-600">{t.linkIntel.detectedLabel}</p>
-              <p className="mt-0.5 font-semibold break-all text-gray-900">{linkDisplayDomain}</p>
-              {(linkArtifact.is_shortened ||
-                linkArtifact.has_suspicious_tld ||
-                hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain)) && (
-                <ul className="mt-2 list-disc space-y-1 pl-[18px] text-xs leading-normal text-gray-600">
-                  {linkArtifact.is_shortened && <li>{t.linkIntel.shortened}</li>}
-                  {linkArtifact.has_suspicious_tld && <li>{t.linkIntel.suspiciousTld}</li>}
-                  {hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain) && (
-                    <li>{t.linkIntel.brandMimic}</li>
-                  )}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ---------- Why it looks suspicious (grounded in intel_features) ---------- */}
-        {(groundedReasons.length > 0 || narrativeGuidanceText) && (
-          <div style={styles.reasonsBlock}>
-            <div className="text-base font-semibold text-gray-900">{t.whySuspicious}</div>
-            {groundedReasons.length > 0 && (
-              <ul className="mt-2 list-disc pl-[18px] text-sm text-gray-900 leading-normal" style={styles.reasons}>
-                {groundedReasons.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            )}
-            {narrativeGuidanceText && (
-              <p className="mt-2 text-sm text-gray-800" style={styles.narrativeGuidance}>
-                {narrativeGuidanceText}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ---------- B) Action Block (max 3 bullets) ---------- */}
-        <div style={styles.actionBlock} className="gap-2">
-          <div className="text-base font-semibold text-gray-900">{t.actionTitle}</div>
-          <ul className="list-disc pl-4 text-sm text-gray-900" style={styles.actionList}>
-            {nextSteps.map((g, i) => (
-              <li key={i} className="mb-3 last:mb-0">
-                <span className="font-medium text-gray-900">{g.action}</span>
-                <span className="mt-1 block text-xs font-normal text-gray-500">{g.explanation}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* ---------- C) Send-to-IT CTA (partner mode only) ---------- */}
-        {partner && (
-          <>
-            {!showEscalationForm ? (
-              <button
-                type="button"
-                onClick={() => setShowEscalationForm(true)}
-                className="text-sm font-semibold"
-                style={{
-                  ...styles.sendToItButton,
-                  ...(risk === "low"
-                    ? styles.sendToItButtonLow
-                    : risk === "medium"
-                      ? styles.sendToItButtonMedium
-                      : styles.sendToItButtonHigh),
-                }}
-              >
-                {t.sendToItCta[risk]}
-              </button>
-            ) : escalationStatus === "success" ? (
-              <div style={styles.escalationSuccessBlock}>
-                <p className="text-sm" style={styles.escalationSuccessText}>
-                  {t.escalationForm.successMessage}
-                </p>
+        {weakInputGateActive ? (
+          <div style={styles.weakInputGateBlock}>
+            <h2 style={styles.weakGateHeading}>{wg.heading}</h2>
+            <p style={styles.weakGateBody}>{wg.bodyLine1}</p>
+            <p style={styles.weakGateBodySecondary}>
+              {partner ? wg.bodyLine2Partner : wg.bodyLine2Public}
+            </p>
+            {showGateLinkLine && (
+              <div style={styles.weakGateArtifact}>
+                <p className="text-xs text-gray-600">{t.linkIntel.detectedLabel}</p>
+                <p className="mt-0.5 font-semibold break-all text-gray-900">{linkDisplayDomain}</p>
               </div>
-            ) : (
-              <div style={styles.escalationFormBlock} className="gap-4">
-                <h3 className="text-base font-semibold text-gray-900" style={styles.escalationFormTitle}>
-                  {t.escalationForm.title}
-                </h3>
-                {escalationStatus === "error" && escalationErrorMessage && (
-                  <p className="text-sm" style={styles.escalationError} role="alert">
-                    {escalationErrorMessage}
-                  </p>
-                )}
-                <div style={styles.escalationFormFields} className="gap-4">
-                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
-                    {t.escalationForm.nameLabel} <span style={styles.required}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={escalationForm.name}
-                    onChange={(e) => setEscalationForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder={t.escalationForm.namePlaceholder}
-                    style={styles.escalationInput}
-                    className="result-escalation-field text-sm"
-                    autoComplete="name"
-                  />
-                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
-                    {t.escalationForm.companyLabel} <span style={styles.required}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={escalationForm.company}
-                    onChange={(e) => setEscalationForm((f) => ({ ...f, company: e.target.value }))}
-                    placeholder={t.escalationForm.companyPlaceholder}
-                    style={styles.escalationInput}
-                    className="result-escalation-field text-sm"
-                    autoComplete="organization"
-                  />
-                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
-                    {t.escalationForm.roleLabel}
-                  </label>
-                  <input
-                    type="text"
-                    value={escalationForm.role}
-                    onChange={(e) => setEscalationForm((f) => ({ ...f, role: e.target.value }))}
-                    placeholder={t.escalationForm.rolePlaceholder}
-                    style={styles.escalationInput}
-                    className="result-escalation-field text-sm"
-                    autoComplete="organization-title"
-                  />
-                  <label className="text-sm font-medium text-gray-700" style={styles.escalationLabel}>
-                    {t.escalationForm.noteLabel}
-                  </label>
-                  <span className="text-xs text-gray-500" style={styles.escalationHelper}>
-                    {t.escalationForm.noteHelper}
-                  </span>
-                  <textarea
-                    value={escalationForm.client_note}
-                    onChange={(e) =>
-                      setEscalationForm((f) => ({ ...f, client_note: e.target.value }))
-                    }
-                    placeholder={t.escalationForm.notePlaceholder}
-                    style={styles.escalationTextarea}
-                    className="result-escalation-field text-sm"
-                    rows={3}
-                    autoComplete="off"
-                  />
-                </div>
-                <p className="text-xs text-gray-500" style={styles.escalationSubmissionInfo}>
-                  {t.escalationForm.submissionInfo}
-                </p>
-                <div style={styles.escalationFormActions}>
+            )}
+            {showGatePhoneLine && (
+              <div style={styles.weakGateArtifact}>
+                <p className="text-xs text-gray-600">{wg.phoneDetectedLabel}</p>
+                <p className="mt-0.5 font-semibold text-gray-900">{phoneSnippet}</p>
+              </div>
+            )}
+            <div style={styles.weakGateRefinementWrap}>
+            <ContextRefinementCard
+              mode="required"
+              compact
+              gateProminentInput
+              strings={weakGateRefinementStrings}
+              exampleSingle={weakGateExampleSingle}
+              collapsible={false}
+              defaultExpanded
+              value={contextText}
+              onChange={(v) => {
+                setContextText(v);
+                if (contextError) setContextError(null);
+              }}
+              onSubmit={submitContextRefinement}
+              loading={contextLoading}
+              disabled={!isMeaningfulContext(contextText)}
+              error={contextError}
+            />
+            </div>
+            <button type="button" onClick={() => setWeakGateBypass(true)} style={styles.weakGateSecondaryLink}>
+              {wg.limitedAnalysisLink}
+            </button>
+            {partner ? (
+              <div style={styles.weakGatePartnerEscalation}>
+                {escalationStatus === "success" && renderPartnerEscalationSuccess()}
+                {showEscalationForm && escalationStatus !== "success" && renderPartnerEscalationForm()}
+                {!showEscalationForm && escalationStatus !== "success" && (
                   <button
                     type="button"
-                    disabled={
-                      !escalationForm.name.trim() ||
-                      !escalationForm.company.trim() ||
-                      !result.scan_id ||
-                      escalationStatus === "loading"
-                    }
-                    style={{
-                      ...styles.escalationSubmitButton,
-                      ...((!escalationForm.name.trim() ||
-                        !escalationForm.company.trim() ||
-                        !result.scan_id ||
-                        escalationStatus === "loading") && {
-                        opacity: 0.6,
-                        cursor: "not-allowed",
-                      }),
-                    }}
-                    onClick={async () => {
-                      if (!result.scan_id || !partner) return;
-                      setEscalationStatus("loading");
-                      setEscalationErrorMessage(null);
-                      try {
-                        const res = await fetch("/api/partner-escalation", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            scan_id: result.scan_id,
-                            partner_slug: partner.slug,
-                            user_name: escalationForm.name.trim(),
-                            user_company: escalationForm.company.trim(),
-                            user_role: (escalationForm.role ?? "").trim() || null,
-                            client_note: (escalationForm.client_note ?? "").trim() || null,
-                          }),
-                        });
-                        let data: { ok?: boolean; message?: string } = {};
-                        try {
-                          const text = await res.text();
-                          if (text) data = JSON.parse(text) as { ok?: boolean; message?: string };
-                        } catch {
-                          setEscalationStatus("error");
-                          setEscalationErrorMessage(t.escalationForm.errorMessage);
-                          return;
-                        }
-                        // Require HTTP success and explicit JSON ok — do not trust body alone on 4xx/5xx
-                        if (res.ok && data.ok === true) {
-                          setEscalationStatus("success");
-                        } else {
-                          setEscalationStatus("error");
-                          setEscalationErrorMessage(data.message ?? t.escalationForm.errorMessage);
-                        }
-                      } catch {
-                        setEscalationStatus("error");
-                        setEscalationErrorMessage(t.escalationForm.errorMessage);
-                      }
-                    }}
+                    onClick={() => setShowEscalationForm(true)}
+                    style={styles.weakGateTertiaryLink}
                   >
-                    {escalationStatus === "loading"
-                      ? t.escalationForm.sending
-                      : t.escalationForm.submitButton}
+                    {t.mspTrigger}
                   </button>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            {/* ---------- A) Risk Block ---------- */}
+            <div style={riskBlockStyle} className="gap-2">
+              <div className="text-center text-xl font-semibold" style={{ color: tierColor }}>
+                {t.tier[risk]}
+              </div>
+              <p className="text-center text-sm font-medium text-gray-700" style={styles.systemConfidenceLine}>
+                {t.confidenceLabel} {confidenceText}
+              </p>
+              <p className="text-center text-xs text-gray-500" style={styles.systemConfidenceHelper}>
+                {confidenceHelperText}
+              </p>
+              <RiskMeter
+                risk={risk}
+                label={t.tier[risk]}
+                levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`}
+              />
+              <p className="text-sm text-gray-900" style={styles.summary}>
+                {summary}
+              </p>
+              {linkArtifact && (
+                <p className="mt-2 text-sm leading-normal text-gray-800">{t.linkIntel.linkBeforeClick}</p>
+              )}
+              {linkArtifact && linkDisplayDomain && (
+                <div className="mt-3 text-sm leading-normal text-gray-900">
+                  <p className="text-xs text-gray-600">{t.linkIntel.detectedLabel}</p>
+                  <p className="mt-0.5 font-semibold break-all text-gray-900">{linkDisplayDomain}</p>
+                  {(linkArtifact.is_shortened ||
+                    linkArtifact.has_suspicious_tld ||
+                    hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain)) && (
+                    <ul className="mt-2 list-disc space-y-1 pl-[18px] text-xs leading-normal text-gray-600">
+                      {linkArtifact.is_shortened && <li>{t.linkIntel.shortened}</li>}
+                      {linkArtifact.has_suspicious_tld && <li>{t.linkIntel.suspiciousTld}</li>}
+                      {hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain) && (
+                        <li>{t.linkIntel.brandMimic}</li>
+                      )}
+                    </ul>
+                  )}
                 </div>
+              )}
+            </div>
+
+            {/* ---------- Why this was flagged ---------- */}
+            {(groundedReasons.length > 0 || narrativeGuidanceText) && (
+              <div style={styles.sectionDivider}>
+                <div style={styles.reasonsBlock}>
+                  <div style={styles.sectionEyebrow}>{t.whySuspicious}</div>
+                  {groundedReasons.length > 0 && (
+                    <ul className="mt-2 list-disc pl-[18px] text-sm text-gray-900 leading-snug" style={styles.reasons}>
+                      {groundedReasons.slice(0, 3).map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {narrativeGuidanceText && (
+                    <p className="mt-2 text-xs text-gray-600 leading-snug" style={styles.narrativeGuidance}>
+                      {narrativeGuidanceText}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ---------- What to do next + optional context + MSP ---------- */}
+            <div style={{ ...styles.actionBlock, ...styles.sectionDivider }} className="gap-2">
+              <div style={styles.sectionEyebrow}>{t.actionTitle}</div>
+              <ul className="list-disc pl-4 text-sm text-gray-900" style={styles.actionList}>
+                {nextSteps.map((g, i) => (
+                  <li key={i} className="mb-2 last:mb-0">
+                    <span className="font-medium text-gray-900">{g.action}</span>
+                    <span className="mt-0.5 block text-xs font-normal text-gray-500">{g.explanation}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {partner ? (
+              <>
+                <div style={styles.partnerFlowDivider} />
+                <div style={styles.mspPromotedSection}>
+                  {escalationStatus === "success" && renderPartnerEscalationSuccess()}
+                  {showEscalationForm && escalationStatus !== "success" && renderPartnerEscalationForm()}
+                  {renderPartnerEscalationResultTrigger()}
+                </div>
+                <div style={styles.partnerFlowDivider} />
+              </>
+            ) : null}
+
+            {contextMode === "suggested" && (
+              <div style={{ ...styles.optionalBlock, ...styles.optionalRefinementAccent }}>
+                <ContextRefinementCard
+                  mode="suggested"
+                  strings={contextRefinementDisplay}
+                  exampleSingle={ri.examplesLink[0]}
+                  collapsible
+                  defaultExpanded={false}
+                  value={contextText}
+                  onChange={(v) => {
+                    setContextText(v);
+                    if (contextError) setContextError(null);
+                  }}
+                  onSubmit={submitContextRefinement}
+                  loading={contextLoading}
+                  disabled={!isMeaningfulContext(contextText)}
+                  error={contextError}
+                />
               </div>
             )}
           </>
+        )}
+
+        {showLightFollowUp && (
+          <div style={styles.optionalBlock}>
+            <ContextRefinementCard
+              mode="suggested"
+              strings={contextRefinementDisplay}
+              tone="light"
+              collapsible
+              defaultExpanded={false}
+              exampleSingle={null}
+              value={contextText}
+              onChange={(v) => {
+                setContextText(v);
+                if (contextError) setContextError(null);
+              }}
+              onSubmit={submitContextRefinement}
+              loading={contextLoading}
+              disabled={!isMeaningfulContext(contextText)}
+              error={contextError}
+            />
+          </div>
         )}
       </section>
 
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
-        <a
-          href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
-          className="text-sm font-semibold"
-          style={styles.scanAnotherButton}
-        >
-          {t.scanAnother}
-        </a>
+        {!weakInputGateActive && (
+          <a
+            href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
+            className="text-sm font-semibold"
+            style={
+              prioritizePartnerEscalation && partner
+                ? styles.scanAnotherSecondary
+                : styles.scanAnotherButton
+            }
+          >
+            {t.scanAnother}
+          </a>
+        )}
         <p className="text-xs text-gray-500" style={styles.footerAdvisory}>
           {t.footerAdvisory}
         </p>
@@ -925,6 +1527,8 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: "calc(100vh - 156px)",
     backgroundColor: "#E2E4E9",
+    color: "#0B1220",
+    fontFamily: "Inter, system-ui, sans-serif",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -936,18 +1540,157 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: "600px",
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 14,
+  },
+  mspBelowCardHint: {
+    margin: 0,
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#374151",
+    lineHeight: 1.45,
+    textAlign: "center" as const,
+  },
+  mspPromotedSupporting: {
+    margin: 0,
+    marginTop: 6,
+    fontSize: 12,
+    color: "#6B7280",
+    lineHeight: 1.45,
+    textAlign: "center" as const,
+  },
+  primaryMspCtaButton: {
+    display: "block",
+    padding: "14px 24px",
+    borderRadius: 12,
+    border: "none",
+    background: "#2563EB",
+    color: "#FFFFFF",
+    cursor: "pointer",
+    width: "100%",
+    textAlign: "center" as const,
+    fontSize: 14,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
+  },
+  scanAnotherSecondary: {
+    display: "block",
+    padding: "12px 24px",
+    borderRadius: 12,
+    border: "1px solid #D1D5DB",
+    background: "#FFFFFF",
+    color: "#6B7280",
+    cursor: "pointer",
+    width: "100%",
+    textAlign: "center" as const,
+    fontSize: 14,
+    fontWeight: 600,
+    textDecoration: "none",
+    boxSizing: "border-box" as const,
   },
   card: {
     width: "100%",
     maxWidth: "600px",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F3F4F6",
     borderRadius: "14px",
-    padding: "16px 20px 18px",
+    padding: "16px 20px 20px",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
+    gap: 20,
+    boxShadow: "0 16px 48px rgba(11,18,32,0.2)",
+    border: "1px solid #B8BEC9",
+  },
+  sectionDivider: {
+    paddingTop: 4,
+    borderTop: "1px solid #E5E7EB",
+  },
+  sectionEyebrow: {
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase" as const,
+    color: "#6B7280",
+    margin: 0,
+  },
+  optionalBlock: {
+    marginTop: 2,
+  },
+  optionalRefinementAccent: {
+    padding: "12px 12px 12px 14px",
+    borderRadius: 8,
     border: "1px solid #D1D5DB",
+    backgroundColor: "#ECEEF2",
+  },
+  mspPromotedSection: {
+    backgroundColor: "#E8EAEF",
+    borderRadius: 10,
+    border: "1px solid #D1D5DB",
+    padding: 14,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  partnerFlowDivider: {
+    borderTop: "1px solid #D1D5DB",
+    marginTop: 4,
+    paddingTop: 16,
+  },
+  weakGatePartnerEscalation: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 12,
+    marginTop: 8,
+    width: "100%",
+  },
+  weakGateTertiaryLink: {
+    alignSelf: "center",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "#6B7280",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    padding: "8px 8px 2px",
+    marginTop: 2,
+    textDecoration: "underline",
+    textUnderlineOffset: 3,
+    fontFamily: "inherit",
+  },
+  mspTrigger: {
+    display: "block",
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 8,
+    border: "1px solid #E5E7EB",
+    backgroundColor: "#F9FAFB",
+    color: "#374151",
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+    textAlign: "left" as const,
+  },
+  mspCloseButton: {
+    border: "none",
+    background: "transparent",
+    color: "#6B7280",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    padding: "4px 8px",
+  },
+  escalationFormShell: {
+    border: "1px solid #C4C9D4",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: "#ECEEF2",
+  },
+  escalationFormHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 10,
   },
 
   topNav: {
@@ -1035,17 +1778,21 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.5,
     margin: 0,
   },
-  confidence: {
-    margin: "4px 0 0",
+  systemConfidenceLine: {
+    margin: "6px 0 0",
     lineHeight: 1.4,
   },
-  confidenceHelper: {
-    margin: "2px 0 0",
-    lineHeight: 1.4,
+  systemConfidenceHelper: {
+    margin: "4px 0 0",
+    lineHeight: 1.45,
   },
   narrativeGuidance: {
     lineHeight: 1.5,
     margin: 0,
+  },
+  refinementLimitedNote: {
+    margin: "0 0 -4px",
+    lineHeight: 1.4,
   },
 
   reasonsBlock: {
@@ -1058,9 +1805,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   actionBlock: {
-    backgroundColor: "#D9DCDF",
+    backgroundColor: "#E8EAEF",
     borderRadius: 10,
     padding: "12px 14px",
+    border: "1px solid #C4C9D4",
     display: "flex",
     flexDirection: "column",
   },
@@ -1071,36 +1819,13 @@ const styles: Record<string, React.CSSProperties> = {
     listStyle: "disc",
   },
 
-  sendToItButton: {
-    display: "block",
-    padding: "12px 20px",
-    borderRadius: 10,
-    border: "1px solid",
-    cursor: "pointer",
-    width: "100%",
-  },
-  sendToItButtonLow: {
-    backgroundColor: "#F9FAFB",
-    borderColor: "#D1D5DB",
-    color: "#4B5563",
-  },
-  sendToItButtonMedium: {
-    backgroundColor: "#EFF6FF",
-    borderColor: "#2563EB",
-    color: "#2563EB",
-  },
-  sendToItButtonHigh: {
-    backgroundColor: "#FEF2F2",
-    borderColor: "#DC2626",
-    color: "#B91C1C",
-  },
-
   escalationFormBlock: {
     backgroundColor: "#F9FAFB",
-    borderRadius: 10,
-    padding: "16px",
+    borderRadius: 8,
+    padding: "12px",
     display: "flex",
     flexDirection: "column",
+    border: "1px solid #D1D5DB",
   },
   escalationFormTitle: {
     margin: 0,
@@ -1164,13 +1889,13 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 4,
   },
   escalationSubmitButton: {
-    padding: "12px 18px",
+    padding: "10px 16px",
     fontSize: 14,
     fontWeight: 600,
-    backgroundColor: "#2563EB",
-    border: "none",
+    backgroundColor: "#FFFFFF",
+    border: "1px solid #2563EB",
     borderRadius: 8,
-    color: "#FFFFFF",
+    color: "#2563EB",
     cursor: "pointer",
     width: "100%",
   },
@@ -1193,5 +1918,114 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center" as const,
     margin: "2px 0 0",
     lineHeight: 1.4,
+  },
+
+  weakInputGateBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 18,
+    alignItems: "stretch",
+    padding: "12px 0 8px",
+    margin: 0,
+    border: "none",
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    boxShadow: "none",
+  },
+  weakGateHeading: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 700,
+    color: "#111827",
+    lineHeight: 1.25,
+    textAlign: "center" as const,
+  },
+  weakGateBody: {
+    margin: 0,
+    fontSize: 14,
+    color: "#374151",
+    lineHeight: 1.45,
+    textAlign: "center" as const,
+  },
+  weakGateBodySecondary: {
+    margin: 0,
+    fontSize: 14,
+    color: "#4B5563",
+    lineHeight: 1.45,
+    textAlign: "center" as const,
+  },
+  weakGateArtifact: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#ECEEF2",
+    border: "1px solid #D1D5DB",
+  },
+  weakGateRefinementWrap: {
+    marginTop: 28,
+  },
+  weakGateSecondaryLink: {
+    alignSelf: "center",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "#6B7280",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    padding: "6px 8px 4px",
+    marginTop: 18,
+    textDecoration: "underline",
+    textUnderlineOffset: 3,
+    fontFamily: "inherit",
+  },
+
+  preliminaryBadgeWrap: {
+    display: "flex",
+    justifyContent: "center",
+  },
+  preliminaryBadge: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase" as const,
+    color: "#B45309",
+    backgroundColor: "#FFFBEB",
+    border: "1px solid #FDE68A",
+    borderRadius: 6,
+    padding: "6px 10px",
+  },
+  preliminaryHeadline: {
+    margin: "4px 0 0",
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#111827",
+    lineHeight: 1.25,
+    textAlign: "center" as const,
+  },
+  preliminarySubtext: {
+    margin: "8px 0 0",
+    fontSize: 14,
+    color: "#4B5563",
+    lineHeight: 1.45,
+    textAlign: "center" as const,
+  },
+  preliminarySupporting: {
+    margin: "6px 0 0",
+    fontSize: 13,
+    color: "#6B7280",
+    lineHeight: 1.45,
+    textAlign: "center" as const,
+  },
+  preliminaryArtifactBlock: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#F9FAFB",
+    border: "1px solid #E5E7EB",
+  },
+  preliminaryArtifactTitle: {
+    margin: "0 0 6px",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#6B7280",
   },
 };

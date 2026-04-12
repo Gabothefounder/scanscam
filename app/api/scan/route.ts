@@ -10,6 +10,7 @@ import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
 import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
 import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
+import { passesScanTextAdmission } from "@/lib/scan/scanTextAdmission";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
@@ -71,18 +72,39 @@ function assessContextQuality(
 }
 
 const NARRATIVE_SIGNALS: { id: string; test: RegExp }[] = [
-  { id: "prize_scam", test: /lottery|winner|prize|won|congratulations.*won/ },
+  {
+    id: "prize_scam",
+    test:
+      /lottery|winner|prize|won|congratulations.*won|loterie|\bgagné\b|félicitations.*gagn|vous\s+avez\s+gagné|\bréclamer\b.*\b(prix|lot)\b/i,
+  },
   {
     id: "government_impersonation",
     test:
-      /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|arrest|warrant|justice|court\s+order|government\s+fine|parking\s+(violation|ticket|fine|notice)|unpaid\s+parking|plate\s+denial|permit\s+renewal\s+blocked|\bmto\b|\bdmv\b|service\s+ontario|\bserviceontario\b|\bcontraventions?\b|\bstationnement\b|billets?\s+impay(?:é|e)s?|\bamendes?\b|pénalités?|penalites?|refus\s+de\s+(?:la\s+)?plaque|renouvellement\s+du\s+permis|avis\s+officiel/u,
+      /\b(cra|arc|irs)\b|tax\s+(return|refund|debt)|revenue\s+canada|arrest|warrant|justice|court\s+order|government\s+fine|parking\s+(violation|ticket|fine|notice)|unpaid\s+parking|plate\s+denial|permit\s+renewal\s+blocked|\bmto\b|\bdmv\b|service\s+ontario|\bserviceontario\b|\bcontraventions?\b|\bstationnement\b|billets?\s+impay(?:é|e)s?|\bamendes?\b|pénalités?|penalites?|refus\s+de\s+(?:la\s+)?plaque|renouvellement\s+du\s+permis|avis\s+officiel|agence\s+du\s+revenu|impôt\s+fédéral|arrestation|mandat\b/u,
   },
-  { id: "financial_phishing", test: /bank|account.*suspend|verify.*account|unusual\s+activity.*account/ },
-  { id: "tech_support", test: /tech support|virus|computer.*infected|malware/ },
-  { id: "romance_scam", test: /romance|love|dating|met\s+you\s+online/ },
-  { id: "investment_fraud", test: /investment|crypto|bitcoin|guaranteed.*return|forex/ },
-  { id: "employment_scam", test: /job|work.*from.*home|easy\s+money|interview.*position/ },
-  { id: "delivery_scam", test: /package|delivery|courier|usps|fedex|ups|tracking.*number/ },
+  {
+    id: "financial_phishing",
+    test:
+      /bank|account.*suspend|verify.*account|unusual\s+activity.*account|banque|compte.*suspend|vérifier.*compte|activité\s+inhabituelle|confirmer.*identité|connexion\s+requise/i,
+  },
+  {
+    id: "tech_support",
+    test: /tech support|virus|computer.*infected|malware|support\s+technique|ordinateur.*infecté|logiciel\s+malveillant/i,
+  },
+  { id: "romance_scam", test: /romance|love|dating|met\s+you\s+online|rencontre\s+en\s+ligne|tomber\s+amoureux/i },
+  {
+    id: "investment_fraud",
+    test: /investment|crypto|bitcoin|guaranteed.*return|forex|placement|rendement\s+garanti|crypto(?:monnaie)?/i,
+  },
+  {
+    id: "employment_scam",
+    test: /job|work.*from.*home|easy\s+money|interview.*position|emploi|travail\s+à\s+domicile|argent\s+facile|entretien\s+d'?embauche/i,
+  },
+  {
+    id: "delivery_scam",
+    test:
+      /package|delivery|courier|usps|fedex|ups|tracking.*number|\bcolis\b|livraison|postes\s+canada|numéro.*suivi|suivi.*colis|purolator/i,
+  },
 ];
 
 function isInsufficientContextQuality(contextQ: string): boolean {
@@ -106,12 +128,13 @@ const AUTHORITY_SIGNALS: { id: string; test: RegExp }[] = [
   },
   {
     id: "financial_institution",
-    test: /bank|credit\s+union|account\s+support|banking|visa|mastercard|paypal|financial\s+institution/,
+    test:
+      /bank|banque|credit\s+union|account\s+support|banking|visa|mastercard|carte\s+de\s+crédit|paypal|financial\s+institution|institution\s+financière/,
   },
   {
     id: "corporate",
     test:
-      /package|delivery|courier|usps|fedex|ups|postal|ceo|manager|hr|boss|compliance|recovery|account\s+verification|verify\s+your\s+identity/,
+      /package|delivery|courier|usps|fedex|ups|postal|colis|livraison|postes\s+canada|ceo|manager|hr|boss|compliance|recovery|account\s+verification|verify\s+your\s+identity|vérifier\s+votre\s+compte|vérification\s+du\s+compte/,
   },
   { id: "tech_company", test: /microsoft|apple|google|amazon|netflix|meta|facebook/ },
 ];
@@ -275,9 +298,14 @@ function isLikelyWebArtifact(
 
 function detectEscalationPattern(text: string, contextQ: string): string {
   if (isInsufficientContextQuality(contextQ)) return "unknown";
-  const time = /immediate|urgent|asap|act\s+now|within\s+\d+\s*(hour|minute|day)|expires?\s+(today|soon)/.test(text);
-  const legal = /arrest|legal\s+action|lawsuit|warrant|police|jail|prison/.test(text);
-  const account = /suspend|close.*account|lose\s+access|terminate.*service|locked\s+out/.test(text);
+  const time =
+    /immediate|urgent|asap|act\s+now|within\s+\d+\s*(hour|minute|day)|expires?\s+(today|soon)|immédiat|immédiatement|agissez|dans\s+\d+\s*(heures?|minutes?|jours?)|expire\s+(bientôt|aujourd'hui)|dernier\s+délai|action\s+requise/i.test(
+      text
+    );
+  const legal =
+    /arrest|legal\s+action|lawsuit|warrant|police|jail|prison|arrestation|mandat|poursuite|tribunal|prison/i.test(text);
+  const account =
+    /suspend|close.*account|lose\s+access|terminate.*service|locked\s+out|suspendre|fermer.*compte|perdre\s+l'accès|verrouill|compte\s+sera\s+fermé|accès\s+refusé/i.test(text);
   const n = (time ? 1 : 0) + (legal ? 1 : 0) + (account ? 1 : 0);
   if (n > 1) return "unknown";
   if (time) return "time_pressure";
@@ -288,37 +316,76 @@ function detectEscalationPattern(text: string, contextQ: string): string {
 
 function computeUrgencyScore(text: string): number {
   let score = 0;
-  if (/urgent|immediately|asap|right now/.test(text)) score += 2;
-  if (/today|within.*hour|expires/.test(text)) score += 1;
-  if (/don't delay|act fast|limited time/.test(text)) score += 1;
+  if (/urgent|immediately|asap|right now|immédiat|immédiatement|tout de suite|maintenant/.test(text)) score += 2;
+  if (/today|within.*hour|expires|aujourd'hui|dans\s+\d+\s*heures?|expire|expiration/.test(text)) score += 1;
+  if (/don't delay|act fast|limited time|sans\s+délai|agissez\s+vite|temps\s+limité|dernier\s+avis/.test(text))
+    score += 1;
   if (/!{2,}/.test(text)) score += 1;
   return Math.min(score, 5);
 }
 
 function computeThreatScore(text: string): number {
   let score = 0;
-  if (/arrest|jail|prison|warrant/.test(text)) score += 2;
-  if (/suspend|terminate|close/.test(text)) score += 1;
-  if (/legal action|lawsuit|court/.test(text)) score += 1;
-  if (/police|fbi|irs|cra/.test(text)) score += 1;
+  if (/arrest|jail|prison|warrant|arrestation|mandat|prison/.test(text)) score += 2;
+  if (/suspend|terminate|close|suspendu|fermé|résili|verrouill|bloqué/.test(text)) score += 1;
+  if (/legal action|lawsuit|court|poursuite|tribunal|action\s+judiciaire/.test(text)) score += 1;
+  if (/police|fbi|irs|cra|\barc\b|gendarmerie/.test(text)) score += 1;
   return Math.min(score, 5);
 }
 
 function hasPaymentPressure(text: string): boolean {
-  return /pay|payment|send\s+money|wire|transfer|gift\s*card|bitcoin|crypto|zelle|venmo|cash\s*app|fee|fine|debt|invoice|refund\s+claim|collect/i.test(
+  return /\bpay\b|payment|send\s+money|wire|transfer|gift\s*card|bitcoin|crypto|zelle|venmo|cash\s*app|fee|fine|debt|invoice|refund\s+claim|collect|\bmoney\b|deposit|e-?\s*transfer|\betransfer\b|\binterac\b|\bpayer\b|paiement|virement|frais\b|\bamende\b|facture|argent|carte(?:-|\s)cadeau|crypto(?:monnaie)?/i.test(
     text
   );
 }
 
 function detectPaymentIntent(text: string): string {
-  if (/otp|one[-\s]?time|verification\s+code|enter\s+code\s+to|confirm\s+with\s+code|2fa|two[-\s]?factor/i.test(text) && /login|sign\s*in|account/i.test(text))
+  if (
+    /otp|one[-\s]?time|verification\s+code|code\s+de\s+vérification|enter\s+code\s+to|confirm\s+with\s+code|2fa|two[-\s]?factor/i.test(
+      text
+    ) &&
+    /login|sign\s*in|account|connexion|compte/i.test(text)
+  )
     return "credential_to_enable_payment";
-  if (/claim\s+(your\s+)?(prize|reward|refund)|you('ve|\s+have)\s+won|redeem\s+(your\s+)?(gift|prize)/i.test(text))
+  if (/\bsend\b\s+(?:a\s+)?deposit\b|\bdeposit\b|reserve\s+with\s+payment/i.test(text))
+    return "direct_payment_request";
+  if (
+    /\bwant(?:ed|s)?\s+me\s+to\s+pay\b|\bwanting\s+me\s+to\s+pay\b|\bpay\s+them\b|\bsomeone\s+.*\bpay\b|\basked\s+me\s+to\s+pay\b|\btold\s+me\s+to\s+pay\b/i.test(
+      text
+    )
+  )
+    return "direct_payment_request";
+  if (
+    /\bpay\s+cash\b|\btelling\s+me\s+to\s+pay\b|\bask(?:ed|ing)\s+me\s+to\s+pay\b|\btold\s+me\s+to\s+pay\b|send\s+(?:me\s+)?cash/i.test(
+      text
+    )
+  )
+    return "direct_payment_request";
+  if (
+    /claim\s+(your\s+)?(prize|reward|refund)|you('ve|\s+have)\s+won|redeem\s+(your\s+)?(gift|prize)|réclamer\s+(votre\s+)?(prix|récompense)|vous\s+avez\s+gagné/i.test(
+      text
+    )
+  )
     return "claim_reward_or_refund";
-  if (/fine|debt|collection|overdue|unpaid|court\s+fee|penalty|owed\s+balance/i.test(text)) return "fee_or_debt_pressure";
-  if (/subscription|billing|invoice|payment\s+failed|renew\s+(your|the)\s+account|account\s+on\s+hold/i.test(text))
+  if (
+    /fine|debt|collection|overdue|unpaid|court\s+fee|penalty|owed\s+balance|amende|frais|impayé|pénalit|recouvrement/i.test(
+      text
+    )
+  )
+    return "fee_or_debt_pressure";
+  if (
+    /subscription|billing|invoice|payment\s+failed|renew\s+(your|the)\s+account|account\s+on\s+hold|abonnement|facturation|facture|paiement\s+refusé|renouveler\s+(votre\s+)?compte|compte\s+en\s+attente/i.test(
+      text
+    )
+  )
     return "billing_or_account_resolution";
-  if (/send\s+money|wire\s+funds|send\s+bitcoin|buy\s+gift\s+cards|pay\s+with|transfer\s+to\s+this/i.test(text))
+  if (
+    /send\s+money|wire\s+funds|send\s+bitcoin|buy\s+gift\s+cards|pay\s+with|transfer\s+to\s+this|envoyer\s+(de\s+)?l'argent|virement|acheter\s+des\s+cartes?\s+cadeau|\bpayer\b\s+avec/i.test(
+      text
+    )
+  )
+    return "direct_payment_request";
+  if (/\bpay\s+for\b|\basked\s+me\s+to\s+pay\b|\bon\s+vous\s+demande\s+de\s+payer\b/i.test(text))
     return "direct_payment_request";
   if (!hasPaymentPressure(text)) return "none";
   return "unknown";
@@ -343,7 +410,9 @@ function detectPaymentMethod(text: string, contextQ: string): string {
 }
 
 function hasCredentialRequest(text: string): boolean {
-  return /password|ssn|sin\b|social\s+security|login|credentials|verify.*identity|confirm.*account|otp|verification\s+code/i.test(text);
+  return /password|ssn|sin\b|nas\b|numéro\s+d'assurance\s+sociale|social\s+security|login|credentials|verify.*identity|confirm.*account|otp|verification\s+code|mot\s+de\s+passe|code\s+de\s+vérification|connexion|ouvrir\s+(?:une\s+)?session|confirmer.*compte/i.test(
+    text
+  );
 }
 
 const DEFAULT_MICRO_SIGNALS: Record<string, boolean> = {
@@ -370,25 +439,28 @@ function extractMicroSignals(raw: string, text: string): Record<string, boolean>
     /\b(click|tap|verify|review|confirm|login|log\s*in|update|restore|claim|redeem|schedule|reschedule|call|reply|check|follow|complete|submit|unlock|validate)\b/.test(
       text
     ) ||
-    /\bact\s+now\b/.test(text);
+    /\bact\s+now\b/.test(text) ||
+    /\b(cliquez|confirmer|vérifier|connectez|appelez|répondez|complétez|validez|mettre\s+à\s+jour)\b/i.test(text);
   const urgency_detected =
-    /\burgent\b|\bimmediately\b|\bright\s+now\b|\bnow\b|\btoday\b|final\s+notice|action\s+required|\bact\s+now\b/.test(text);
+    /\burgent\b|\bimmediately\b|\bright\s+now\b|\bnow\b|\btoday\b|final\s+notice|action\s+required|\bact\s+now\b|urgent|immédiat|immédiatement|maintenant|aujourd'hui|dernier\s+avis|action\s+requise|sans\s+délai/i.test(
+      text
+    );
   const threat_detected =
-    /\b(?:re)?strict(?:ed|ion)?s?\b|\bsuspension\b|\bsuspended\b|\blocked\b|\bdisabled\b|\bpenalt(?:y|ies)\b|\boverdue\b|\benforcement\b|final\s+warning|avoid\s+(?:restriction|penalt)|restore\s+access|account\s+(?:at\s+risk|will\s+be\s+(?:closed|suspended))|will\s+be\s+(?:closed|suspended)/i.test(
+    /\b(?:re)?strict(?:ed|ion)?s?\b|\bsuspension\b|\bsuspended\b|\blocked\b|\bdisabled\b|\bpenalt(?:y|ies)\b|\boverdue\b|\benforcement\b|final\s+warning|avoid\s+(?:restriction|penalt)|restore\s+access|account\s+(?:at\s+risk|will\s+be\s+(?:closed|suspended))|will\s+be\s+(?:closed|suspended)|suspendu|fermé|verrouill|bloqué|pénalit|restriction|compte\s+sera/i.test(
       text
     );
   const authority_keyword_detected =
-    /\bcra\b|\birs\b|\b(?:arc)\b|tax|government|justice|\bbank\b|account\s+support|official\s+notice/.test(text);
+    /\bcra\b|\birs\b|\b(?:arc)\b|tax|government|justice|\bbank\b|banque|account\s+support|official\s+notice|avis\s+officiel|gouvernement/.test(text);
   const delivery_keyword_detected =
-    /\bpackage\b|\bcourier\b|\bdelivery\b|\bredelivery\b|\bparcel\b|\btracking\b/.test(text);
+    /\bpackage\b|\bcourier\b|\bdelivery\b|\bredelivery\b|\bparcel\b|\btracking\b|\bcolis\b|livraison|suivi|postes\s+canada/.test(text);
   const financial_keyword_detected =
-    /\bbank\b|\bcredit\b|\bpayment\b|\bbilling\b|\btransfer\b|\binvoice\b/.test(text);
+    /\bbank\b|\bbanque\b|\bcredit\b|\bpayment\b|\bpaiement\b|\bbilling\b|\btransfer\b|\binvoice\b|\bfacture\b|\bvirement\b/.test(text);
   const credential_request_detected =
-    /\bpassword\b|\bcode\b|\botp\b|\blogin\b|verify\s+account|confirmation\s+code/.test(text);
+    /\bpassword\b|\bcode\b|\botp\b|\blogin\b|verify\s+account|confirmation\s+code|mot\s+de\s+passe|code\s+de\s+vérification|connexion|confirmer\s+votre\s+identité/.test(text);
   const reward_keyword_detected =
-    /\bprize\b|\breward\b|\bwon\b|\bwinner\b|\bredeem\b/.test(text);
+    /\bprize\b|\breward\b|\bwon\b|\bwinner\b|\bredeem\b|\bprix\b|\bgagné\b|\bréclamer\b|\bloterie\b/.test(text);
   const account_verification_detected =
-    /verify\s+your\s+account|account\s+verification|confirm\s+your\s+identity/.test(text);
+    /verify\s+your\s+account|account\s+verification|confirm\s+your\s+identity|vérifier\s+votre\s+compte|vérification\s+du\s+compte|confirmer\s+votre\s+identité/.test(text);
 
   return {
     has_link,
@@ -474,14 +546,15 @@ function deriveIntelState(
 
   if (structured) return "structured_signal";
 
-  if (riskTier === "medium" || riskTier === "high" || urgency >= 2 || threat >= 1) return "weak_signal";
+  if (riskTier === "high") return "structured_signal";
+  if (riskTier === "medium" || urgency >= 2 || threat >= 1) return "weak_signal";
   if (
     paymentIntent === "unknown" &&
     hasPaymentPressure(text) &&
     (narrative === "unknown" || narrative === "none")
   )
-    return "weak_signal";
-  if (narrative === "unknown" && (urgency >= 1 || hasPaymentPressure(text))) return "weak_signal";
+    return "structured_signal";
+  if (narrative === "unknown" && (urgency >= 1 || hasPaymentPressure(text))) return "structured_signal";
 
   if (
     narrative === "none" &&
@@ -522,9 +595,13 @@ function isBenignRoutineLowRisk(text: string, micro_signals: Record<string, bool
   const hasPaymentCue = hasPaymentPressure(text);
   const hasCredentialCue = hasCredentialRequest(text);
   const hasEscalationCue =
-    /immediate|urgent|asap|act\s+now|within\s+\d+\s*(hour|minute|day)|expires?\s+(today|soon)/.test(text) ||
-    /arrest|legal\s+action|lawsuit|warrant|police|jail|prison/.test(text) ||
-    /suspend|close.*account|lose\s+access|terminate.*service|locked\s+out/.test(text);
+    /immediate|urgent|asap|act\s+now|within\s+\d+\s*(hour|minute|day)|expires?\s+(today|soon)|immédiat|immédiatement|dans\s+\d+\s*(heures?|minutes?|jours?)|expire|dernier\s+délai|action\s+requise/i.test(
+      text
+    ) ||
+    /arrest|legal\s+action|lawsuit|warrant|police|jail|prison|arrestation|mandat|poursuite|tribunal/.test(text) ||
+    /suspend|close.*account|lose\s+access|terminate.*service|locked\s+out|suspendre|fermer.*compte|perdre\s+l'accès|verrouill|compte\s+sera/i.test(
+      text
+    );
 
   if (hasNarrativeCue) return false;
   if (hasAuthorityCue) return false;
@@ -704,11 +781,13 @@ function normalizeSignalsForInsufficientLinkContext(
 function extractIntelFeatures(
   result: any,
   messageText: string,
+  semanticPrimary: string | null,
   platformLang: "en" | "fr",
   inputQuality: { url_only: boolean; very_short: boolean; message_like: boolean },
   riskTier: string,
   aiParseFallback: boolean,
-  linkArtifact: LinkArtifact | null
+  linkArtifact: LinkArtifact | null,
+  refinementSemanticsBoost: boolean
 ): { intel_features: Record<string, any>; mode: "full" | "extraction_failed" } {
   const mergeCore = (base: Record<string, any>): Record<string, any> => {
     const out = { ...base };
@@ -721,19 +800,33 @@ function extractIntelFeatures(
   };
 
   try {
-    const text = messageText.toLowerCase();
-    const contextQ = assessContextQuality(messageText, inputQuality);
-    const signalText =
-      contextQ === "fragment" && linkArtifact ? textForLinkFragmentHeuristics(messageText, linkArtifact) : text;
+    const fullLower = messageText.toLowerCase();
+    const semTrim = (semanticPrimary ?? "").trim();
+    const useSemantic = Boolean(refinementSemanticsBoost && semTrim.length > 0);
+    const iqForCq = useSemantic ? classifyInputQuality(semTrim) : inputQuality;
+    const rawForCq = useSemantic ? semTrim : messageText;
+    let contextQ = assessContextQuality(rawForCq, iqForCq);
+    if (refinementSemanticsBoost && (contextQ === "thin" || contextQ === "unknown")) {
+      contextQ = "partial";
+    }
+    if (refinementSemanticsBoost && (contextQ === "fragment" || contextQ === "thin")) {
+      contextQ = "partial";
+    }
 
-    const micro_signals = extractMicroSignals(messageText, signalText);
-    const narrative_category = detectNarrativeCategory(text, contextQ);
-    let channel_type = detectChannelType(text, messageText, inputQuality, micro_signals);
-    let authority_type = detectAuthorityType(text, contextQ);
+    const textSemantic = useSemantic ? semTrim.toLowerCase() : fullLower;
+    const signalText =
+      !useSemantic && contextQ === "fragment" && linkArtifact
+        ? textForLinkFragmentHeuristics(messageText, linkArtifact)
+        : textSemantic;
+
+    const micro_signals = extractMicroSignals(messageText, textSemantic);
+    const narrative_category = detectNarrativeCategory(textSemantic, contextQ);
+    let channel_type = detectChannelType(fullLower, messageText, inputQuality, micro_signals);
+    let authority_type = detectAuthorityType(textSemantic, contextQ);
     if (authority_type === "none" && micro_signals.authority_keyword_detected) authority_type = "unknown";
     const payment_intent = detectPaymentIntent(signalText);
-    const payment_method = detectPaymentMethod(text, contextQ);
-    const escalation_pattern = detectEscalationPattern(text, contextQ);
+    const payment_method = detectPaymentMethod(textSemantic, contextQ);
+    const escalation_pattern = detectEscalationPattern(textSemantic, contextQ);
     const urgency = computeUrgencyScore(signalText);
     const threat = computeThreatScore(signalText);
 
@@ -756,7 +849,7 @@ function extractIntelFeatures(
     );
 
     const richContext = contextQ === "partial" || contextQ === "full";
-    const commLike = isCommunicationLike(text, micro_signals);
+    const commLike = isCommunicationLike(textSemantic, micro_signals);
 
     // URL-only / fragmentary link artifacts with weak context and no strong message structure → web.
     if (
@@ -771,10 +864,11 @@ function extractIntelFeatures(
     if (channel_type === "none" && richContext && commLike) channel_type = "other";
 
     if (
+      !refinementSemanticsBoost &&
       riskTier === "low" &&
       richContext &&
       (intel_state === "unknown" || intel_state === "no_signal") &&
-      isBenignRoutineLowRisk(text, micro_signals)
+      isBenignRoutineLowRisk(textSemantic, micro_signals)
     ) {
       intel_state = "no_signal";
       gatedDims.narrative_category = "none";
@@ -784,6 +878,7 @@ function extractIntelFeatures(
     }
 
     if (
+      !refinementSemanticsBoost &&
       riskTier === "low" &&
       richContext &&
       intel_state === "unknown" &&
@@ -791,7 +886,7 @@ function extractIntelFeatures(
         (micro_signals.urgency_detected || micro_signals.threat_detected)) ||
         (micro_signals.threat_detected && micro_signals.credential_request_detected))
     ) {
-      intel_state = "weak_signal";
+      intel_state = "structured_signal";
     }
 
     gateCoreDimensionsNone(contextQ, intel_state, gatedDims);
@@ -853,6 +948,487 @@ function extractIntelFeatures(
 }
 
 const MIN_LENGTH = 20;
+
+function intelSlotMissing(v: unknown): boolean {
+  if (v == null) return true;
+  if (typeof v !== "string") return true;
+  const s = v.trim();
+  return s === "" || s === "unknown" || s === "none";
+}
+
+/**
+ * Deterministic fills from refined user_context_text when enrichment/legacy left slots empty.
+ * Small cue set only — not a full mapping layer.
+ */
+function applyRefinedContextCueBoost(intel: Record<string, unknown>, userLower: string): void {
+  const u = userLower.trim();
+  if (!u) return;
+
+  const payCue =
+    /\bpay\b|\bpayment\b|\bcash\b|\bmoney\b|send\s+money|\btransfer\b|\bfee\b|\bdeposit\b|e-?\s*transfer|\betransfer\b|\binterac\b/i.test(
+      u
+    );
+  const credCue =
+    /\blog\s*in\b|\blogin\b|\bsign\s*in\b|\bverify\b|\baccount\b|\bpassword\b|\bblocked\b|\bsuspended\b/i.test(u);
+  const authCue =
+    /\bbank\b|\brbc\b|\bdesjardins\b|\bpaypal\b|\bcra\b|\bmto\b|service\s+ontario|\bpolice\b|\bgovernment\b/i.test(u);
+
+  if (payCue && intelSlotMissing(intel.payment_intent)) {
+    intel.payment_intent = "direct_payment_request";
+  }
+  if (payCue && intelSlotMissing(intel.requested_action)) {
+    intel.requested_action = "pay_money";
+  }
+  if (payCue && intelSlotMissing(intel.threat_stage)) {
+    intel.threat_stage = "payment_extraction";
+  }
+  if (credCue && intelSlotMissing(intel.requested_action) && !payCue) {
+    intel.requested_action = "submit_credentials";
+  }
+  if (credCue && intelSlotMissing(intel.threat_stage) && !payCue) {
+    intel.threat_stage = "credential_capture";
+  }
+  if (authCue && intelSlotMissing(intel.authority_type)) {
+    if (/\bcra\b|\bmto\b|service\s+ontario|\bpolice\b|\bgovernment\b/i.test(u)) {
+      intel.authority_type = "government";
+    } else if (/\bbank\b|\brbc\b|\bdesjardins\b|\bpaypal\b/i.test(u)) {
+      intel.authority_type = "financial_institution";
+    }
+  }
+}
+
+function buildStructuredReconciliationCorpus(parts: (string | null | undefined)[]): string {
+  return parts
+    .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+    .join("\n")
+    .toLowerCase();
+}
+
+/** Payment language in AI summary, signals, or submission text (conservative, small rules). */
+function corpusIndicatesPayment(low: string): boolean {
+  if (hasPaymentPressure(low)) return true;
+  return /\bsend\s+money\b|asks?\s+you\s+to\s+send|wire\s+(money|funds)|e-?\s*transfer|interac\s+transfer|demand(?:s|ed)?\s+payment|request(?:s|ed)?\s+payment|pay\s+them|pay\s+for\b|transfer\s+funds/i.test(
+    low
+  );
+}
+
+function corpusIndicatesCredential(low: string): boolean {
+  return /\blog\s*in\b|\blogin\b|\bsign\s*in\b|\bpassword\b|verify\s+your\s+account|enter\s+your\s+password|submit\s+credentials/i.test(
+    low
+  );
+}
+
+function corpusIndicatesLinkPressure(low: string): boolean {
+  return /\bclick\s+(the\s+)?link\b|\bopen\s+(the\s+)?link\b|\bfollow\s+(the\s+)?link\b|tap\s+here|use\s+the\s+link|https?:\/\/|www\./i.test(
+    low
+  );
+}
+
+function corpusIndicatesWeakStrangerContact(low: string): boolean {
+  return /\bstranger\b|\bwhatsapp\b|\bsms\b|\btext\s+message\b|\bmessenger\b|facebook\s+messenger|\btelegram\b|\bsignal\b|unknown\s+sender|unknown\s+person|don'?t\s+know\s+who|don'?t\s+know\s+them\b|someone\s+i\s+don'?t\s+know\b|person\s+i\s+don'?t\s+know\b|from\s+a\s+stranger|never\s+met|random\s+number|out\s+of\s+the\s+blue|initial\s+contact|vague\s+request|message\s+from\s+someone\s+i\s+don'?t|got\s+this\s+from\s+a\s+stranger\b/i.test(
+    low
+  );
+}
+
+/** Explicit messaging-app names for social-lure OR-gate (not vague “message” alone). */
+function corpusMessagingAppCue(low: string): boolean {
+  return /\bwhatsapp\b|wa\.me\b|facebook\s+messenger|\bmessenger\b|\btelegram\b|\bsignal\b|\bimessage\b|\bwechat\b|\bdiscord\b/i.test(low);
+}
+
+/** Vague click/lure wording (intent only; must pair with stranger OR messaging_app cue). */
+function corpusIndicatesVagueLurePrompt(low: string): boolean {
+  return /\bcheck\s+this\s+out\b|\bcheck\s+this\b|\blook\s+at\s+this(?:\s+link)?\b|\bopen\s+this(?:\s+link)?\b|\bsee\s+this\b|\btake\s+a\s+look\b|\bhave\s+a\s+look\b|\blook\s+here\b/i.test(
+    low
+  );
+}
+
+function refinedContextPayCues(low: string): boolean {
+  return /\bpay\b|\bcash\b|send\s+money|\btransfer\b|\bfee\b/i.test(low);
+}
+
+function corpusIndicatesUrgency(low: string): boolean {
+  return /\burgent\b|\bimmediately\b|\basap\b|\bright\s+now\b|\btoday\b|act\s+now|final\s+notice|deadline|expires?\s+(today|soon)|within\s+\d+\s*(hour|minute)/i.test(
+    low
+  );
+}
+
+function authorityTypeConcrete(v: unknown): boolean {
+  const s = String(v ?? "").trim();
+  return s.length > 0 && s !== "none" && s !== "unknown";
+}
+
+/**
+ * Minimum risk tiers: cautious defaults when structured/corpus signals are present.
+ * Does not replace applyRiskReconciliation; runs after it as a floor.
+ */
+function applyRiskTierCalibrationFloors(
+  tier: "low" | "medium" | "high",
+  intel: Record<string, unknown>,
+  corpusLower: string,
+  opts: { isInsufficientContext: boolean; refined: boolean; hasLinkArtifact: boolean }
+): "low" | "medium" | "high" {
+  let t = tier;
+
+  if (opts.isInsufficientContext && !opts.refined) {
+    return t;
+  }
+
+  const benignPay = corpusBenignPayment(corpusLower);
+  const pi = String(intel.payment_intent ?? "none");
+  const hasPayIntent = pi !== "none" && pi !== "unknown" && pi !== "";
+  const refinedPay = opts.refined && refinedContextPayCues(corpusLower) && !benignPay;
+  const corpusPay = corpusIndicatesPayment(corpusLower) && !benignPay;
+
+  if (hasPayIntent || refinedPay || corpusPay) {
+    if (t === "low") t = "medium";
+  }
+
+  if (
+    !opts.isInsufficientContext &&
+    (corpusIndicatesCredential(corpusLower) || String(intel.requested_action ?? "") === "submit_credentials")
+  ) {
+    if (t === "low" || t === "medium") t = "high";
+  }
+
+  if (authorityTypeConcrete(intel.authority_type) && (corpusIndicatesUrgency(corpusLower) || Number(intel.urgency_score ?? 0) >= 2)) {
+    if (t === "low") t = "medium";
+  }
+
+  if (String(intel.intel_state ?? "") === "weak_signal" && opts.hasLinkArtifact && t === "low") {
+    t = "medium";
+  }
+
+  if (
+    /\bparking\s+(fine|ticket|violation)\b|\bcontravention\b|\bstationnement\b|\bgovernment\s+fine\b/i.test(corpusLower) &&
+    (corpusPay || hasPayIntent) &&
+    !benignPay
+  ) {
+    if (t === "low") t = "medium";
+    if (t === "medium" && /\bcra\b|\bmto\b|service\s+ontario|\bpolice\b/i.test(corpusLower)) {
+      t = "high";
+    }
+  }
+
+  /* Post-harmonize intel floors only (no enrichment coupling). */
+  const narCat = String(intel.narrative_category ?? "");
+  const narFam = String(intel.narrative_family ?? "");
+  const reqAct = String(intel.requested_action ?? "");
+  const payIntentSlot = String(intel.payment_intent ?? "none");
+
+  if (narCat === "financial_phishing" && reqAct === "submit_credentials") {
+    t = "high";
+  }
+  if (
+    (narCat === "government_impersonation" || narFam === "government_impersonation") &&
+    payIntentSlot === "direct_payment_request" &&
+    reqAct === "pay_money"
+  ) {
+    t = "high";
+  }
+  if (payIntentSlot === "direct_payment_request" && reqAct === "pay_money") {
+    if (t === "low") t = "medium";
+  }
+  if (
+    (narFam === "social_engineering_opener" || narCat === "social_engineering_opener") &&
+    reqAct === "click_link"
+  ) {
+    if (t === "low") t = "medium";
+  }
+
+  return t;
+}
+
+function confidenceCalibrationRank(level: string): number {
+  if (level === "high") return 2;
+  if (level === "medium") return 1;
+  return 0;
+}
+
+function confidenceLevelFromRank(r: number): "low" | "medium" | "high" {
+  if (r >= 2) return "high";
+  if (r >= 1) return "medium";
+  return "low";
+}
+
+/**
+ * Post-structured intel confidence only. Does not read risk_tier.
+ * Caps at low when context is insufficient; raises conservatively from enrichment baseline.
+ */
+function applyConfidenceCalibration(
+  intel: Record<string, unknown>,
+  ctx: { isInsufficientContext: boolean }
+): void {
+  const state = String(intel.intel_state ?? "");
+  if (ctx.isInsufficientContext || state === "insufficient_context") {
+    intel.confidence_level = "low";
+    return;
+  }
+
+  const cq = String(intel.context_quality ?? "");
+  const ra = String(intel.requested_action ?? "");
+  let r = confidenceCalibrationRank(String(intel.confidence_level ?? "low"));
+
+  if (state === "structured_signal" && (cq === "partial" || cq === "full")) {
+    r = Math.max(r, 1);
+  }
+  if (ra === "pay_money" || ra === "submit_credentials") {
+    r = Math.max(r, 1);
+  }
+  if (
+    authorityTypeConcrete(intel.authority_type) &&
+    (ra === "pay_money" || ra === "submit_credentials" || ra === "click_link")
+  ) {
+    r = Math.max(r, 2);
+  }
+
+  if (state === "weak_signal" || cq === "thin") {
+    r = Math.min(r, 1);
+  }
+
+  intel.confidence_level = confidenceLevelFromRank(r);
+}
+
+/** When context is thin/fragment and confidence is low, avoid strong intel + high risk (MSP noise). */
+type ThinLowConfidenceGuardrailMeta = {
+  applied: boolean;
+  original_risk_tier?: string;
+  original_intel_state?: string;
+  context_quality?: string;
+  confidence_level?: string;
+};
+
+function applyThinLowConfidenceGuardrail(
+  intel: Record<string, unknown>,
+  riskTier: { current: "low" | "medium" | "high" }
+): ThinLowConfidenceGuardrailMeta {
+  const cq = String(intel.context_quality ?? "");
+  const conf = String(intel.confidence_level ?? "low");
+  if (!["thin", "fragment"].includes(cq) || conf !== "low") {
+    return { applied: false };
+  }
+
+  const origState = String(intel.intel_state ?? "");
+  const origRisk = riskTier.current;
+  let changed = false;
+
+  if (origState === "structured_signal") {
+    intel.intel_state = "weak_signal";
+    changed = true;
+  }
+  if (origRisk === "high") {
+    riskTier.current = "medium";
+    changed = true;
+  }
+
+  if (!changed) return { applied: false };
+
+  return {
+    applied: true,
+    original_risk_tier: origRisk,
+    original_intel_state: origState,
+    context_quality: cq,
+    confidence_level: conf,
+  };
+}
+
+function corpusBenignPayment(low: string): boolean {
+  return /\bsplit\b|\breimburse\b|\bpaid\s+you\s+back\b|\bfriend\s+owed\b|\bdinner\b|\brent\s+split\b/i.test(low);
+}
+
+/**
+ * Final consistency pass: structured intel must reflect payment/credential/link cues
+ * visible in summary, signals, or text. Keeps rules deterministic and small.
+ */
+function reconcileStructuredIntelConsistency(
+  intel: Record<string, unknown>,
+  corpusLower: string,
+  opts: { refined: boolean; contextQuality: string; hasLinkArtifact: boolean }
+): void {
+  const pay = corpusIndicatesPayment(corpusLower);
+  const cred = corpusIndicatesCredential(corpusLower);
+  const pi = String(intel.payment_intent ?? "none");
+
+  if (pay && (pi === "none" || pi === "")) {
+    intel.payment_intent = "direct_payment_request";
+    intel.payment_request = true;
+  } else if (pay && pi === "unknown") {
+    intel.payment_intent = "direct_payment_request";
+    intel.payment_request = true;
+  }
+
+  if (pay) {
+    intel.payment_request = true;
+  }
+
+  const piAfter = String(intel.payment_intent ?? "none");
+  if (pay && !corpusBenignPayment(corpusLower)) {
+    intel.requested_action = "pay_money";
+  } else if (
+    cred &&
+    intelSlotMissing(intel.requested_action) &&
+    (piAfter === "none" || piAfter === "unknown")
+  ) {
+    intel.requested_action = "submit_credentials";
+  } else if (opts.hasLinkArtifact && corpusIndicatesLinkPressure(corpusLower) && intelSlotMissing(intel.requested_action)) {
+    intel.requested_action = "click_link";
+  }
+
+  if (pay && (intelSlotMissing(intel.threat_stage) || String(intel.threat_stage) === "unclear")) {
+    intel.threat_stage = "payment_extraction";
+  } else if (
+    cred &&
+    !pay &&
+    (intelSlotMissing(intel.threat_stage) || String(intel.threat_stage) === "unclear")
+  ) {
+    intel.threat_stage = "credential_capture";
+  }
+
+  if (/\bcra\b|\bmto\b|service\s+ontario|\bpolice\b|\bgovernment\b|\birs\b/i.test(corpusLower) && intelSlotMissing(intel.authority_type)) {
+    intel.authority_type = "government";
+  } else if (/\bbank\b|\brbc\b|\bdesjardins\b|\bpaypal\b|\binterac\b/i.test(corpusLower) && intelSlotMissing(intel.authority_type)) {
+    intel.authority_type = "financial_institution";
+  }
+
+  const cq = opts.contextQuality;
+  if (opts.refined && ["partial", "full", "thin"].includes(cq) && String(intel.intel_state) === "insufficient_context") {
+    intel.intel_state = "weak_signal";
+  }
+
+  if (
+    opts.refined &&
+    corpusIndicatesWeakStrangerContact(corpusLower) &&
+    (String(intel.intel_state) === "no_signal" || String(intel.intel_state) === "unknown")
+  ) {
+    intel.intel_state = "weak_signal";
+  }
+
+  if (pay && !corpusBenignPayment(corpusLower) && (String(intel.intel_state) === "no_signal" || String(intel.intel_state) === "unknown")) {
+    intel.intel_state = "weak_signal";
+  }
+}
+
+/** Strong payment wording → direct_payment_request + structured analysis (not none/unknown). */
+const STRONG_PAYMENT_LEXICON =
+  /\bpay\b|\bdeposit\b|send\s+money|\bsend\b\s+(?:a\s+)?deposit\b|\btransfer\b|reserve\s+with\s+payment|\bfee\b|\bfine\b/i;
+
+function corpusStrongPaymentLexicon(low: string): boolean {
+  return STRONG_PAYMENT_LEXICON.test(low) && !corpusBenignPayment(low);
+}
+
+/**
+ * Uses full corpus (submission + summary + signals) to upgrade intel to structured_signal,
+ * direct payment intent, channel, and government narrative when cues are present.
+ * Runs after reconcileStructuredIntelConsistency so refined context is fully reflected.
+ */
+function applyStructuredInterpretationPass(
+  intel: Record<string, unknown>,
+  corpusLower: string,
+  opts: { refined: boolean; hasLinkArtifact: boolean }
+): void {
+  const strongPay = corpusStrongPaymentLexicon(corpusLower);
+
+  if (strongPay) {
+    intel.payment_intent = "direct_payment_request";
+    intel.payment_request = true;
+    intel.requested_action = "pay_money";
+    intel.threat_stage = "payment_extraction";
+    intel.intel_state = "structured_signal";
+  }
+
+  const parkingGovPay =
+    strongPay &&
+    /\bparking\s+(fine|ticket|violation)\b|\bcontravention\b|\bstationnement\b|\bamende\b|\bmto\b|\bcra\b/i.test(
+      corpusLower
+    );
+  if (parkingGovPay) {
+    intel.narrative_category = "government_impersonation";
+    intel.narrative_family = "government_impersonation";
+    if (intelSlotMissing(intel.authority_type)) {
+      intel.authority_type = "government";
+    }
+  }
+
+  const socialLureGate =
+    !strongPay &&
+    !corpusBenignPayment(corpusLower) &&
+    corpusIndicatesVagueLurePrompt(corpusLower) &&
+    (corpusIndicatesWeakStrangerContact(corpusLower) || corpusMessagingAppCue(corpusLower));
+
+  const strongActionBlocksSocialLure =
+    String(intel.requested_action ?? "").trim() === "pay_money" ||
+    String(intel.requested_action ?? "").trim() === "submit_credentials";
+
+  if (socialLureGate && !strongActionBlocksSocialLure) {
+    intel.intel_state = "structured_signal";
+    intel.requested_action = "click_link";
+    if (intelSlotMissing(intel.threat_stage) || String(intel.threat_stage) === "unclear") {
+      intel.threat_stage = "initial_lure";
+    }
+    intel.narrative_family = "social_engineering_opener";
+    intel.narrative_category = "social_engineering_opener";
+  }
+
+  const hasActionVerb = /\b(click|check|tap|open|pay|send|transfer|login|log\s*in|sign\s*in|verify)\b/i.test(
+    corpusLower
+  );
+  const linkAction =
+    opts.hasLinkArtifact && /\b(click|check|tap|open|login|log\s*in|sign\s*in|verify)\b/i.test(corpusLower);
+  const strangerAction = corpusIndicatesWeakStrangerContact(corpusLower) && hasActionVerb;
+
+  if ((linkAction || strangerAction) && !corpusBenignPayment(corpusLower)) {
+    intel.intel_state = "structured_signal";
+    if (!strongPay && !socialLureGate && linkAction && intelSlotMissing(intel.requested_action)) {
+      intel.requested_action = "click_link";
+    }
+    if (!strongPay && strangerAction && (intelSlotMissing(intel.threat_stage) || String(intel.threat_stage) === "unclear")) {
+      intel.threat_stage = "initial_lure";
+    }
+  }
+
+  // Native SMS vs messaging_app: prefer named apps when present ("texted me on WhatsApp" → messaging_app).
+  if (
+    /\bwhatsapp\b|wa\.me\b|facebook\s+messenger|\bmessenger\b|\btelegram\b|\bsignal\b|\bimessage\b|\bwechat\b|\bdiscord\b/i.test(
+      corpusLower
+    )
+  ) {
+    intel.channel_type = "messaging_app";
+  } else if (/\bsms\b|\btext\s+message\b|\btexted\s+me\b|\bgot\s+a\s+text\b|\bvia\s+text\b/i.test(corpusLower)) {
+    intel.channel_type = "sms";
+  } else if (/^from:\s|^to:\s|^subject:\s/im.test(corpusLower)) {
+    intel.channel_type = "email";
+  }
+
+  const pi = String(intel.payment_intent ?? "none");
+  if (
+    pi !== "none" &&
+    pi !== "unknown" &&
+    pi !== "" &&
+    ["weak_signal", "unknown", "no_signal", "insufficient_context"].includes(String(intel.intel_state))
+  ) {
+    intel.intel_state = "structured_signal";
+  }
+
+  const cq = String(intel.context_quality ?? "");
+  if (
+    opts.refined &&
+    ["partial", "full", "thin"].includes(cq) &&
+    String(intel.intel_state) === "insufficient_context"
+  ) {
+    intel.intel_state =
+      strongPay || linkAction || strangerAction || socialLureGate ? "structured_signal" : "weak_signal";
+  }
+
+  if (
+    intelSlotMissing(intel.narrative_category) &&
+    (strongPay || linkAction || strangerAction || socialLureGate) &&
+    !parkingGovPay
+  ) {
+    if (corpusIndicatesCredential(corpusLower)) {
+      intel.narrative_category = "financial_phishing";
+      intel.narrative_family = "account_verification";
+    }
+  }
+}
 
 /* -------------------------------------------------
    Helpers
@@ -1026,6 +1602,10 @@ export async function POST(req: Request) {
   let gclid: string | undefined;
   let referrer: string | undefined;
   let landing_path: string | undefined;
+  let user_context_text: string | undefined;
+  let analysis_mode: "initial" | "refined" = "initial";
+  let refinement_nonce: string | undefined;
+  let refinement_parent_scan_id: string | undefined;
 
   /* ---------- Strict content-type check ---------- */
   if (!contentType.includes("application/json") && !contentType.includes("multipart/form-data")) {
@@ -1053,6 +1633,10 @@ export async function POST(req: Request) {
       gclid = body.gclid;
       referrer = body.referrer;
       landing_path = body.landing_path;
+      user_context_text = body.user_context_text;
+      analysis_mode = body.analysis_mode === "refined" ? "refined" : "initial";
+      refinement_nonce = body.refinement_nonce;
+      refinement_parent_scan_id = body.refinement_parent_scan_id;
     } else if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
 
@@ -1094,6 +1678,14 @@ export async function POST(req: Request) {
       if (typeof referrerField === "string") referrer = referrerField;
       const landingPathField = formData.get("landing_path");
       if (typeof landingPathField === "string") landing_path = landingPathField;
+      const contextTextField = formData.get("user_context_text");
+      if (typeof contextTextField === "string") user_context_text = contextTextField;
+      const analysisModeField = formData.get("analysis_mode");
+      if (analysisModeField === "refined") analysis_mode = "refined";
+      const nonceField = formData.get("refinement_nonce");
+      if (typeof nonceField === "string") refinement_nonce = nonceField;
+      const parentField = formData.get("refinement_parent_scan_id");
+      if (typeof parentField === "string") refinement_parent_scan_id = parentField;
 
       const imageField = formData.get("image");
       if (imageField && typeof imageField === "object" && "arrayBuffer" in imageField) {
@@ -1113,6 +1705,9 @@ export async function POST(req: Request) {
 
   const language: "en" | "fr" = lang === "fr" ? "fr" : "en";
   const rawOptIn = raw_opt_in === true || raw_opt_in === "true";
+  const contextText = typeof user_context_text === "string" ? user_context_text.trim() : "";
+  const isRefinedAnalysis = analysis_mode === "refined";
+  const hasMeaningfulContext = contextText.replace(/[\s`'"()[\]{}<>.,;:!?-]/g, "").length >= 8;
 
   /* ---------- XOR enforcement ---------- */
   if (text && image) {
@@ -1155,7 +1750,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!contentText || contentText.length < MIN_LENGTH) {
+    if (!contentText || !passesScanTextAdmission(contentText)) {
       recordOCRResult(ip, "low_text");
       logEvent("ocr_low_text", "info", "ocr");
       return reject(
@@ -1182,20 +1777,33 @@ export async function POST(req: Request) {
     }
 
     contentText = text.trim();
-
-    if (contentText.length < MIN_LENGTH) {
+    if (!passesScanTextAdmission(contentText)) {
       logEvent("text_too_short", "info", "scan_api");
       return reject(
         "text_too_short",
         language === "fr"
-          ? "Message trop court."
-          : "Message too short."
+          ? "Message trop court ou pas assez de détail pour analyser."
+          : "Message too short or not enough detail to analyze."
       );
     }
   }
 
+  if (isRefinedAnalysis && !hasMeaningfulContext) {
+    return reject(
+      "invalid_refinement_context",
+      language === "fr"
+        ? "Veuillez ajouter plus de contexte."
+        : "Please add a bit more context."
+    );
+  }
+
+  const analysisText =
+    isRefinedAnalysis && hasMeaningfulContext
+      ? `${contextText}\n\n[Original submission]\n${contentText}`
+      : contentText;
+
   /* ---------- Duplicate suppression ---------- */
-  if (isRepeatedScan(ip, contentText)) {
+  if (!isRefinedAnalysis && isRepeatedScan(ip, contentText)) {
     logEvent("duplicate_scan", "info", "scan_api");
     return reject(
       "duplicate_scan",
@@ -1209,15 +1817,22 @@ export async function POST(req: Request) {
   /* ---------- AI analysis ---------- */
   try {
     const { result, usedFallback, ai_parse_fallback } = await analyzeScan({
-      messageText: contentText,
+      messageText: analysisText,
       language,
       source,
     });
 
     /* ---------- Input quality classification ---------- */
-    const inputQuality = classifyInputQuality(contentText);
+    const inputQuality = classifyInputQuality(analysisText);
     const riskTier = result.risk_tier ?? "low";
     const linkArtifact = extractLinkArtifacts(contentText);
+    const refinementSemanticsBoost = isRefinedAnalysis && hasMeaningfulContext;
+    const semanticPrimary =
+      refinementSemanticsBoost && contextText.trim().length > 0 ? contextText.trim() : null;
+    const enrichmentMessageText = refinementSemanticsBoost
+      ? `${contextText.trim()}\n\n${contentText}`
+      : contentText;
+    const mapIntelRawText = semanticPrimary ? `${semanticPrimary}\n${contentText}` : analysisText;
 
     if (ai_parse_fallback) {
       logEvent("ai_parse_fallback", "warning", "scan_api", {
@@ -1227,12 +1842,14 @@ export async function POST(req: Request) {
 
     const { intel_features: rawLegacyIntel, mode: intelMode } = extractIntelFeatures(
       result,
-      contentText,
+      analysisText,
+      semanticPrimary,
       language,
       inputQuality,
       riskTier,
       ai_parse_fallback,
-      linkArtifact
+      linkArtifact,
+      refinementSemanticsBoost
     );
 
     const legacyIntel: Record<string, any> = {
@@ -1244,7 +1861,7 @@ export async function POST(req: Request) {
     };
 
     const enrichment = buildScanEnrichment({
-      messageText: contentText,
+      messageText: enrichmentMessageText,
       language,
       source,
     });
@@ -1261,6 +1878,14 @@ export async function POST(req: Request) {
       harmonizeNarratives({
         ...legacyIntel,
         ...(linkArtifact ? { link_artifact: linkArtifact, link_present: true } : {}),
+        ...(isRefinedAnalysis
+          ? {
+              context_refined: true,
+              user_context_length: contextText.length,
+              analysis_mode: "refined",
+              refinement_nonce: refinement_nonce ?? null,
+            }
+          : {}),
         input_type: inputType,
         submission_route: enrichment.submissionRoute,
         narrative_family: enrichment.narrativeFamily,
@@ -1271,16 +1896,36 @@ export async function POST(req: Request) {
         source_type: enrichment.sourceType,
         context_quality: enrichment.contextQuality ?? legacyIntel.context_quality,
       }),
-      contentText
+      mapIntelRawText
     );
+
+    if (refinementSemanticsBoost) {
+      applyRefinedContextCueBoost(intel_features as Record<string, unknown>, contextText.toLowerCase());
+    }
+    if (
+      refinementSemanticsBoost &&
+      ["fragment", "unknown"].includes(String(intel_features.context_quality))
+    ) {
+      (intel_features as Record<string, unknown>).context_quality = "partial";
+    }
+
+    if (
+      refinementSemanticsBoost &&
+      String(intel_features.intel_state) === "insufficient_context" &&
+      !["fragment", "unknown"].includes(String(intel_features.context_quality))
+    ) {
+      (intel_features as Record<string, unknown>).intel_state = "weak_signal";
+    }
 
     /* ---------- Trust-floor guardrail: cap risk for insufficient/fragment context ---------- */
     let finalRiskTier = riskTier as "low" | "medium" | "high";
     let finalSummary: string | null = result.summary_sentence ?? null;
 
+    const skipInsufficientTrustFloor = refinementSemanticsBoost;
     const isInsufficientContext =
-      enrichment.submissionRoute === "insufficient_context" ||
-      enrichment.contextQuality === "fragment";
+      !skipInsufficientTrustFloor &&
+      (enrichment.submissionRoute === "insufficient_context" ||
+        enrichment.contextQuality === "fragment");
 
     if (isInsufficientContext) {
       finalRiskTier = riskTier === "high" ? "medium" : (riskTier as "low" | "medium");
@@ -1290,27 +1935,99 @@ export async function POST(req: Request) {
         finalSummary = "Not enough context is available to classify this reliably. Proceed with caution.";
       }
     } else {
+      const aiSum = String(finalSummary ?? "").trim();
+      const enrichmentSum = enrichment.summary?.trim() ?? "";
+      if (!aiSum) {
+        finalSummary = enrichmentSum || null;
+      } else if (
+        refinementSemanticsBoost &&
+        enrichmentSum.length > 24 &&
+        /\bnot enough context\b|limited context|link only|insufficient to classify|classify this reliably|ne\s+contient\s+qu'un\s+lien/i.test(
+          aiSum
+        )
+      ) {
+        finalSummary = enrichment.summary ?? null;
+      }
       if (!finalSummary || String(finalSummary).trim() === "") {
         finalSummary = enrichment.summary ?? null;
       }
-      finalRiskTier = applyRiskReconciliation(finalRiskTier, {
-        narrativeFamily: enrichment.narrativeFamily,
-        impersonationEntity: enrichment.impersonationEntity,
-        requestedAction: enrichment.requestedAction,
-        threatStage: enrichment.threatStage,
-      });
     }
-
-    const userVerdict =
-      finalRiskTier === "high" ? "scam" : finalRiskTier === "medium" ? "suspicious" : "safe";
 
     const finalSignals = normalizeSignalsForInsufficientLinkContext(
       result.signals,
       isInsufficientContext,
       linkArtifact,
-      contentText,
+      analysisText,
       language
     );
+
+    const signalEvidenceChunk = Array.isArray(result.signals)
+      ? (result.signals as { evidence?: string }[])
+          .map((s) => String(s?.evidence ?? "").trim())
+          .filter(Boolean)
+          .join("\n")
+      : "";
+
+    const reconciliationCorpus = buildStructuredReconciliationCorpus([
+      analysisText,
+      semanticPrimary,
+      refinementSemanticsBoost ? contextText : null,
+      typeof result.summary_sentence === "string" ? result.summary_sentence : null,
+      finalSummary,
+      signalEvidenceChunk,
+    ]);
+
+    reconcileStructuredIntelConsistency(intel_features as Record<string, unknown>, reconciliationCorpus, {
+      refined: refinementSemanticsBoost,
+      contextQuality: String(intel_features.context_quality ?? "unknown"),
+      hasLinkArtifact: Boolean(linkArtifact),
+    });
+
+    applyStructuredInterpretationPass(intel_features as Record<string, unknown>, reconciliationCorpus, {
+      refined: refinementSemanticsBoost,
+      hasLinkArtifact: Boolean(linkArtifact),
+    });
+    Object.assign(intel_features, harmonizeNarratives(intel_features as Record<string, unknown>));
+
+    if (!isInsufficientContext) {
+      const reconAction = !intelSlotMissing(intel_features.requested_action)
+        ? String(intel_features.requested_action)
+        : enrichment.requestedAction;
+      const reconThreat =
+        !intelSlotMissing(intel_features.threat_stage) && String(intel_features.threat_stage) !== "unclear"
+          ? String(intel_features.threat_stage)
+          : enrichment.threatStage;
+      finalRiskTier = applyRiskReconciliation(finalRiskTier, {
+        narrativeFamily: enrichment.narrativeFamily,
+        impersonationEntity: enrichment.impersonationEntity,
+        requestedAction: reconAction,
+        threatStage: reconThreat,
+      });
+    }
+
+    finalRiskTier = applyRiskTierCalibrationFloors(finalRiskTier, intel_features as Record<string, unknown>, reconciliationCorpus, {
+      isInsufficientContext,
+      refined: refinementSemanticsBoost,
+      hasLinkArtifact: Boolean(linkArtifact),
+    });
+
+    applyConfidenceCalibration(intel_features as Record<string, unknown>, {
+      isInsufficientContext,
+    });
+
+    const riskTierRef = { current: finalRiskTier };
+    const thinLowGuardMeta = applyThinLowConfidenceGuardrail(
+      intel_features as Record<string, unknown>,
+      riskTierRef
+    );
+    finalRiskTier = riskTierRef.current;
+
+    (intel_features as Record<string, unknown>).known_core_dimension_count = countKnownCoreDimensions(
+      intel_features as Record<string, unknown>
+    );
+
+    const userVerdict =
+      finalRiskTier === "high" ? "scam" : finalRiskTier === "medium" ? "suspicious" : "safe";
 
     /* ---------- Insert into scans (ALWAYS) ---------- */
     const scanRow: Record<string, any> = {
@@ -1352,18 +2069,45 @@ export async function POST(req: Request) {
     const lp = sanitize(landing_path);
     if (lp != null) scanRow.landing_path = lp;
 
-    const { data: scanData, error: scanError } = await supabase
-      .from("scans")
-      .insert(scanRow)
-      .select("id")
-      .single();
+    let scanData: { id?: string } | null = null;
+    let scanError: { message?: string } | null = null;
+    if (isRefinedAnalysis && refinement_parent_scan_id) {
+      const { data, error } = await supabase
+        .from("scans")
+        .update(scanRow)
+        .eq("id", refinement_parent_scan_id)
+        .select("id")
+        .single();
+      scanData = (data as { id?: string } | null) ?? null;
+      scanError = (error as { message?: string } | null) ?? null;
+    } else {
+      const { data, error } = await supabase
+        .from("scans")
+        .insert(scanRow)
+        .select("id")
+        .single();
+      scanData = (data as { id?: string } | null) ?? null;
+      scanError = (error as { message?: string } | null) ?? null;
+    }
 
     const persisted = !scanError;
     let scanId = persisted ? (scanData?.id ?? null) : null;
 
+    if (thinLowGuardMeta.applied && scanId) {
+      const guardPayload = {
+        scan_id: scanId,
+        original_risk_tier: thinLowGuardMeta.original_risk_tier,
+        original_intel_state: thinLowGuardMeta.original_intel_state,
+        context_quality: thinLowGuardMeta.context_quality,
+        confidence_level: thinLowGuardMeta.confidence_level,
+      };
+      console.warn("[thin_low_confidence_guardrail]", JSON.stringify(guardPayload));
+      void logEvent("thin_low_confidence_guardrail", "info", "scan_api", guardPayload);
+    }
+
     /* ---------- Insert raw_messages if opted in (atomic: rollback scan on failure) ---------- */
     let rawMessageError: string | null = null;
-    if (rawOptIn && scanId) {
+    if (!isRefinedAnalysis && rawOptIn && scanId) {
       const { error: rawError } = await supabase.from("raw_messages").insert({
         scan_id: scanId,
         message_text: contentText,

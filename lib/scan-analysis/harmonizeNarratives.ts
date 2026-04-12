@@ -26,7 +26,7 @@ function isFamilyMissing(value: unknown): boolean {
   return s === "" || s === "unknown";
 }
 
-/** Safe overlaps only — no law_enforcement / recovery_scam / social_engineering_opener in Phase 1. */
+/** Safe overlaps only — no law_enforcement / recovery_scam in Phase 1. Social lure uses self-map. */
 const FAMILY_TO_CATEGORY: Record<string, string> = {
   reward_claim: "prize_scam",
   account_verification: "financial_phishing",
@@ -34,6 +34,7 @@ const FAMILY_TO_CATEGORY: Record<string, string> = {
   delivery_scam: "delivery_scam",
   employment_scam: "employment_scam",
   investment_fraud: "investment_fraud",
+  social_engineering_opener: "social_engineering_opener",
 };
 
 const CATEGORY_TO_FAMILY: Record<string, string> = {
@@ -43,6 +44,7 @@ const CATEGORY_TO_FAMILY: Record<string, string> = {
   delivery_scam: "delivery_scam",
   employment_scam: "employment_scam",
   investment_fraud: "investment_fraud",
+  social_engineering_opener: "social_engineering_opener",
 };
 
 export function harmonizeNarratives(intel: IntelLike): IntelLike {
@@ -112,4 +114,10 @@ export function verifyHarmonizeNarratives(): void {
   });
   assert.equal(bothUnknown.narrative_category, "unknown");
   assert.equal(bothUnknown.narrative_family, "unknown");
+  const seo = harmonizeNarratives({
+    narrative_category: "unknown",
+    narrative_family: "social_engineering_opener",
+  });
+  assert.equal(seo.narrative_category, "social_engineering_opener");
+  assert.equal(seo.narrative_family, "social_engineering_opener");
 }

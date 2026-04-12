@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { passesScanTextAdmission, scanTextAdmissionErrorMessage } from "@/lib/scan/scanTextAdmission";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import type { PartnerConfig } from "@/lib/partners";
 
@@ -12,6 +13,7 @@ const copy = {
     button: "Scan",
     buttonLoading: "Analyzing…",
     errorGeneric: "Something went wrong. Please try again.",
+    errorTextAdmission: scanTextAdmissionErrorMessage("en"),
   },
   fr: {
     placeholder: "Collez le message ici…",
@@ -20,6 +22,7 @@ const copy = {
     button: "Analyser",
     buttonLoading: "Analyse en cours…",
     errorGeneric: "Une erreur est survenue. Veuillez réessayer.",
+    errorTextAdmission: scanTextAdmissionErrorMessage("fr"),
   },
 };
 
@@ -81,6 +84,13 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
     setLoading(true);
     logScanEvent("scan_processing", { props: { attempt_id } });
 
+    const trimmedText = text.trim();
+    if (!imageFile && !passesScanTextAdmission(trimmedText)) {
+      setError(t.errorTextAdmission);
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload: Record<string, unknown> = {
         lang,
@@ -93,8 +103,25 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
 
       if (imageFile) {
         payload.image = await fileToBase64(imageFile);
+        sessionStorage.setItem(
+          "scan_submission",
+          JSON.stringify({
+            lang,
+            source: "ocr",
+            created_at: Date.now(),
+          })
+        );
       } else {
-        payload.text = text;
+        payload.text = trimmedText;
+        sessionStorage.setItem(
+          "scan_submission",
+          JSON.stringify({
+            lang,
+            source: "user_text",
+            text: trimmedText,
+            created_at: Date.now(),
+          })
+        );
       }
 
       const res = await fetch("/api/scan", {
@@ -194,7 +221,11 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
       <button
         onClick={handleScan}
         style={styles.scanButton}
-        disabled={loading || (!text.trim() && !imageFile)}
+        disabled={
+          loading ||
+          (!text.trim() && !imageFile) ||
+          (!!text.trim() && !imageFile && !passesScanTextAdmission(text.trim()))
+        }
       >
         {loading ? t.buttonLoading : t.button}
       </button>

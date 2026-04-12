@@ -67,14 +67,20 @@ ${SYSTEM_PROMPT}
 === OUTPUT CONSTRAINT (NON-NEGOTIABLE) ===
 REQUIRED_OUTPUT_LANGUAGE = ${requiredOutputLanguage}
 
+=== LANGUAGE CONTEXT (FOR THIS REQUEST) ===
+PLATFORM_LANGUAGE = ${requiredOutputLanguage}
+(message may be English or French; classify by meaning. summary_sentence must match PLATFORM_LANGUAGE.
+Signal "type" values remain English snake_case as in the system prompt.)
+
 === REQUIRED OUTPUT STRUCTURE (JSON ONLY) ===
 {
   "risk_tier": "low | medium | high",
+  "language_detected": "en | fr | mixed | unknown (optional; best guess of the message_text language)",
   "summary_sentence": "string (optional, max 200 chars, MUST be in REQUIRED_OUTPUT_LANGUAGE)",
   "signals": [
     {
-      "type": "string",
-      "evidence": "verbatim excerpt from message_text",
+      "type": "English snake_case tactic label (e.g. urgency_time_pressure, credential_phishing)",
+      "evidence": "verbatim excerpt from message_text (may be EN or FR)",
       "weight": 1-5
     }
   ],

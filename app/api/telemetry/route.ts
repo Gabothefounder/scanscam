@@ -23,6 +23,9 @@ const ALLOWED_EVENTS = [
   "scan_consent_clicked_deny",
   "scan_error",
   "scan_created",
+  "context_refinement_shown",
+  "context_refinement_submitted",
+  "context_refinement_completed_analysis",
   "report_cta_viewed",
   "report_cta_clicked",
   "report_mission_viewed",
@@ -52,6 +55,10 @@ const ALLOWED_PROPS = [
   "utm_term",
   "utm_content",
   "gclid",
+  "mode",
+  "trigger_reason",
+  "input_type",
+  "char_len_bucket",
 ] as const;
 
 const BANNED_KEYS = [
