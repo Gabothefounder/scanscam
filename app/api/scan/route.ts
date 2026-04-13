@@ -10,6 +10,7 @@ import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
 import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
 import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
+import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
 import { passesScanTextAdmission } from "@/lib/scan/scanTextAdmission";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
@@ -1825,7 +1826,9 @@ export async function POST(req: Request) {
     /* ---------- Input quality classification ---------- */
     const inputQuality = classifyInputQuality(analysisText);
     const riskTier = result.risk_tier ?? "low";
-    const linkArtifact = extractLinkArtifacts(contentText);
+    const linkExtracted = extractLinkArtifacts(contentText);
+    const link_intel = linkExtracted ? linkIntelFromArtifact(linkExtracted) : null;
+    const linkArtifact = link_intel ? linkArtifactFromLinkIntel(link_intel) : null;
     const refinementSemanticsBoost = isRefinedAnalysis && hasMeaningfulContext;
     const semanticPrimary =
       refinementSemanticsBoost && contextText.trim().length > 0 ? contextText.trim() : null;
@@ -1877,7 +1880,9 @@ export async function POST(req: Request) {
     const intel_features = mapIntelFields(
       harmonizeNarratives({
         ...legacyIntel,
-        ...(linkArtifact ? { link_artifact: linkArtifact, link_present: true } : {}),
+        ...(link_intel && linkArtifact
+          ? { link_intel, link_artifact: linkArtifact, link_present: true }
+          : {}),
         ...(isRefinedAnalysis
           ? {
               context_refined: true,

@@ -509,10 +509,11 @@ type ParsedLinkArtifact = {
   root_domain: string | null;
   tld: string | null;
   is_shortened: boolean;
+  is_ip_address: boolean;
   has_suspicious_tld: boolean;
 };
 
-function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact | null {
+function parseLinkArtifactLegacy(intel: Record<string, unknown>): ParsedLinkArtifact | null {
   const raw = intel.link_artifact;
   if (!raw || typeof raw !== "object") return null;
   const a = raw as Record<string, unknown>;
@@ -522,8 +523,34 @@ function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact |
     root_domain: typeof a.root_domain === "string" ? a.root_domain : null,
     tld: typeof a.tld === "string" ? a.tld : null,
     is_shortened: Boolean(a.is_shortened),
+    is_ip_address: Boolean(a.is_ip_address),
     has_suspicious_tld: Boolean(a.has_suspicious_tld),
   };
+}
+
+/** Fallback when link_artifact is absent but intel_features.link_intel (v1) is present. */
+function parseLinkIntelV1(intel: Record<string, unknown>): ParsedLinkArtifact | null {
+  const raw = intel.link_intel;
+  if (!raw || typeof raw !== "object") return null;
+  const li = raw as Record<string, unknown>;
+  if (li.version !== 1) return null;
+  const p = li.primary;
+  if (!p || typeof p !== "object") return null;
+  const pr = p as Record<string, unknown>;
+  const flags = pr.flags && typeof pr.flags === "object" ? (pr.flags as Record<string, unknown>) : null;
+  return {
+    url: typeof pr.url === "string" ? pr.url : undefined,
+    domain: typeof pr.domain === "string" ? pr.domain : null,
+    root_domain: typeof pr.root_domain === "string" ? pr.root_domain : null,
+    tld: typeof pr.tld === "string" ? pr.tld : null,
+    is_shortened: Boolean(flags?.shortened),
+    is_ip_address: Boolean(flags?.ip_host),
+    has_suspicious_tld: Boolean(flags?.suspicious_tld),
+  };
+}
+
+function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact | null {
+  return parseLinkArtifactLegacy(intel) ?? parseLinkIntelV1(intel);
 }
 
 /** Mirrors scan API heuristics for neutral “brand-like host” messaging (no network). */
