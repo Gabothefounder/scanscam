@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPartnerBySlug } from "@/lib/partners";
+import { logEvent } from "@/lib/observability";
 import {
   sendPartnerEscalationEmail,
   type EscalationPayload,
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
       .upsert(
         {
           scan_id: scanId,
+          partner_slug: partnerSlug,
           submitted_by_name: userName,
           submitted_by_company: userCompany,
           submitted_by_role: userRole,
@@ -194,6 +196,10 @@ export async function POST(req: Request) {
     if (accessErr) {
       console.error("[partner-escalation] partner_escalation_access upsert:", accessErr.message);
     } else if (accessToken) {
+      await logEvent("partner_escalation_submitted", "info", "partner_escalation_api", {
+        scan_id: scanId,
+        partner_slug: partnerSlug,
+      });
       if (base) {
         viewSubmissionUrl = `${base}/msp/view/${accessToken}`;
       } else {
@@ -225,11 +231,20 @@ export async function POST(req: Request) {
     });
 
     if (!result.ok) {
+      await logEvent("partner_escalation_email_failed", "warning", "partner_escalation_api", {
+        scan_id: scanId,
+        partner_slug: partnerSlug,
+      });
       return NextResponse.json(
         { ok: false, message: result.error },
         { status: 500 }
       );
     }
+
+    await logEvent("partner_escalation_email_sent", "info", "partner_escalation_api", {
+      scan_id: scanId,
+      partner_slug: partnerSlug,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

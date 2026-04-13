@@ -7,6 +7,9 @@ const supabase = createClient(
 
 type Severity = "info" | "warning" | "critical" | "error";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * Central event logger
  * NEVER throws
@@ -19,11 +22,16 @@ export async function logEvent(
   context: Record<string, any> = {}
 ) {
   try {
+    const scanIdCandidate =
+      typeof context?.scan_id === "string" ? context.scan_id.trim() : null;
+    const scan_id = scanIdCandidate && UUID_RE.test(scanIdCandidate) ? scanIdCandidate : null;
+
     const { error } = await supabase.from("events").insert({
       event_type,
       severity,
       source,
       context,
+      ...(scan_id ? { scan_id } : {}),
     });
     if (error) {
       console.error("[observability] events insert failed:", error);
