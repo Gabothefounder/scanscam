@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import CanadaChoropleth, { type GeoProvince } from "@/app/components/charts/CanadaChoropleth";
 import FraudLandscapeCard, { type FraudLandscapeItem } from "@/app/components/charts/FraudLandscapeCard";
@@ -17,6 +17,9 @@ import {
 } from "recharts";
 import type { BriefWeeklyResponse, SocialSignalFormats } from "@/lib/brief";
 import { formatSocialSignalText, formatWeekStartForSocial, fraudLabelFr, FRAUD_LABEL_FR } from "@/lib/brief";
+import { buildAllPartnersReportRow, type RadarMspContextResponse } from "@/lib/intel/radarMspContext";
+import { formatMspReport } from "@/lib/intel/formatMspReport";
+import { formatMspPilotReport } from "@/lib/intel/formatMspPilotReport";
 
 type SystemHealth = {
   scan_count: number;
@@ -203,6 +206,80 @@ function truncateSummary(s: string | null): string {
   if (!s?.trim()) return "No summary available";
   const t = s.trim();
   return t.length <= SUMMARY_MAX_LEN ? t : t.slice(0, SUMMARY_MAX_LEN) + "…";
+}
+
+/** Tab-separated block for pasting into notes / spreadsheets */
+function formatRadarMspSnapshot(d: RadarMspContextResponse): string {
+  const lines: string[] = [];
+  lines.push("GLOBAL");
+  lines.push(`total_escalations\t${d.global.total_escalations}`);
+  lines.push(`active_partners\t${d.global.active_partners}`);
+  lines.push(`time_saved_hours\t${d.global.time_saved_hours}`);
+  lines.push(`time_saved_minutes\t${d.global.time_saved_minutes}`);
+  lines.push("risk_tier\tcount");
+  for (const row of d.global.risk_distribution) lines.push(`${row.risk_tier}\t${row.count}`);
+  lines.push("narrative\tcount");
+  for (const row of d.global.top_narratives) lines.push(`${row.value}\t${row.count}`);
+  lines.push("action\tcount");
+  for (const row of d.global.top_actions) lines.push(`${row.value}\t${row.count}`);
+  lines.push("");
+  lines.push("PER_PARTNER");
+  for (const p of d.per_partner) {
+    lines.push(`partner_slug\t${p.partner_slug}`);
+    lines.push(`total_scans\t${p.total_scans}`);
+    lines.push(`total_escalations\t${p.total_escalations}`);
+    lines.push(`escalation_rate\t${p.escalation_rate ?? ""}`);
+    lines.push(`refined_escalations\t${p.refined_escalations}`);
+    lines.push(`time_saved_hours\t${p.time_saved_hours}`);
+    lines.push(`top_narrative\t${p.top_narrative}`);
+    lines.push(`top_action\t${p.top_action}`);
+    lines.push("--");
+  }
+  lines.push("CONTEXT_EVENTS");
+  lines.push(`context_refinement_shown\t${d.context_layer.context_refinement_shown}`);
+  lines.push(`context_refinement_submitted\t${d.context_layer.context_refinement_submitted}`);
+  lines.push(`context_refinement_completed_analysis\t${d.context_layer.context_refinement_completed_analysis}`);
+  return lines.join("\n");
+}
+
+/** Share of escalated scans in scope rated high risk (directional). */
+function highRiskShareFromDistribution(dist: { risk_tier: string; count: number }[]): number | null {
+  const total = dist.reduce((s, r) => s + r.count, 0);
+  if (total === 0) return null;
+  const high = dist.filter((r) => r.risk_tier === "high").reduce((s, r) => s + r.count, 0);
+  return Math.round((high / total) * 1000) / 10;
+}
+
+type MspSnapshotScopeMetrics = {
+  total_scans: number;
+  total_escalations: number;
+  escalation_rate: number | null;
+};
+
+/** One decision-oriented sentence from current scope metrics (presentation only). */
+function buildMspSnapshotInterpretation(row: MspSnapshotScopeMetrics): string {
+  const { total_scans, total_escalations, escalation_rate } = row;
+  if (total_scans <= 0) {
+    return "Once partner-attributed volume appears here, this line will summarize how much reaches the MSP versus staying filtered upstream (internal, directional).";
+  }
+  const rate = escalation_rate ?? total_escalations / total_scans;
+  if (total_escalations === 0) {
+    return "Nothing escalated in this scope yet—submissions are not creating MSP tickets at current volume (directional).";
+  }
+  if (rate < 0.2) {
+    return "Only a minority of partner-attributed messages escalate—most estimated volume is filtered or resolved before technician queues (directional).";
+  }
+  if (rate > 0.45) {
+    return "A large share of partner-attributed messages escalate—expect heavier technician load; prioritize pilot coaching and pattern review (directional).";
+  }
+  return "Escalations are a moderate slice of estimated partner volume—use the pattern summary to see what still reaches technicians (directional).";
+}
+
+/** Share of estimated partner-attributed scans with no MSP escalation row (v1 estimate; directional). */
+function mspFilteredBeforeEscalationPct(row: MspSnapshotScopeMetrics): number | null {
+  if (row.total_scans <= 0) return null;
+  const resolved = Math.max(0, row.total_scans - row.total_escalations);
+  return Math.round((resolved / row.total_scans) * 1000) / 10;
 }
 
 function RecentSignalsContent({ signals }: { signals: SystemAnalysisV2Data["recent_signals"] }) {
@@ -1043,6 +1120,20 @@ export default function RadarPage() {
   const [socialSignalMessage, setSocialSignalMessage] = useState<string | null>(null);
   const [socialSignalText, setSocialSignalText] = useState<SocialSignalFormats | null>(null);
   const [marketingSectionExpanded, setMarketingSectionExpanded] = useState(false);
+  const [mspContextData, setMspContextData] = useState<RadarMspContextResponse | null>(null);
+  const [mspContextError, setMspContextError] = useState<string | null>(null);
+  const [mspContextLoading, setMspContextLoading] = useState(true);
+  const [mspPartnerMetricsExpanded, setMspPartnerMetricsExpanded] = useState(false);
+  const [mspContextTelemetryExpanded, setMspContextTelemetryExpanded] = useState(false);
+  const [mspPartnerFilter, setMspPartnerFilter] = useState<string>("all");
+  const [mspCopyMessage, setMspCopyMessage] = useState<string | null>(null);
+  const [mspPilotCopyMessage, setMspPilotCopyMessage] = useState<string | null>(null);
+
+  const mspViewRow = useMemo(() => {
+    if (!mspContextData) return null;
+    if (mspPartnerFilter === "all") return buildAllPartnersReportRow(mspContextData);
+    return mspContextData.per_partner.find((p) => p.partner_slug === mspPartnerFilter) ?? null;
+  }, [mspContextData, mspPartnerFilter]);
   const [graphicPreview, setGraphicPreview] = useState<BriefWeeklyResponse | null>(null);
   const [graphicLoading, setGraphicLoading] = useState(false);
   const [graphicMessage, setGraphicMessage] = useState<string | null>(null);
@@ -1453,7 +1544,23 @@ export default function RadarPage() {
       .then((r) => r.json())
       .then(setSystemV2Data)
       .catch((e) => setSystemV2Error(e?.message ?? "Failed to fetch system-analysis-v2"));
+
+    fetch("/api/intel/radar-msp-context")
+      .then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw new Error(body?.error ?? "radar-msp-context failed");
+        return body as RadarMspContextResponse;
+      })
+      .then(setMspContextData)
+      .catch((e) => setMspContextError(e?.message ?? "Failed to fetch radar-msp-context"))
+      .finally(() => setMspContextLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!mspContextData || mspPartnerFilter === "all") return;
+    const exists = mspContextData.per_partner.some((p) => p.partner_slug === mspPartnerFilter);
+    if (!exists) setMspPartnerFilter("all");
+  }, [mspContextData, mspPartnerFilter]);
 
   const sh = data?.system_health;
   const isMobile = useIsMobile();
@@ -1561,6 +1668,7 @@ export default function RadarPage() {
                 </div>
               </div>
             </section>
+
 
             <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
               <h2 style={{ ...styles.sectionTitle, marginBottom: "4px" }}>Activity & Signal Trend</h2>
@@ -1917,6 +2025,371 @@ export default function RadarPage() {
               isMobile={isMobile}
               mobileStyles={mobile}
             />
+
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "28px" }}>
+              <button
+                type="button"
+                onClick={() => setMspPartnerMetricsExpanded(!mspPartnerMetricsExpanded)}
+                style={{ ...styles.analystBlocksHeader, ...(isMobile ? (mobile?.analystBlocksHeader ?? {}) : {}) }}
+                aria-expanded={mspPartnerMetricsExpanded}
+              >
+                <span style={styles.analystBlocksChevron}>{mspPartnerMetricsExpanded ? "▼" : "▶"}</span>
+                <h2 style={styles.analystBlocksTitle}>MSP pilot &amp; partner metrics</h2>
+              </button>
+              {mspPartnerMetricsExpanded && (
+                <>
+                  <p style={{ ...styles.analystBlocksSubtitle, marginBottom: "20px" }}>
+                    Partner-attributed volume, escalations, and patterns for pilots and sales conversations. Figures are
+                    internal and directional—not a substitute for audited outcomes.
+                  </p>
+                  {mspContextError && (
+                    <p style={{ ...styles.signalsEmpty, marginTop: "8px" }}>{mspContextError}</p>
+                  )}
+                  {mspContextLoading && !mspContextData && !mspContextError && (
+                    <p style={{ color: "#8b949e", marginTop: "8px", fontSize: "13px" }}>Loading MSP metrics…</p>
+                  )}
+                  {mspContextData && (
+                    <div style={{ marginTop: "4px" }}>
+                      <p style={styles.mspMetaLine}>
+                        Updated {formatGeneratedAt(mspContextData.generated_at_utc)} · Based on current partner-attributed
+                        usage in our database.
+                      </p>
+
+                      <label style={styles.mspSelectLabel}>
+                        Partner scope{" "}
+                        <select
+                          value={mspPartnerFilter}
+                          onChange={(e) => setMspPartnerFilter(e.target.value)}
+                          style={styles.mspSelect}
+                        >
+                          <option value="all">All partners</option>
+                          {mspContextData.per_partner.map((p) => (
+                            <option key={p.partner_slug} value={p.partner_slug}>
+                              {p.partner_slug}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <details style={styles.mspDetails}>
+                        <summary style={styles.mspDetailsSummary}>How these numbers are calculated</summary>
+                        <div style={styles.mspMethodologyBody}>
+                          <ul style={styles.mspMethodologyList}>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Estimated total scans (v1)</strong> — distinct scans linked to a partner slug: the
+                              union of (a) scans whose stored <span style={styles.mspCode}>landing_path</span> matches the
+                              partner URL pattern when the client sent it, and (b) scans present in{" "}
+                              <span style={styles.mspCode}>partner_escalation_access</span> for that slug. Coverage
+                              estimate, not a guaranteed census of every touchpoint.
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Total escalations</strong> — rows in{" "}
+                              <span style={styles.mspCode}>partner_escalation_access</span> for the selected scope (one row
+                              per escalated scan when the unique constraint holds).
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Escalation counts</strong> — submission events and unique-scan views can differ;
+                              interpret headline numbers together with this note.
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Escalation rate</strong> — escalations divided by estimated total scans for that
+                              scope. A <em>directional</em> indicator of how often users escalate, not a standalone success
+                              metric.
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Refined escalations</strong> — escalated scans that also logged a{" "}
+                              <span style={styles.mspCode}>context_refinement_completed_analysis</span> event (optional
+                              context submitted and a new analysis returned).
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Estimated review time saved</strong> — <em>modeled</em>, not measured clock time or
+                              guaranteed savings. v1 triage assumptions: non-escalated scans = 5 min, escalated scans = 4
+                              min, refined escalations = +3 min on top of the escalated bucket. Adjust as pilots mature.
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>High-risk share</strong> — among <em>escalated</em> scans only; useful for{" "}
+                              <em>pattern pressure</em>, not legal certainty.
+                            </li>
+                            <li style={styles.mspMethodologyLi}>
+                              <strong>Resolved without escalation / filtered before escalation</strong> — same v1
+                              complement:{" "}
+                              <span style={styles.mspCode}>
+                                max(0, estimated total scans − escalations) / estimated total scans
+                              </span>
+                              ; directional, not an SLA.
+                            </li>
+                          </ul>
+                        </div>
+                      </details>
+
+                      {mspViewRow ? (
+                        <>
+                          <h3 style={styles.mspSectionHeading}>MSP snapshot</h3>
+                          <div style={styles.mspSnapshotHeroRow}>
+                            <div style={styles.mspSnapshotHeroTile}>
+                              <span style={styles.mspSnapshotHeroLabel}>Total escalations</span>
+                              <span style={styles.mspSnapshotHeroValue}>
+                                {mspPartnerFilter === "all"
+                                  ? mspContextData.global.total_escalations.toLocaleString()
+                                  : mspViewRow.total_escalations.toLocaleString()}
+                              </span>
+                              <span style={styles.mspSnapshotHeroHint}>
+                                MSP tickets from partner_escalation_access (this scope).
+                              </span>
+                            </div>
+                            <div style={styles.mspSnapshotHeroTile}>
+                              <span style={styles.mspSnapshotHeroLabel}>Resolved without escalation</span>
+                              <span style={styles.mspSnapshotHeroValue}>
+                                {mspViewRow.total_scans > 0
+                                  ? (() => {
+                                      const p = mspFilteredBeforeEscalationPct({
+                                        total_scans: mspViewRow.total_scans,
+                                        total_escalations: mspViewRow.total_escalations,
+                                        escalation_rate: mspViewRow.escalation_rate,
+                                      });
+                                      return p != null ? `${p}%` : "—";
+                                    })()
+                                  : "—"}
+                              </span>
+                              <span style={styles.mspSnapshotHeroHint}>
+                                {mspViewRow.total_scans > 0
+                                  ? "Directional share of v1-estimated partner scans with no MSP row."
+                                  : "Unavailable without estimated submissions (v1)."}
+                              </span>
+                            </div>
+                            <div style={styles.mspSnapshotHeroTile}>
+                              <span style={styles.mspSnapshotHeroLabel}>Estimated review time saved</span>
+                              <span style={styles.mspSnapshotHeroValue}>
+                                ~{Math.max(0, mspViewRow.time_saved_hours)} h
+                              </span>
+                              <span style={styles.mspSnapshotHeroHint}>
+                                Modeled, not measured—see methodology (
+                                {Math.max(0, mspViewRow.time_saved_minutes)} min under v1 assumptions).
+                              </span>
+                            </div>
+                          </div>
+
+                          <p style={styles.mspInterpretationLine}>
+                            {buildMspSnapshotInterpretation({
+                              total_scans: mspViewRow.total_scans,
+                              total_escalations: mspViewRow.total_escalations,
+                              escalation_rate: mspViewRow.escalation_rate,
+                            })}
+                          </p>
+
+                          <p
+                            style={{
+                              margin: "0 0 16px",
+                              fontSize: "12px",
+                              lineHeight: 1.5,
+                              color: "#8b949e",
+                            }}
+                          >
+                            Escalation counts reflect submission events and may differ from unique scan totals.
+                          </p>
+
+                          <div style={styles.mspSnapshotSecondaryGrid}>
+                            <div style={styles.mspSnapshotSecondaryTile}>
+                              <span style={styles.mspSnapshotSecondaryLabel}>Active partners</span>
+                              <span style={styles.mspSnapshotSecondaryValue}>
+                                {mspPartnerFilter === "all"
+                                  ? mspContextData.global.active_partners.toLocaleString()
+                                  : "—"}
+                              </span>
+                              <span style={styles.mspSnapshotSecondaryHint}>
+                                {mspPartnerFilter === "all"
+                                  ? "With ≥1 escalation recorded."
+                                  : "Switch to “All partners” for org-wide count."}
+                              </span>
+                            </div>
+                            <div style={styles.mspSnapshotSecondaryTile}>
+                              <span style={styles.mspSnapshotSecondaryLabel}>High-risk share</span>
+                              <span style={styles.mspSnapshotSecondaryValue}>
+                                {(() => {
+                                  const pct = highRiskShareFromDistribution(mspViewRow.risk_distribution);
+                                  return pct != null ? `${pct}%` : "—";
+                                })()}
+                              </span>
+                              <span style={styles.mspSnapshotSecondaryHint}>
+                                Of escalated scans only—pattern pressure, not legal certainty.
+                              </span>
+                            </div>
+                          </div>
+
+                          <h3 style={styles.mspSectionHeading}>Pattern summary</h3>
+                          <div style={styles.mspPatternBlock}>
+                            <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#c9d1d9", lineHeight: 1.5 }}>
+                              <strong>Escalation rate:</strong>{" "}
+                              {mspViewRow.escalation_rate != null
+                                ? `${(mspViewRow.escalation_rate * 100).toFixed(1)}%`
+                                : "—"}{" "}
+                              <span style={{ color: "#6e7681" }}>(escalations / estimated total scans)</span>
+                            </p>
+                            <p style={{ margin: "0 0 14px", fontSize: "13px", color: "#c9d1d9", lineHeight: 1.5 }}>
+                              <strong>Refined escalations:</strong> {mspViewRow.refined_escalations.toLocaleString()}{" "}
+                              <span style={{ color: "#6e7681" }}>
+                                (escalated scans that also completed context refinement)
+                              </span>
+                            </p>
+                            <p style={styles.mspListLabel}>Top patterns in escalated scans</p>
+                            {mspPartnerFilter === "all" ? (
+                              <ul style={styles.mspList}>
+                                {mspContextData.global.top_narratives.map((row) => (
+                                  <li key={row.value} style={styles.mspListItem}>
+                                    {formatLandscapeLabel(row.value)} · {row.count.toLocaleString()}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p style={{ margin: "4px 0 12px", fontSize: "13px", color: "#c9d1d9" }}>
+                                {mspViewRow.top_narrative}
+                              </p>
+                            )}
+                            <p style={styles.mspListLabel}>Top requested actions (escalated scans)</p>
+                            {mspPartnerFilter === "all" ? (
+                              <ul style={styles.mspList}>
+                                {mspContextData.global.top_actions.map((row) => (
+                                  <li key={row.value} style={styles.mspListItem}>
+                                    {formatLandscapeLabel(row.value)} · {row.count.toLocaleString()}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p style={{ margin: "4px 0 12px", fontSize: "13px", color: "#c9d1d9" }}>
+                                {mspViewRow.top_action}
+                              </p>
+                            )}
+                            <p style={styles.mspListLabel}>Risk mix (escalated scans)</p>
+                            <ul style={styles.mspList}>
+                              {mspViewRow.risk_distribution.length === 0 ? (
+                                <li style={styles.mspListItemMuted}>No data.</li>
+                              ) : (
+                                mspViewRow.risk_distribution.map((row) => (
+                                  <li key={row.risk_tier} style={styles.mspListItem}>
+                                    {row.risk_tier}: {row.count.toLocaleString()}
+                                  </li>
+                                ))
+                              )}
+                            </ul>
+                          </div>
+
+                          <h3 style={styles.mspSectionHeading}>MSP report (copy-friendly)</h3>
+                          <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#6e7681" }}>
+                            Polished text for notes or email. Not a legal or financial representation.
+                          </p>
+                          <div style={styles.mspCopyRow}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(formatMspReport(mspViewRow));
+                                  setMspCopyMessage("Copied.");
+                                } catch {
+                                  setMspCopyMessage("Copy failed.");
+                                }
+                                setTimeout(() => setMspCopyMessage(null), 2000);
+                              }}
+                              style={styles.mspCopyBtn}
+                            >
+                              Copy report
+                            </button>
+                            {mspCopyMessage && (
+                              <span style={{ fontSize: "12px", color: "#8b949e" }}>{mspCopyMessage}</span>
+                            )}
+                          </div>
+                          <pre style={styles.mspPreReport}>{formatMspReport(mspViewRow)}</pre>
+
+                          <h3 style={{ ...styles.mspSectionHeading, marginTop: "28px" }}>
+                            MSP pilot report (shareable)
+                          </h3>
+                          <p style={{ margin: "0 0 6px", fontSize: "12px", color: "#6e7681" }}>
+                            Clean markdown-friendly text for partners. No internal field names or debug exports.
+                          </p>
+                          <div style={styles.mspCopyRow}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(formatMspPilotReport(mspViewRow));
+                                  setMspPilotCopyMessage("Copied.");
+                                } catch {
+                                  setMspPilotCopyMessage("Copy failed.");
+                                }
+                                setTimeout(() => setMspPilotCopyMessage(null), 2000);
+                              }}
+                              style={styles.mspCopyBtn}
+                            >
+                              Copy MSP Report (clean)
+                            </button>
+                            {mspPilotCopyMessage && (
+                              <span style={{ fontSize: "12px", color: "#8b949e" }}>{mspPilotCopyMessage}</span>
+                            )}
+                          </div>
+                          <pre style={styles.mspPreReport}>{formatMspPilotReport(mspViewRow)}</pre>
+
+                          <details style={{ ...styles.mspDetails, marginTop: "24px" }}>
+                            <summary style={styles.mspDetailsSummary}>Raw export (TSV) — internal / debugging</summary>
+                            <div style={styles.mspMethodologyBody}>
+                              <pre style={styles.mspPre}>{formatRadarMspSnapshot(mspContextData)}</pre>
+                            </div>
+                          </details>
+                        </>
+                      ) : (
+                        <p style={styles.signalsEmpty}>No partner row for this selection.</p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
+            <section style={{ ...styles.section, ...mobile.section, marginTop: "24px" }}>
+              <button
+                type="button"
+                onClick={() => setMspContextTelemetryExpanded(!mspContextTelemetryExpanded)}
+                style={{ ...styles.analystBlocksHeader, ...(isMobile ? (mobile?.analystBlocksHeader ?? {}) : {}) }}
+                aria-expanded={mspContextTelemetryExpanded}
+              >
+                <span style={styles.analystBlocksChevron}>{mspContextTelemetryExpanded ? "▼" : "▶"}</span>
+                <h2 style={styles.analystBlocksTitle}>Context refinement — system telemetry</h2>
+              </button>
+              {mspContextTelemetryExpanded && (
+                <>
+                  <p style={{ ...styles.analystBlocksSubtitle, marginBottom: "16px" }}>
+                    Product-level event counts across <strong>all</strong> scans (not MSP-only). Use this to reason about
+                    optional context behavior separately from partner business metrics.
+                  </p>
+                  {mspContextError && (
+                    <p style={{ ...styles.signalsEmpty, marginTop: "8px" }}>{mspContextError}</p>
+                  )}
+                  {mspContextLoading && !mspContextData && !mspContextError && (
+                    <p style={{ color: "#8b949e", marginTop: "8px", fontSize: "13px" }}>Loading telemetry…</p>
+                  )}
+                  {mspContextData && (
+                    <div style={styles.mspTelemetryCard}>
+                      <div style={styles.mspTelemetryRow}>
+                        <span style={styles.mspTelemetryLabel}>Refinement panel shown</span>
+                        <span style={styles.mspTelemetryValue}>
+                          {mspContextData.context_layer.context_refinement_shown.toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={styles.mspTelemetryRow}>
+                        <span style={styles.mspTelemetryLabel}>Refinement submitted</span>
+                        <span style={styles.mspTelemetryValue}>
+                          {mspContextData.context_layer.context_refinement_submitted.toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={styles.mspTelemetryRowLast}>
+                        <span style={styles.mspTelemetryLabel}>Refinement completed (new analysis)</span>
+                        <span style={styles.mspTelemetryValue}>
+                          {mspContextData.context_layer.context_refinement_completed_analysis.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
 
             <section style={{ ...styles.section, ...mobile.section, ...styles.analystBlocksSection, marginTop: "24px" }}>
               <button
@@ -2953,6 +3426,272 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px",
     color: "#8b949e",
     lineHeight: 1.4,
+  },
+  mspSubTitle: {
+    margin: "16px 0 8px",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#e6edf3",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+  },
+  mspMonoBlock: {
+    backgroundColor: "#1e252d",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    padding: "10px 12px",
+  },
+  mspMonoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+    fontSize: "12px",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    color: "#e6edf3",
+    borderBottom: "1px solid #21262d",
+    padding: "6px 0",
+  },
+  mspListLabel: {
+    margin: "12px 0 4px",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#8b949e",
+  },
+  mspList: {
+    margin: 0,
+    paddingLeft: "18px",
+    fontSize: "12px",
+    color: "#c9d1d9",
+    lineHeight: 1.5,
+  },
+  mspListItem: {
+    marginBottom: "2px",
+  },
+  mspListItemMuted: {
+    marginBottom: "2px",
+    color: "#6e7681",
+  },
+  mspPre: {
+    margin: "6px 0 0",
+    padding: "10px 12px",
+    fontSize: "11px",
+    lineHeight: 1.45,
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    color: "#8b949e",
+    backgroundColor: "#0d1117",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+    overflowX: "auto",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  mspPreReport: {
+    margin: "10px 0 0",
+    padding: "14px 16px",
+    fontSize: "12px",
+    lineHeight: 1.55,
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    color: "#c9d1d9",
+    backgroundColor: "#0d1117",
+    border: "1px solid #388bfd44",
+    borderRadius: "8px",
+    overflowX: "auto",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  mspMetaLine: {
+    margin: "0 0 16px",
+    fontSize: "12px",
+    color: "#6e7681",
+    lineHeight: 1.45,
+  },
+  mspSelectLabel: {
+    display: "block",
+    marginBottom: "16px",
+    fontSize: "12px",
+    color: "#8b949e",
+  },
+  mspSelect: {
+    marginLeft: "8px",
+    padding: "6px 10px",
+    fontSize: "13px",
+    color: "#e6edf3",
+    backgroundColor: "#0d1117",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
+  },
+  mspDetails: {
+    marginBottom: "20px",
+    border: "1px solid #30363d",
+    borderRadius: "8px",
+    backgroundColor: "#161b22",
+    padding: "0 12px 12px",
+  },
+  mspDetailsSummary: {
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#58a6ff",
+    padding: "12px 0",
+    listStyle: "none",
+  },
+  mspMethodologyBody: {
+    borderTop: "1px solid #21262d",
+    paddingTop: "10px",
+  },
+  mspMethodologyList: {
+    margin: 0,
+    paddingLeft: "18px",
+    fontSize: "12px",
+    color: "#8b949e",
+    lineHeight: 1.65,
+  },
+  mspMethodologyLi: {
+    marginBottom: "10px",
+  },
+  mspCode: {
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    fontSize: "11px",
+    color: "#c9d1d9",
+  },
+  mspSectionHeading: {
+    margin: "28px 0 14px",
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#f0f6fc",
+    letterSpacing: "-0.01em",
+  },
+  mspSnapshotHeroRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "16px",
+    marginBottom: "16px",
+  },
+  mspSnapshotHeroTile: {
+    backgroundColor: "#161b22",
+    border: "1px solid #388bfd66",
+    borderRadius: "10px",
+    padding: "18px 18px 14px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    boxShadow: "0 0 0 1px rgba(56,139,253,0.08)",
+  },
+  mspSnapshotHeroLabel: {
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "#79b8ff",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  mspSnapshotHeroValue: {
+    fontSize: "30px",
+    fontWeight: 700,
+    color: "#f0f6fc",
+    lineHeight: 1.15,
+    letterSpacing: "-0.02em",
+  },
+  mspSnapshotHeroHint: {
+    fontSize: "12px",
+    color: "#8b949e",
+    lineHeight: 1.4,
+  },
+  mspInterpretationLine: {
+    margin: "0 0 18px",
+    padding: "12px 14px",
+    fontSize: "13px",
+    lineHeight: 1.55,
+    color: "#c9d1d9",
+    backgroundColor: "#1e252d",
+    borderLeft: "3px solid #388bfd",
+    borderRadius: "0 8px 8px 0",
+  },
+  mspSnapshotSecondaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(148px, 1fr))",
+    gap: "12px",
+    marginBottom: "8px",
+  },
+  mspSnapshotSecondaryTile: {
+    backgroundColor: "#1a1f26",
+    border: "1px solid #30363d",
+    borderRadius: "8px",
+    padding: "12px 12px 10px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  mspSnapshotSecondaryLabel: {
+    fontSize: "10px",
+    fontWeight: 600,
+    color: "#6e7681",
+    textTransform: "uppercase",
+    letterSpacing: "0.35px",
+  },
+  mspSnapshotSecondaryValue: {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "#c9d1d9",
+    lineHeight: 1.2,
+  },
+  mspSnapshotSecondaryHint: {
+    fontSize: "10px",
+    color: "#484f58",
+    lineHeight: 1.35,
+  },
+  mspPatternBlock: {
+    marginTop: "8px",
+    paddingTop: "4px",
+  },
+  mspTelemetryIntro: {
+    margin: "0 0 14px",
+    fontSize: "13px",
+    color: "#8b949e",
+    lineHeight: 1.5,
+  },
+  mspTelemetryCard: {
+    backgroundColor: "#1e252d",
+    border: "1px solid #30363d",
+    borderRadius: "8px",
+    padding: "12px 14px",
+  },
+  mspTelemetryRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+    padding: "8px 0",
+    borderBottom: "1px solid #21262d",
+    fontSize: "13px",
+  },
+  mspTelemetryRowLast: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+    padding: "8px 0 0",
+    fontSize: "13px",
+  },
+  mspTelemetryLabel: {
+    color: "#8b949e",
+  },
+  mspTelemetryValue: {
+    color: "#e6edf3",
+    fontWeight: 500,
+  },
+  mspCopyRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+    marginTop: "10px",
+  },
+  mspCopyBtn: {
+    padding: "8px 14px",
+    fontSize: "12px",
+    cursor: "pointer",
+    color: "#e6edf3",
+    backgroundColor: "#21262d",
+    border: "1px solid #30363d",
+    borderRadius: "6px",
   },
   analystBlocksGrid: {
     display: "grid",
