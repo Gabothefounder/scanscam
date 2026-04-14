@@ -376,10 +376,36 @@ function nextStepLine(intel: unknown, lang: Lang): string | null {
   return g[narr] ?? g.unknown ?? null;
 }
 
-function normalizeMspSummary(summary: string, riskTier: string, lang: Lang): string {
+function normalizeMspSummary(
+  summary: string,
+  riskTier: string,
+  lang: Lang,
+  intel: Record<string, unknown>,
+  linkMsp: LinkMsp | null
+): string {
   const s = summary.trim();
   if (!s) return summary;
   const low = s.toLowerCase();
+  const parsed = parseAbuseInterpretationForSurface(intel);
+  const concepts = new Set(parsed?.concepts ?? []);
+  const action = String(intel.requested_action ?? "");
+  const threat = String(intel.threat_stage ?? "");
+  const strongAction = action === "pay_money" || action === "submit_credentials";
+  const urgencyOrThreat = threat === "payment_extraction" || threat === "credential_capture";
+  const riskyLinkPattern =
+    concepts.has("behaviorInfraCombo") ||
+    concepts.has("hiddenDestination") ||
+    concepts.has("brandMismatch") ||
+    concepts.has("freeHosting") ||
+    concepts.has("suspiciousTld") ||
+    Boolean(linkMsp?.shortened);
+
+  if (riskTier === "high" && riskyLinkPattern && (strongAction || urgencyOrThreat)) {
+    return lang === "fr"
+      ? "Combine l'urgence avec une demande de paiement ou d'identifiants et un modèle de lien risqué — cohérent avec des tactiques d'hameçonnage."
+      : "Combines urgency with a payment or credential request and a risky link pattern — consistent with phishing delivery tactics.";
+  }
+
   if (riskTier === "medium") {
     if (
       /potential phishing|manipulation tactics|may indicate/i.test(s) ||
@@ -493,7 +519,7 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
   const riskTier = String(scan.risk_tier ?? "low");
   const summaryRaw =
     scan.summary_sentence != null ? String(scan.summary_sentence) : t.none;
-  const summary = normalizeMspSummary(summaryRaw, riskTier, lang);
+  const summary = normalizeMspSummary(summaryRaw, riskTier, lang, intelObj, linkMsp);
   const rawText =
     access.raw_text != null && String(access.raw_text).trim()
       ? String(access.raw_text)

@@ -953,8 +953,10 @@ function highRiskLinkLine(
 ): string | null {
   if (risk !== "high") return null;
   const entity = String(intel.impersonation_entity ?? "");
+  const action = String(intel.requested_action ?? "");
   const suspiciousDomain = link.has_suspicious_tld || hostnameMayMimicBrand(link.domain, link.root_domain);
-  if (entity === "unknown" && !suspiciousDomain) return null;
+  const paymentOrCredential = action === "pay_money" || action === "submit_credentials";
+  if (entity === "unknown" && !suspiciousDomain && !paymentOrCredential) return null;
   const host = (link.final_root_domain || link.root_domain || link.domain || "").trim();
   if (!host) return null;
   return lang === "fr"
@@ -1392,7 +1394,16 @@ export default function ResultPage() {
   const apiSummary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
   const plainSummary = buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
   let summary = plainSummary ?? apiSummary;
-  if (abuseInterpretation?.concepts.includes("behaviorInfraCombo")) {
+  const hasMediumLinkInterpretation =
+    risk === "medium" &&
+    Boolean(abuseInterpretation) &&
+    (abuseInterpretation?.concepts.includes("hiddenDestination") ||
+      abuseInterpretation?.concepts.includes("freeHosting") ||
+      abuseInterpretation?.concepts.includes("suspiciousTld"));
+  if (
+    abuseInterpretation?.concepts.includes("behaviorInfraCombo") ||
+    hasMediumLinkInterpretation
+  ) {
     const clickLikeEn = /^This message prompts you to click a link\.?$/i;
     const clickLikeFr = /^Ce message incite à cliquer sur un lien\.?$/i;
     if ((lang === "en" && clickLikeEn.test(summary)) || (lang === "fr" && clickLikeFr.test(summary))) {
@@ -1556,6 +1567,13 @@ export default function ResultPage() {
                 opacity: 0.6,
                 cursor: "not-allowed",
               }),
+            }}
+            onMouseEnter={(e) => {
+              if ((e.currentTarget as HTMLButtonElement).disabled) return;
+              e.currentTarget.style.filter = "brightness(0.95)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.filter = "none";
             }}
             onClick={async () => {
               if (!result.scan_id || !partner) return;
@@ -2305,12 +2323,14 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "10px 16px",
     fontSize: 14,
     fontWeight: 600,
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #2563EB",
+    backgroundColor: "#2563EB",
+    border: "1px solid #1d4ed8",
     borderRadius: 8,
-    color: "#2563EB",
+    color: "#FFFFFF",
     cursor: "pointer",
     width: "100%",
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
+    transition: "filter 120ms ease, transform 120ms ease",
   },
 
   scanAnotherButton: {
