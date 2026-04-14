@@ -14,7 +14,7 @@ const PARTNERS: PartnerConfig[] = [
   {
     slug: "acme-it",
     name: "ACME IT Solutions",
-    email: "security@acme-it.example.com",
+    email: "gestionrockwell@gmail.com",
     active: true,
   },
   {
