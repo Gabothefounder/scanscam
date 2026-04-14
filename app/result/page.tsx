@@ -629,7 +629,8 @@ function normalizeBrandLabel(claim: string): string {
 
 function buildInterpretationUiLines(
   abuse: ParsedAbuseInterpretationForSurface | null,
-  lang: "en" | "fr"
+  lang: "en" | "fr",
+  risk: "low" | "medium" | "high"
 ): AbuseInterpretationUi {
   if (!abuse) return { riskCard: [], whyFlagged: [], nextStep: [] };
   const riskCard: InterpretationLine[] = [];
@@ -743,6 +744,20 @@ function buildInterpretationUiLines(
       text: line(
         "Open the official service manually in your browser to confirm this request.",
         "Ouvrez le service officiel manuellement dans votre navigateur pour confirmer cette demande."
+      ),
+    });
+  }
+
+  if (
+    risk === "medium" &&
+    !conceptSet.has("behaviorInfraCombo") &&
+    (conceptSet.has("hiddenDestination") || conceptSet.has("freeHosting") || conceptSet.has("suspiciousTld"))
+  ) {
+    riskCard.unshift({
+      concept: "behaviorInfraCombo",
+      text: line(
+        "This message combines a prompt to click with an untrusted link pattern.",
+        "Ce message combine une incitation à cliquer avec un modèle de lien non fiable."
       ),
     });
   }
@@ -878,39 +893,49 @@ function buildPlainSummaryFromIntel(
   if (lang === "en") {
     let core = "";
     if (action === "submit_credentials") {
-      core = "This message asks you to log in or verify your account.";
+      core = "This message requests account verification details.";
     } else if (action === "pay_money" && (nf === "delivery_scam" || nc === "delivery_scam")) {
-      core = "This message asks you to pay a delivery fee.";
+      core = "This message requests a delivery-related payment.";
     } else if (action === "pay_money") {
-      core = "This message asks you to pay money or a fee.";
+      core = "This message requests payment.";
     } else if ((nf === "reward_claim" || nc === "prize_scam") && action === "click_link") {
-      core = "This message asks you to click a link to claim a reward or prize.";
+      core = "This message prompts you to click a link to claim a reward.";
     } else if (action === "click_link") {
-      core = "This message asks you to click a link.";
+      core =
+        risk === "low"
+          ? "This message includes a link but no strong indicators of manipulation."
+          : "This message prompts you to click a link.";
     } else if (action === "call_number") {
-      core = "This message asks you to call a number.";
+      core = "This message prompts you to call a number.";
     } else {
       return null;
     }
     if (entity !== "unknown" && entMap[entity]) {
-      core = core.replace(/\.$/, "") + ` It ${entMap[entity]}.`;
+      if (risk === "high" && action === "pay_money") {
+        core = `This message requests payment and appears to impersonate ${entMap[entity].replace(/^may pretend to be /, "")}.`;
+      } else {
+        core = core.replace(/\.$/, "") + ` It ${entMap[entity]}.`;
+      }
     }
     return core;
   }
 
   let coreFr = "";
   if (action === "submit_credentials") {
-    coreFr = "Ce message vous demande de vous connecter ou de vérifier votre compte.";
+    coreFr = "Ce message demande des informations de vérification de compte.";
   } else if (action === "pay_money" && (nf === "delivery_scam" || nc === "delivery_scam")) {
-    coreFr = "Ce message demande le paiement de frais de livraison.";
+    coreFr = "Ce message demande un paiement lié à une livraison.";
   } else if (action === "pay_money") {
-    coreFr = "Ce message vous demande de payer de l’argent ou des frais.";
+    coreFr = "Ce message demande un paiement.";
   } else if ((nf === "reward_claim" || nc === "prize_scam") && action === "click_link") {
-    coreFr = "Ce message vous demande de cliquer sur un lien pour réclamer un prix ou une récompense.";
+    coreFr = "Ce message incite à cliquer sur un lien pour réclamer un prix.";
   } else if (action === "click_link") {
-    coreFr = "Ce message vous demande de cliquer sur un lien.";
+    coreFr =
+      risk === "low"
+        ? "Ce message contient un lien sans indicateurs forts de manipulation."
+        : "Ce message incite à cliquer sur un lien.";
   } else if (action === "call_number") {
-    coreFr = "Ce message vous demande d’appeler un numéro.";
+    coreFr = "Ce message incite à appeler un numéro.";
   } else {
     return null;
   }
@@ -918,6 +943,23 @@ function buildPlainSummaryFromIntel(
     coreFr = coreFr.replace(/\.$/, "") + ` Il ou elle ${entMap[entity]}.`;
   }
   return coreFr;
+}
+
+function highRiskLinkLine(
+  link: ParsedLinkArtifact,
+  intel: Record<string, unknown>,
+  lang: "en" | "fr",
+  risk: "low" | "medium" | "high"
+): string | null {
+  if (risk !== "high") return null;
+  const entity = String(intel.impersonation_entity ?? "");
+  const suspiciousDomain = link.has_suspicious_tld || hostnameMayMimicBrand(link.domain, link.root_domain);
+  if (entity === "unknown" && !suspiciousDomain) return null;
+  const host = (link.final_root_domain || link.root_domain || link.domain || "").trim();
+  if (!host) return null;
+  return lang === "fr"
+    ? `Ce message redirige vers un domaine non officiel : ${host}.`
+    : `This message directs you to a non-official domain: ${host}.`;
 }
 
 /* ---------- Risk Meter ---------- */
@@ -1330,7 +1372,7 @@ export default function ResultPage() {
 
   const narrativeFamily = intel.narrative_family ?? "";
   const nextSteps = (t.narrativeNextSteps as Record<string, { action: string; explanation: string }[] | undefined>)?.[narrativeFamily] ?? t.guidance;
-  const interpretationUi = buildInterpretationUiLines(abuseInterpretation, lang);
+  const interpretationUi = buildInterpretationUiLines(abuseInterpretation, lang, risk);
   const usedInterpretationConcepts = new Set<InterpretationSurfaceConcept>();
   const consumeInterpretation = (lines: InterpretationLine[], limit: number): string[] => {
     const out: string[] = [];
@@ -1349,7 +1391,17 @@ export default function ResultPage() {
   const summaryRaw = result.summary_sentence || t.defaultSummary[risk];
   const apiSummary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
   const plainSummary = buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
-  const summary = plainSummary ?? apiSummary;
+  let summary = plainSummary ?? apiSummary;
+  if (abuseInterpretation?.concepts.includes("behaviorInfraCombo")) {
+    const clickLikeEn = /^This message prompts you to click a link\.?$/i;
+    const clickLikeFr = /^Ce message incite à cliquer sur un lien\.?$/i;
+    if ((lang === "en" && clickLikeEn.test(summary)) || (lang === "fr" && clickLikeFr.test(summary))) {
+      summary =
+        lang === "fr"
+          ? "Ce message combine une incitation à cliquer avec un modèle de lien non fiable."
+          : "This message combines a prompt to click with an untrusted link pattern.";
+    }
+  }
 
   const confidence: "low" | "medium" | "high" =
     result.intel_features?.confidence_level ?? "low";
@@ -1613,9 +1665,15 @@ export default function ResultPage() {
               <div style={styles.weakGateArtifact}>
                 {(() => {
                   const ls = linkSurfaceLines(linkArtifact, lang);
+                  const highRiskLine = highRiskLinkLine(
+                    linkArtifact,
+                    intel as Record<string, unknown>,
+                    lang,
+                    risk
+                  );
                   return (
                     <>
-                      <p className="text-sm leading-normal text-gray-900">{ls.line1}</p>
+                      <p className="text-sm leading-normal text-gray-900">{highRiskLine ?? ls.line1}</p>
                       {ls.line2 ? (
                         <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
                       ) : null}
@@ -1705,9 +1763,15 @@ export default function ResultPage() {
                 <div className="mt-3 text-sm leading-normal text-gray-900">
                   {(() => {
                     const ls = linkSurfaceLines(linkArtifact, lang);
+                    const highRiskLine = highRiskLinkLine(
+                      linkArtifact,
+                      intel as Record<string, unknown>,
+                      lang,
+                      risk
+                    );
                     return (
                       <>
-                        <p className="text-sm leading-normal text-gray-900">{ls.line1}</p>
+                        <p className="text-sm leading-normal text-gray-900">{highRiskLine ?? ls.line1}</p>
                         {ls.line2 ? (
                           <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
                         ) : null}
@@ -1991,31 +2055,33 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
   },
   weakGateTertiaryLink: {
-    alignSelf: "center",
+    alignSelf: "stretch",
     border: "none",
-    backgroundColor: "transparent",
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: 500,
+    background: "#2563EB",
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: 600,
     cursor: "pointer",
-    padding: "8px 8px 2px",
-    marginTop: 2,
-    textDecoration: "underline",
-    textUnderlineOffset: 3,
+    padding: "12px 16px",
+    marginTop: 4,
+    borderRadius: 10,
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
     fontFamily: "inherit",
+    textAlign: "center" as const,
   },
   mspTrigger: {
     display: "block",
     width: "100%",
-    padding: "12px 14px",
-    borderRadius: 8,
-    border: "1px solid #E5E7EB",
-    backgroundColor: "#F9FAFB",
-    color: "#374151",
+    padding: "14px 24px",
+    borderRadius: 12,
+    border: "none",
+    background: "#2563EB",
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: 500,
+    fontWeight: 600,
     cursor: "pointer",
-    textAlign: "left" as const,
+    textAlign: "center" as const,
+    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
   },
   mspCloseButton: {
     border: "none",

@@ -376,6 +376,28 @@ function nextStepLine(intel: unknown, lang: Lang): string | null {
   return g[narr] ?? g.unknown ?? null;
 }
 
+function normalizeMspSummary(summary: string, riskTier: string, lang: Lang): string {
+  const s = summary.trim();
+  if (!s) return summary;
+  const low = s.toLowerCase();
+  if (riskTier === "medium") {
+    if (
+      /potential phishing|manipulation tactics|may indicate/i.test(s) ||
+      /peut indiquer|tactiques de manipulation/i.test(s)
+    ) {
+      return lang === "fr"
+        ? "Contient un lien avec une destination non vérifiée — souvent utilisé lors des premières étapes d'hameçonnage."
+        : "Contains a link with an unverified destination — often used in early-stage phishing attempts.";
+    }
+    if (low.includes("untrusted link pattern") || low.includes("risky link pattern")) {
+      return lang === "fr"
+        ? "Contient un lien avec une destination non vérifiée — souvent utilisé lors des premières étapes d'hameçonnage."
+        : "Contains a link with an unverified destination — often used in early-stage phishing attempts.";
+    }
+  }
+  return summary;
+}
+
 function confidenceLabel(intel: unknown, lang: Lang): string | null {
   const o = asRecord(intel);
   if (!o) return null;
@@ -469,8 +491,9 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
   }
 
   const riskTier = String(scan.risk_tier ?? "low");
-  const summary =
+  const summaryRaw =
     scan.summary_sentence != null ? String(scan.summary_sentence) : t.none;
+  const summary = normalizeMspSummary(summaryRaw, riskTier, lang);
   const rawText =
     access.raw_text != null && String(access.raw_text).trim()
       ? String(access.raw_text)
