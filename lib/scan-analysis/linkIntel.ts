@@ -18,9 +18,31 @@ export type LinkIntelPrimaryV1 = {
   };
 };
 
+/** Result of expandUrl() — never includes "skipped" (route adds that). */
+export type ExpandUrlOutcome = {
+  status: "expanded" | "failed" | "timeout";
+  final_url?: string;
+  final_domain?: string;
+  final_root_domain?: string;
+  final_tld?: string;
+  redirect_count?: number;
+};
+
+export type LinkExpansionResult = ExpandUrlOutcome | { status: "skipped" };
+
+export type LinkIntelWebRiskV1 = {
+  status: "unsafe" | "unknown" | "skipped";
+  checked_url_type?: "expanded" | "primary";
+  checked_at: string;
+};
+
 export type LinkIntelV1 = {
   version: 1;
   primary: LinkIntelPrimaryV1;
+  /** Populated after optional async expansion (shortened links only). */
+  expansion?: LinkExpansionResult;
+  /** Optional external URL reputation check; never used for core risk scoring. */
+  web_risk?: LinkIntelWebRiskV1;
 };
 
 export function linkIntelFromArtifact(artifact: LinkArtifact): LinkIntelV1 {

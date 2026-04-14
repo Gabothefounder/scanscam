@@ -5,6 +5,14 @@
 
 import { Resend } from "resend";
 
+export type EscalationLinkIntel = {
+  primaryHost: string;
+  shortened: boolean;
+  expansionStatus: "expanded" | "failed" | "timeout" | "skipped" | null;
+  finalHost: string | null;
+  webRiskFlaggedUnsafe?: boolean;
+};
+
 export type EscalationPayload = {
   riskTier: string;
   summarySentence: string | null;
@@ -13,7 +21,6 @@ export type EscalationPayload = {
   userName: string;
   userCompany: string;
   userRole: string | null;
-  /** Optional user context for IT (API field: client_note). */
   clientNote: string | null;
   timestamp: string;
   scanId: string;
@@ -22,15 +29,15 @@ export type EscalationPayload = {
   requestedAction: string | null;
   threatStage: string | null;
   confidenceLevel: string | null;
+  linkIntel?: EscalationLinkIntel | null;
+  userAddedContext: string | null;
 };
 
 export type EmailParams = {
   payload: EscalationPayload;
   partnerName: string;
   partnerEmail: string;
-  /** Absolute URL to MSP full submission view; omitted from email if null */
   viewSubmissionUrl?: string | null;
-  /** For debug logs only — whether scans.submission_image_path was set */
   submissionImagePathPresent?: boolean;
 };
 
@@ -57,7 +64,6 @@ function truncateRawPreview(text: string, maxLen: number): string {
   return `${t.slice(0, maxLen)}…`;
 }
 
-/** Resend / transports can reject bodies containing NUL bytes; OCR can rarely emit them. */
 function stripNul(s: string): string {
   return s.replace(/\0/g, "");
 }
@@ -77,6 +83,64 @@ function normalizeViewSubmissionUrl(viewSubmissionUrl?: string | null): string |
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function formatLinkInMessageSectionPlain(link: EscalationLinkIntel): string[] {
+  const lines: string[] = [];
+  lines.push(`Link in this message`);
+  lines.push(``);
+  lines.push(`Submitted link host: ${link.primaryHost}`);
+  if (link.shortened) {
+    lines.push(`Shortened link: yes`);
+    if (link.expansionStatus === "expanded" && link.finalHost) {
+      lines.push(`Resolved destination: ${link.finalHost}`);
+    } else if (link.expansionStatus !== "expanded") {
+      lines.push(`Destination could not be resolved automatically`);
+    }
+    lines.push(
+      `Resolution is automatic and may not reflect the link at the time of access.`
+    );
+  }
+  if (link.webRiskFlaggedUnsafe) {
+    lines.push(`External link check: flagged as unsafe`);
+  }
+  lines.push(``);
+  return lines;
+}
+
+function formatLinkInMessageSectionHtml(link: EscalationLinkIntel): string {
+  const blocks: string[] = [];
+  blocks.push(
+    `<div style="margin:0 0 20px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">`
+  );
+  blocks.push(
+    `<p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">LINK IN THIS MESSAGE</p>`
+  );
+  blocks.push(
+    `<p style="margin:0 0 4px;font-size:14px;"><strong>Submitted link host:</strong> ${escapeHtml(link.primaryHost)}</p>`
+  );
+  if (link.shortened) {
+    blocks.push(`<p style="margin:0 0 4px;font-size:14px;">Shortened link: yes</p>`);
+    if (link.expansionStatus === "expanded" && link.finalHost) {
+      blocks.push(
+        `<p style="margin:0 0 4px;font-size:14px;"><strong>Resolved destination:</strong> ${escapeHtml(link.finalHost)}</p>`
+      );
+    } else if (link.expansionStatus !== "expanded") {
+      blocks.push(
+        `<p style="margin:0 0 4px;font-size:14px;color:#64748b;">Destination could not be resolved automatically</p>`
+      );
+    }
+    blocks.push(
+      `<p style="margin:8px 0 0;font-size:12px;color:#64748b;">Resolution is automatic and may not reflect the link at the time of access.</p>`
+    );
+  }
+  if (link.webRiskFlaggedUnsafe) {
+    blocks.push(
+      `<div style="margin:12px 0 0;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;"><p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">External link check: flagged as unsafe</p></div>`
+    );
+  }
+  blocks.push(`</div>`);
+  return blocks.join("");
+}
+
 export function formatEscalationBody(params: EmailParams): string {
   const { payload, partnerName } = params;
   const lines: string[] = [];
@@ -84,33 +148,53 @@ export function formatEscalationBody(params: EmailParams): string {
   const submittedRole = payload.userRole?.trim() || "(not provided)";
   const viewUrl = normalizeViewSubmissionUrl(params.viewSubmissionUrl);
 
-  lines.push(`ScanScam Alert — New suspicious message`);
+  lines.push(`========================================`);
+  lines.push(`SCANSCAM PARTNER ALERT`);
+  lines.push(`========================================`);
   lines.push(``);
-  lines.push(`Submitted by`);
+  lines.push(`New suspicious message — open the secure review page for full context when possible.`);
   lines.push(``);
+
+  if (viewUrl != null) {
+    lines.push(`REVIEW FULL SUBMISSION (primary)`);
+    lines.push(viewUrl);
+    lines.push(``);
+    lines.push(`----------------------------------------`);
+    lines.push(``);
+  }
+
+  lines.push(`RISK TIER`);
+  lines.push(`${payload.riskTier}`);
+  lines.push(``);
+  lines.push(`SUMMARY`);
+  lines.push(`${payload.summarySentence ?? "(none)"}`);
+  lines.push(``);
+
+  const added = payload.userAddedContext?.trim();
+  if (added) {
+    lines.push(`ADDED CONTEXT (from user in ScanScam)`);
+    lines.push(added);
+    lines.push(``);
+  }
+
+  if (payload.linkIntel) {
+    lines.push(...formatLinkInMessageSectionPlain(payload.linkIntel));
+  }
+
+  lines.push(`----------------------------------------`);
+  lines.push(`SUBMITTED BY`);
   lines.push(`Name: ${payload.userName}`);
   lines.push(`Company: ${submittedCompany}`);
   lines.push(`Role: ${submittedRole}`);
   lines.push(``);
-  lines.push(`User note`);
+  lines.push(`NOTE FOR IT PROVIDER`);
   lines.push(payload.clientNote?.trim() ? payload.clientNote.trim() : `(not provided)`);
   lines.push(``);
-  lines.push(`Submitted to`);
+  lines.push(`SUBMITTED TO`);
   lines.push(partnerName);
   lines.push(``);
-  lines.push(`Risk tier`);
-  lines.push(`${payload.riskTier}`);
-  lines.push(``);
-  lines.push(`Summary`);
-  lines.push(`${payload.summarySentence ?? "(none)"}`);
-  lines.push(``);
-  if (viewUrl != null) {
-    lines.push(`View full submission:`);
-    lines.push(viewUrl);
-    lines.push(``);
-  }
 
-  lines.push(`Raw message preview`);
+  lines.push(`RAW MESSAGE PREVIEW`);
   const rawForPreview =
     payload.rawMessage != null && String(payload.rawMessage).trim().length > 0
       ? String(payload.rawMessage)
@@ -118,20 +202,16 @@ export function formatEscalationBody(params: EmailParams): string {
   if (rawForPreview) {
     lines.push(truncateRawPreview(rawForPreview, RAW_PREVIEW_MAX_CHARS));
   } else if (viewUrl != null) {
-    lines.push(`(Not included here — open the secure link above for the full message.)`);
+    lines.push(`(Open the review link above for the full message.)`);
   } else {
     lines.push(`(Not available — user did not opt in to storing the full message.)`);
   }
   lines.push(``);
-  lines.push(`Scan details`);
+  lines.push(`SCAN DETAILS`);
   lines.push(`Scan ID: ${payload.scanId}`);
   lines.push(`Source: ${formatSourceLine(payload.source)}`);
   lines.push(``);
-  lines.push(`ScanScam`);
-  lines.push(`Fraud Signal Intelligence`);
-  lines.push(``);
-  lines.push(`Your next scan could stop the next scam.`);
-  lines.push(`Votre prochain scan peut arrêter la prochaine fraude.`);
+  lines.push(`ScanScam · Fraud Signal Intelligence`);
 
   return lines.join("\n");
 }
@@ -143,45 +223,67 @@ export function formatEscalationHtml(params: EmailParams): string {
   const userNote = payload.clientNote?.trim() ? payload.clientNote.trim() : "(not provided)";
   const submittedCompany = payload.userCompany?.trim() || "(not provided)";
   const submittedRole = payload.userRole?.trim() || "(not provided)";
+  const added = payload.userAddedContext?.trim();
   const rawForPreview =
     payload.rawMessage != null && String(payload.rawMessage).trim().length > 0
       ? truncateRawPreview(String(payload.rawMessage), RAW_PREVIEW_MAX_CHARS)
       : viewUrl != null
-        ? "(Not included here - open the secure link above for the full message.)"
+        ? "(Open the review button above for the full message.)"
         : "(Not available - user did not opt in to storing the full message.)";
 
-  return `
-<div style="font-family:Arial,Helvetica,sans-serif;color:#111827;line-height:1.5;font-size:14px;">
-  <p style="margin:0 0 8px 0;">ScanScam Alert - New suspicious message</p>
-  <p style="margin:0 0 4px 0;"><strong>Submitted by</strong></p>
-  <p style="margin:0;"><strong>Name:</strong> ${escapeHtml(payload.userName)}</p>
-  <p style="margin:0;"><strong>Company:</strong> ${escapeHtml(submittedCompany)}</p>
-  <p style="margin:0 0 16px 0;"><strong>Role:</strong> ${escapeHtml(submittedRole)}</p>
-  <p style="margin:0 0 4px 0;"><strong>User note</strong></p>
-  <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(userNote)}</p>
-  <p style="margin:0 0 4px 0;"><strong>Submitted to</strong></p>
-  <p style="margin:0 0 16px 0;">${escapeHtml(partnerName)}</p>
-  <p style="margin:0 0 4px 0;"><strong>Risk tier</strong></p>
-  <p style="margin:0 0 16px 0;">${escapeHtml(payload.riskTier)}</p>
-  <p style="margin:0 0 4px 0;"><strong>Summary</strong></p>
-  <p style="margin:0 0 16px 0;">${escapeHtml(summary)}</p>
-  ${
+  const addedBlock = added
+    ? `<div style="margin:0 0 20px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+  <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">ADDED CONTEXT</p>
+  <p style="margin:0;font-size:14px;white-space:pre-wrap;line-height:1.45;">${escapeHtml(added)}</p>
+</div>`
+    : "";
+
+  const ctaBlock =
     viewUrl != null
-      ? `<p style="margin:0 0 4px 0;"><strong>View full submission:</strong></p>
-  <p style="margin:0 0 16px 0;"><a href="${escapeHtml(viewUrl)}" style="color:#2563eb;text-decoration:underline;">${escapeHtml(viewUrl)}</a></p>`
-      : ""
-  }
-  <p style="margin:0 0 4px 0;"><strong>Raw message preview</strong></p>
-  <p style="margin:0 0 16px 0;white-space:pre-wrap;">${escapeHtml(rawForPreview)}</p>
-  <p style="margin:0 0 4px 0;"><strong>Scan details</strong></p>
-  <p style="margin:0;">Scan ID: ${escapeHtml(payload.scanId)}</p>
-  <p style="margin:0 0 16px 0;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
-  <hr style="margin-top:16px;margin-bottom:12px;border:none;border-top:1px solid #eee;" />
-  <p style="margin:0;font-size:16px;line-height:1.25;"><strong>ScanScam</strong></p>
-  <p style="margin:4px 0 0 0;">Fraud Signal Intelligence</p>
-  <p style="margin:10px 0 0 0;font-style:italic;">Your next scan could stop the next scam.</p>
-  <p style="margin:4px 0 0 0;font-style:italic;">Votre prochain scan peut arrêter la prochaine fraude.</p>
-</div>`.trim();
+      ? `<div style="margin:0 0 24px;text-align:center;">
+  <a href="${escapeHtml(viewUrl)}" style="display:inline-block;padding:14px 28px;background:#2563eb;color:#ffffff !important;font-weight:700;font-size:15px;text-decoration:none;border-radius:10px;">Open secure review page</a>
+  <p style="margin:10px 0 0;font-size:12px;color:#64748b;">Full message, context, and signals — primary triage surface</p>
+</div>`
+      : "";
+
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:600px;border-collapse:collapse;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+      <tr><td style="background:#0f172a;padding:20px 24px;">
+        <p style="margin:0;font-size:11px;font-weight:600;letter-spacing:0.08em;color:#94a3b8;">SCANSCAM PARTNER ALERT</p>
+        <p style="margin:8px 0 0;font-size:20px;font-weight:700;color:#f8fafc;line-height:1.25;">New suspicious message</p>
+      </td></tr>
+      <tr><td style="padding:24px 24px 8px;">
+        ${ctaBlock}
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">RISK TIER</p>
+        <p style="margin:0 0 20px;font-size:16px;font-weight:600;">${escapeHtml(payload.riskTier)}</p>
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">SUMMARY</p>
+        <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">${escapeHtml(summary)}</p>
+        ${addedBlock}
+        ${payload.linkIntel ? formatLinkInMessageSectionHtml(payload.linkIntel) : ""}
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0 20px;" />
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">SUBMITTED BY</p>
+        <p style="margin:0;font-size:14px;"><strong>Name:</strong> ${escapeHtml(payload.userName)}</p>
+        <p style="margin:4px 0 0;font-size:14px;"><strong>Company:</strong> ${escapeHtml(submittedCompany)}</p>
+        <p style="margin:4px 0 16px;font-size:14px;"><strong>Role:</strong> ${escapeHtml(submittedRole)}</p>
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">NOTE FOR IT PROVIDER</p>
+        <p style="margin:0 0 20px;font-size:14px;white-space:pre-wrap;line-height:1.45;">${escapeHtml(userNote)}</p>
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">SUBMITTED TO</p>
+        <p style="margin:0 0 20px;font-size:14px;">${escapeHtml(partnerName)}</p>
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">RAW MESSAGE PREVIEW</p>
+        <p style="margin:0 0 20px;font-size:13px;line-height:1.45;color:#374151;white-space:pre-wrap;">${escapeHtml(rawForPreview)}</p>
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;color:#64748b;">SCAN DETAILS</p>
+        <p style="margin:0;font-size:13px;color:#4b5563;">Scan ID: ${escapeHtml(payload.scanId)}</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#4b5563;">Source: ${escapeHtml(formatSourceLine(payload.source))}</p>
+      </td></tr>
+      <tr><td style="padding:16px 24px 24px;border-top:1px solid #f1f5f9;">
+        <p style="margin:0;font-size:15px;font-weight:700;">ScanScam</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#6b7280;">Fraud Signal Intelligence</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`.trim();
 }
 
 export async function sendPartnerEscalationEmail(
@@ -223,9 +325,10 @@ export async function sendPartnerEscalationEmail(
   body = stripNul(body);
   html = stripNul(html);
 
-  // TEMP (live email testing): force partner escalation delivery to this inbox.
-  // TODO: switch back to the real partner recipient (params.partnerEmail) after testing.
-  const recipient = "gestionrockwell@gmail.com";
+  const recipient = params.partnerEmail?.trim();
+  if (!recipient) {
+    return { ok: false, error: "Partner email address missing" };
+  }
 
   const resend = new Resend(apiKey);
 

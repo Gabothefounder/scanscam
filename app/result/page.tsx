@@ -48,6 +48,11 @@ const copy = {
       shortened: "Shortened link (destination hidden)",
       suspiciousTld: "Unusual domain ending (e.g. .xyz)",
       brandMimic: "Domain may mimic a known brand",
+      surfaceShortenedExpandedSingle: "This shortened link opens a page on {host}.",
+      surfaceShortenedUnresolvedLine1: "This message uses a shortened link.",
+      surfaceShortenedUnresolvedLine2: "We couldn’t confirm where it leads.",
+      surfaceNormalLink: "This message contains a link to {host}.",
+      webRiskUnsafeLine: "This link has been flagged by an external safety check.",
     },
     refinementIncomplete: {
       preliminaryBadge: "Limited analysis — a little context helps",
@@ -289,6 +294,11 @@ const copy = {
       shortened: "Lien raccourci (destination masquée)",
       suspiciousTld: "Terminaison de domaine inhabituelle (p. ex. .xyz)",
       brandMimic: "Le domaine peut évoquer une marque connue",
+      surfaceShortenedExpandedSingle: "Ce lien raccourci ouvre une page sur {host}.",
+      surfaceShortenedUnresolvedLine1: "Ce message utilise un lien raccourci.",
+      surfaceShortenedUnresolvedLine2: "Nous n’avons pas pu confirmer où il mène.",
+      surfaceNormalLink: "Ce message contient un lien vers {host}.",
+      webRiskUnsafeLine: "Ce lien a été signalé par une vérification de sécurité externe.",
     },
     refinementIncomplete: {
       preliminaryBadge: "Analyse limitée — un peu de contexte aide",
@@ -511,6 +521,9 @@ type ParsedLinkArtifact = {
   is_shortened: boolean;
   is_ip_address: boolean;
   has_suspicious_tld: boolean;
+  /** From link_intel.expansion when present. */
+  expansion_status: "expanded" | "failed" | "timeout" | "skipped" | null;
+  final_root_domain: string | null;
 };
 
 function parseLinkArtifactLegacy(intel: Record<string, unknown>): ParsedLinkArtifact | null {
@@ -525,10 +538,12 @@ function parseLinkArtifactLegacy(intel: Record<string, unknown>): ParsedLinkArti
     is_shortened: Boolean(a.is_shortened),
     is_ip_address: Boolean(a.is_ip_address),
     has_suspicious_tld: Boolean(a.has_suspicious_tld),
+    expansion_status: null,
+    final_root_domain: null,
   };
 }
 
-/** Fallback when link_artifact is absent but intel_features.link_intel (v1) is present. */
+/** Preferred: intel_features.link_intel (v1), including expansion when present. */
 function parseLinkIntelV1(intel: Record<string, unknown>): ParsedLinkArtifact | null {
   const raw = intel.link_intel;
   if (!raw || typeof raw !== "object") return null;
@@ -538,6 +553,21 @@ function parseLinkIntelV1(intel: Record<string, unknown>): ParsedLinkArtifact | 
   if (!p || typeof p !== "object") return null;
   const pr = p as Record<string, unknown>;
   const flags = pr.flags && typeof pr.flags === "object" ? (pr.flags as Record<string, unknown>) : null;
+  let expansion_status: ParsedLinkArtifact["expansion_status"] = null;
+  let final_root_domain: string | null = null;
+  const exp = li.expansion;
+  if (exp && typeof exp === "object" && "status" in exp) {
+    const st = String((exp as { status: unknown }).status);
+    if (st === "expanded" || st === "failed" || st === "timeout" || st === "skipped") {
+      expansion_status = st;
+    }
+    if (expansion_status === "expanded") {
+      const e = exp as Record<string, unknown>;
+      const fr = typeof e.final_root_domain === "string" ? e.final_root_domain.trim() : "";
+      const fd = typeof e.final_domain === "string" ? e.final_domain.trim() : "";
+      final_root_domain = fr || fd || null;
+    }
+  }
   return {
     url: typeof pr.url === "string" ? pr.url : undefined,
     domain: typeof pr.domain === "string" ? pr.domain : null,
@@ -546,11 +576,55 @@ function parseLinkIntelV1(intel: Record<string, unknown>): ParsedLinkArtifact | 
     is_shortened: Boolean(flags?.shortened),
     is_ip_address: Boolean(flags?.ip_host),
     has_suspicious_tld: Boolean(flags?.suspicious_tld),
+    expansion_status,
+    final_root_domain,
   };
 }
 
 function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact | null {
-  return parseLinkArtifactLegacy(intel) ?? parseLinkIntelV1(intel);
+  return parseLinkIntelV1(intel) ?? parseLinkArtifactLegacy(intel);
+}
+
+function linkWebRiskUnsafeFromIntel(intel: Record<string, unknown>): boolean {
+  try {
+    const raw = intel.link_intel;
+    if (!raw || typeof raw !== "object") return false;
+    const li = raw as Record<string, unknown>;
+    const wr = li.web_risk;
+    if (!wr || typeof wr !== "object") return false;
+    return (wr as { status?: unknown }).status === "unsafe";
+  } catch {
+    return false;
+  }
+}
+
+function linkSurfaceLines(
+  link: ParsedLinkArtifact,
+  lang: "en" | "fr"
+): { line1: string; line2: string | null } {
+  const t = copy[lang].linkIntel;
+  const primaryHost = (link.root_domain || link.domain || "").trim();
+  const expandedWithHost =
+    link.is_shortened && link.expansion_status === "expanded" && Boolean(link.final_root_domain);
+  if (expandedWithHost) {
+    return {
+      line1: t.surfaceShortenedExpandedSingle.replace("{host}", link.final_root_domain as string),
+      line2: null,
+    };
+  }
+  if (link.is_shortened) {
+    return {
+      line1: t.surfaceShortenedUnresolvedLine1,
+      line2: t.surfaceShortenedUnresolvedLine2,
+    };
+  }
+  if (primaryHost) {
+    return { line1: t.surfaceNormalLink.replace("{host}", primaryHost), line2: null };
+  }
+  const fromUrl = link.url
+    ? (link.url.replace(/^https?:\/\//i, "").split("/")[0] ?? "").trim()
+    : "";
+  return { line1: t.surfaceNormalLink.replace("{host}", fromUrl), line2: null };
 }
 
 /** Mirrors scan API heuristics for neutral “brand-like host” messaging (no network). */
@@ -1023,6 +1097,7 @@ export default function ResultPage() {
 
   if (!result) return null;
   const linkArtifact = parseLinkArtifact(intel as Record<string, unknown>);
+  const linkWebRiskUnsafe = linkWebRiskUnsafeFromIntel(intel as Record<string, unknown>);
   const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
   const groundedReasons: string[] = (() => {
@@ -1339,10 +1414,22 @@ export default function ResultPage() {
             <p style={styles.weakGateBodySecondary}>
               {partner ? wg.bodyLine2Partner : wg.bodyLine2Public}
             </p>
-            {showGateLinkLine && (
+            {showGateLinkLine && linkArtifact && (
               <div style={styles.weakGateArtifact}>
-                <p className="text-xs text-gray-600">{t.linkIntel.detectedLabel}</p>
-                <p className="mt-0.5 font-semibold break-all text-gray-900">{linkDisplayDomain}</p>
+                {(() => {
+                  const ls = linkSurfaceLines(linkArtifact, lang);
+                  return (
+                    <>
+                      <p className="text-sm leading-normal text-gray-900">{ls.line1}</p>
+                      {ls.line2 ? (
+                        <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
+                      ) : null}
+                      {linkWebRiskUnsafe ? (
+                        <p className="mt-2 text-sm leading-normal text-gray-900">{t.linkIntel.webRiskUnsafeLine}</p>
+                      ) : null}
+                    </>
+                  );
+                })()}
               </div>
             )}
             {showGatePhoneLine && (
@@ -1412,17 +1499,24 @@ export default function ResultPage() {
                 {summary}
               </p>
               {linkArtifact && (
-                <p className="mt-2 text-sm leading-normal text-gray-800">{t.linkIntel.linkBeforeClick}</p>
-              )}
-              {linkArtifact && linkDisplayDomain && (
                 <div className="mt-3 text-sm leading-normal text-gray-900">
-                  <p className="text-xs text-gray-600">{t.linkIntel.detectedLabel}</p>
-                  <p className="mt-0.5 font-semibold break-all text-gray-900">{linkDisplayDomain}</p>
-                  {(linkArtifact.is_shortened ||
-                    linkArtifact.has_suspicious_tld ||
+                  {(() => {
+                    const ls = linkSurfaceLines(linkArtifact, lang);
+                    return (
+                      <>
+                        <p className="text-sm leading-normal text-gray-900">{ls.line1}</p>
+                        {ls.line2 ? (
+                          <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
+                        ) : null}
+                        {linkWebRiskUnsafe ? (
+                          <p className="mt-2 text-sm leading-normal text-gray-900">{t.linkIntel.webRiskUnsafeLine}</p>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                  {(linkArtifact.has_suspicious_tld ||
                     hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain)) && (
                     <ul className="mt-2 list-disc space-y-1 pl-[18px] text-xs leading-normal text-gray-600">
-                      {linkArtifact.is_shortened && <li>{t.linkIntel.shortened}</li>}
                       {linkArtifact.has_suspicious_tld && <li>{t.linkIntel.suspiciousTld}</li>}
                       {hostnameMayMimicBrand(linkArtifact.domain, linkArtifact.root_domain) && (
                         <li>{t.linkIntel.brandMimic}</li>

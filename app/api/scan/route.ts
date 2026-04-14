@@ -10,6 +10,8 @@ import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
 import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
 import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
+import { expandUrl } from "@/lib/scan-analysis/expandUrl";
+import { lookupWebRisk } from "@/lib/scan-analysis/webRiskLookup";
 import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
 import { passesScanTextAdmission } from "@/lib/scan/scanTextAdmission";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -1828,6 +1830,51 @@ export async function POST(req: Request) {
     const riskTier = result.risk_tier ?? "low";
     const linkExtracted = extractLinkArtifacts(contentText);
     const link_intel = linkExtracted ? linkIntelFromArtifact(linkExtracted) : null;
+    if (link_intel) {
+      if (link_intel.primary.flags.shortened) {
+        try {
+          const expansion = await expandUrl(link_intel.primary.url);
+          link_intel.expansion = expansion;
+        } catch {
+          link_intel.expansion = { status: "failed" };
+        }
+      } else {
+        link_intel.expansion = { status: "skipped" };
+      }
+
+      let urlForWebRisk: string | null = null;
+      let webRiskCheckedType: "expanded" | "primary" | null = null;
+      if (link_intel.primary.flags.shortened) {
+        const exp = link_intel.expansion;
+        if (
+          exp &&
+          exp.status === "expanded" &&
+          typeof exp.final_url === "string" &&
+          exp.final_url.trim().length > 0
+        ) {
+          urlForWebRisk = exp.final_url.trim();
+          webRiskCheckedType = "expanded";
+        }
+      } else {
+        urlForWebRisk =
+          typeof link_intel.primary.url === "string" ? link_intel.primary.url.trim() : null;
+        if (urlForWebRisk) webRiskCheckedType = "primary";
+      }
+
+      if (urlForWebRisk && webRiskCheckedType) {
+        const webRisk = await lookupWebRisk(urlForWebRisk);
+        link_intel.web_risk = {
+          status: webRisk.status,
+          checked_url_type: webRiskCheckedType,
+          checked_at: new Date().toISOString(),
+        };
+      } else {
+        link_intel.web_risk = {
+          status: "skipped",
+          checked_at: new Date().toISOString(),
+        };
+      }
+    }
     const linkArtifact = link_intel ? linkArtifactFromLinkIntel(link_intel) : null;
     const refinementSemanticsBoost = isRefinedAnalysis && hasMeaningfulContext;
     const semanticPrimary =
@@ -1887,6 +1934,9 @@ export async function POST(req: Request) {
           ? {
               context_refined: true,
               user_context_length: contextText.length,
+              user_context_text: refinementSemanticsBoost
+                ? contextText.trim().slice(0, 8000)
+                : undefined,
               analysis_mode: "refined",
               refinement_nonce: refinement_nonce ?? null,
             }

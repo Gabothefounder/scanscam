@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPartnerBySlug } from "@/lib/partners";
 import { logEvent } from "@/lib/observability";
 import {
   sendPartnerEscalationEmail,
+  type EscalationLinkIntel,
   type EscalationPayload,
 } from "@/lib/partnerEscalationEmail";
 
@@ -16,6 +17,70 @@ const FROM_EMAIL = "ScanScam <alerts@scanscam.ca>";
 
 const CLIENT_NOTE_MAX_LEN = 2000;
 const MSP_ACCESS_EXPIRY_DAYS = 21;
+
+
+
+/** Safe extract of link fields for MSP email; never throws. */
+function escalationLinkIntelFromScanIntel(
+  intel: Record<string, unknown>
+): EscalationLinkIntel | null {
+  try {
+    const raw = intel.link_intel;
+    if (raw && typeof raw === "object" && (raw as { version?: unknown }).version === 1) {
+      const li = raw as Record<string, unknown>;
+      const p = li.primary;
+      if (p && typeof p === "object") {
+        const pr = p as Record<string, unknown>;
+        const flags =
+          pr.flags && typeof pr.flags === "object" ? (pr.flags as Record<string, unknown>) : {};
+        const root = typeof pr.root_domain === "string" ? pr.root_domain.trim() : "";
+        const dom = typeof pr.domain === "string" ? pr.domain.trim() : "";
+        const primaryHost = root || dom;
+        if (!primaryHost) return null;
+        const shortened = Boolean(flags.shortened);
+        let expansionStatus: EscalationLinkIntel["expansionStatus"] = null;
+        let finalHost: string | null = null;
+        const exp = li.expansion;
+        if (exp && typeof exp === "object" && "status" in exp) {
+          const st = String((exp as { status: unknown }).status);
+          if (st === "expanded" || st === "failed" || st === "timeout" || st === "skipped") {
+            expansionStatus = st;
+          }
+          if (expansionStatus === "expanded") {
+            const e = exp as Record<string, unknown>;
+            const fr =
+              typeof e.final_root_domain === "string" ? e.final_root_domain.trim() : "";
+            const fd = typeof e.final_domain === "string" ? e.final_domain.trim() : "";
+            finalHost = fr || fd || null;
+          }
+        }
+        let webRiskFlaggedUnsafe = false;
+        const wr = li.web_risk;
+        if (wr && typeof wr === "object" && String((wr as { status?: unknown }).status) === "unsafe") {
+          webRiskFlaggedUnsafe = true;
+        }
+        return { primaryHost, shortened, expansionStatus, finalHost, webRiskFlaggedUnsafe };
+      }
+    }
+    const leg = intel.link_artifact;
+    if (leg && typeof leg === "object") {
+      const a = leg as Record<string, unknown>;
+      const root = typeof a.root_domain === "string" ? a.root_domain.trim() : "";
+      const dom = typeof a.domain === "string" ? a.domain.trim() : "";
+      const primaryHost = root || dom;
+      if (!primaryHost) return null;
+      return {
+        primaryHost,
+        shortened: Boolean(a.is_shortened),
+        expansionStatus: null,
+        finalHost: null,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 /** Absolute origin for MSP links: no trailing slash, single scheme (no double https://). */
 function getPublicAppBaseUrl(): string | null {
@@ -108,6 +173,12 @@ export async function POST(req: Request) {
 
     const intel = (scanRow.intel_features ?? {}) as Record<string, unknown>;
 
+    const userAddedContextRaw = intel.user_context_text;
+    const userAddedContext =
+      typeof userAddedContextRaw === "string" && userAddedContextRaw.trim().length > 0
+        ? userAddedContextRaw.trim().slice(0, 8000)
+        : null;
+
     const payload: EscalationPayload = {
       riskTier: String(scanRow.risk_tier ?? "low"),
       summarySentence:
@@ -118,6 +189,7 @@ export async function POST(req: Request) {
       userCompany,
       userRole,
       clientNote,
+      userAddedContext,
       timestamp: scanRow.created_at
         ? new Date(scanRow.created_at).toISOString()
         : new Date().toISOString(),
@@ -131,6 +203,10 @@ export async function POST(req: Request) {
       threatStage: intel.threat_stage != null ? String(intel.threat_stage) : null,
       confidenceLevel:
         intel.confidence_level != null ? String(intel.confidence_level) : null,
+      ...(() => {
+        const linkIntel = escalationLinkIntelFromScanIntel(intel);
+        return linkIntel ? { linkIntel } : {};
+      })(),
     };
 
     const rawText = rawRow?.message_text != null ? String(rawRow.message_text) : null;
