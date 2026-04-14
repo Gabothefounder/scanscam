@@ -54,12 +54,15 @@ function escalationLinkIntelFromScanIntel(
             finalHost = fr || fd || null;
           }
         }
-        let webRiskFlaggedUnsafe = false;
+        let webRiskStatus: EscalationLinkIntel["webRiskStatus"];
         const wr = li.web_risk;
-        if (wr && typeof wr === "object" && String((wr as { status?: unknown }).status) === "unsafe") {
-          webRiskFlaggedUnsafe = true;
+        if (wr && typeof wr === "object") {
+          const st = String((wr as { status?: unknown }).status);
+          if (st === "unsafe" || st === "unknown" || st === "skipped") {
+            webRiskStatus = st;
+          }
         }
-        return { primaryHost, shortened, expansionStatus, finalHost, webRiskFlaggedUnsafe };
+        return { primaryHost, shortened, expansionStatus, finalHost, webRiskStatus };
       }
     }
     const leg = intel.link_artifact;

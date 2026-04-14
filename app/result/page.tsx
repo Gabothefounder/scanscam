@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
@@ -52,7 +52,9 @@ const copy = {
       surfaceShortenedUnresolvedLine1: "This message uses a shortened link.",
       surfaceShortenedUnresolvedLine2: "We couldn’t confirm where it leads.",
       surfaceNormalLink: "This message contains a link to {host}.",
-      webRiskUnsafeLine: "This link has been flagged by an external safety check.",
+      webRiskLineUnsafe: "Flagged by external threat intelligence",
+      webRiskLineUnknown: "No known threats detected in external database",
+      webRiskLineSkipped: "Link not checked by external database",
     },
     refinementIncomplete: {
       preliminaryBadge: "Limited analysis — a little context helps",
@@ -298,7 +300,9 @@ const copy = {
       surfaceShortenedUnresolvedLine1: "Ce message utilise un lien raccourci.",
       surfaceShortenedUnresolvedLine2: "Nous n’avons pas pu confirmer où il mène.",
       surfaceNormalLink: "Ce message contient un lien vers {host}.",
-      webRiskUnsafeLine: "Ce lien a été signalé par une vérification de sécurité externe.",
+      webRiskLineUnsafe: "Signalé par une base de menaces externe",
+      webRiskLineUnknown: "Aucune menace connue détectée dans la base externe",
+      webRiskLineSkipped: "Lien non vérifié par la base externe",
     },
     refinementIncomplete: {
       preliminaryBadge: "Analyse limitée — un peu de contexte aide",
@@ -585,16 +589,20 @@ function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact |
   return parseLinkIntelV1(intel) ?? parseLinkArtifactLegacy(intel);
 }
 
-function linkWebRiskUnsafeFromIntel(intel: Record<string, unknown>): boolean {
+type WebRiskUiStatus = "unsafe" | "unknown" | "skipped";
+
+function linkWebRiskStatusFromIntel(intel: Record<string, unknown>): WebRiskUiStatus | null {
   try {
     const raw = intel.link_intel;
-    if (!raw || typeof raw !== "object") return false;
+    if (!raw || typeof raw !== "object") return null;
     const li = raw as Record<string, unknown>;
     const wr = li.web_risk;
-    if (!wr || typeof wr !== "object") return false;
-    return (wr as { status?: unknown }).status === "unsafe";
+    if (!wr || typeof wr !== "object") return null;
+    const st = String((wr as { status?: unknown }).status);
+    if (st === "unsafe" || st === "unknown" || st === "skipped") return st as WebRiskUiStatus;
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -1016,6 +1024,18 @@ export default function ResultPage() {
     });
   }, [contextMode, contextTriggerReason, scanIdForContext, inputType, result]);
 
+  const openPartnerEscalationForm = useCallback(() => {
+    const ctx =
+      typeof intel.user_context_text === "string" && intel.user_context_text.trim().length > 0
+        ? intel.user_context_text.trim()
+        : "";
+    setEscalationForm((prev) => ({
+      ...prev,
+      client_note: ctx ? ctx : prev.client_note,
+    }));
+    setShowEscalationForm(true);
+  }, [intel.user_context_text]);
+
   function isMeaningfulContext(v: string): boolean {
     const cleaned = v.replace(/[\s`'"()[\]{}<>.,;:!?-]/g, "");
     return cleaned.length >= 8;
@@ -1097,7 +1117,7 @@ export default function ResultPage() {
 
   if (!result) return null;
   const linkArtifact = parseLinkArtifact(intel as Record<string, unknown>);
-  const linkWebRiskUnsafe = linkWebRiskUnsafeFromIntel(intel as Record<string, unknown>);
+  const linkWebRiskStatus = linkWebRiskStatusFromIntel(intel as Record<string, unknown>);
   const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
   const groundedReasons: string[] = (() => {
@@ -1365,7 +1385,7 @@ export default function ResultPage() {
           <p style={styles.mspBelowCardHint}>{t.mspBelowCardHint}</p>
           <button
             type="button"
-            onClick={() => setShowEscalationForm(true)}
+                       onClick={openPartnerEscalationForm}
             style={styles.primaryMspCtaButton}
           >
             {t.mspTrigger}
@@ -1375,7 +1395,7 @@ export default function ResultPage() {
       );
     }
     return (
-      <button type="button" onClick={() => setShowEscalationForm(true)} style={styles.mspTrigger}>
+      <button type="button" onClick={openPartnerEscalationForm} style={styles.mspTrigger}>
         {t.mspTrigger}
       </button>
     );
@@ -1424,8 +1444,16 @@ export default function ResultPage() {
                       {ls.line2 ? (
                         <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
                       ) : null}
-                      {linkWebRiskUnsafe ? (
-                        <p className="mt-2 text-sm leading-normal text-gray-900">{t.linkIntel.webRiskUnsafeLine}</p>
+                      {linkWebRiskStatus ? (
+                        <p
+                          className={`mt-2 text-sm leading-normal ${linkWebRiskStatus === "unsafe" ? "font-semibold text-red-800" : "text-gray-900"}`}
+                        >
+                          {linkWebRiskStatus === "unsafe"
+                            ? t.linkIntel.webRiskLineUnsafe
+                            : linkWebRiskStatus === "unknown"
+                              ? t.linkIntel.webRiskLineUnknown
+                              : t.linkIntel.webRiskLineSkipped}
+                        </p>
                       ) : null}
                     </>
                   );
@@ -1468,7 +1496,7 @@ export default function ResultPage() {
                 {!showEscalationForm && escalationStatus !== "success" && (
                   <button
                     type="button"
-                    onClick={() => setShowEscalationForm(true)}
+                    onClick={openPartnerEscalationForm}
                     style={styles.weakGateTertiaryLink}
                   >
                     {t.mspTrigger}
@@ -1508,8 +1536,16 @@ export default function ResultPage() {
                         {ls.line2 ? (
                           <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
                         ) : null}
-                        {linkWebRiskUnsafe ? (
-                          <p className="mt-2 text-sm leading-normal text-gray-900">{t.linkIntel.webRiskUnsafeLine}</p>
+                        {linkWebRiskStatus ? (
+                          <p
+                            className={`mt-2 text-sm leading-normal ${linkWebRiskStatus === "unsafe" ? "font-semibold text-red-800" : "text-gray-900"}`}
+                          >
+                            {linkWebRiskStatus === "unsafe"
+                              ? t.linkIntel.webRiskLineUnsafe
+                              : linkWebRiskStatus === "unknown"
+                                ? t.linkIntel.webRiskLineUnknown
+                                : t.linkIntel.webRiskLineSkipped}
+                          </p>
                         ) : null}
                       </>
                     );

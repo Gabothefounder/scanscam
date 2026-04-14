@@ -1,16 +1,25 @@
-/**
+﻿/**
  * Partner escalation email formatting and delivery.
  * Uses Resend. Requires RESEND_API_KEY and RESEND_FROM_EMAIL.
  */
 
 import { Resend } from "resend";
 
+export type WebRiskDisplayStatus = "unsafe" | "unknown" | "skipped";
+
 export type EscalationLinkIntel = {
   primaryHost: string;
   shortened: boolean;
   expansionStatus: "expanded" | "failed" | "timeout" | "skipped" | null;
   finalHost: string | null;
-  webRiskFlaggedUnsafe?: boolean;
+  /** Present when `link_intel.web_risk` exists with a known status. */
+  webRiskStatus?: WebRiskDisplayStatus;
+};
+
+const WEB_RISK_LINE: Record<WebRiskDisplayStatus, string> = {
+  unsafe: "Flagged by external threat intelligence",
+  unknown: "No known threats detected in external database",
+  skipped: "Link not checked by external database",
 };
 
 export type EscalationPayload = {
@@ -99,8 +108,8 @@ function formatLinkInMessageSectionPlain(link: EscalationLinkIntel): string[] {
       `Resolution is automatic and may not reflect the link at the time of access.`
     );
   }
-  if (link.webRiskFlaggedUnsafe) {
-    lines.push(`External link check: flagged as unsafe`);
+  if (link.webRiskStatus) {
+    lines.push(`External link check: ${WEB_RISK_LINE[link.webRiskStatus]}`);
   }
   lines.push(``);
   return lines;
@@ -132,9 +141,16 @@ function formatLinkInMessageSectionHtml(link: EscalationLinkIntel): string {
       `<p style="margin:8px 0 0;font-size:12px;color:#64748b;">Resolution is automatic and may not reflect the link at the time of access.</p>`
     );
   }
-  if (link.webRiskFlaggedUnsafe) {
+  if (link.webRiskStatus) {
+    const isUnsafe = link.webRiskStatus === "unsafe";
+    const boxStyle = isUnsafe
+      ? "margin:12px 0 0;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;"
+      : "margin:12px 0 0;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;";
+    const textStyle = isUnsafe
+      ? "margin:0;font-size:13px;font-weight:700;color:#991b1b;"
+      : "margin:0;font-size:13px;color:#334155;";
     blocks.push(
-      `<div style="margin:12px 0 0;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;"><p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">External link check: flagged as unsafe</p></div>`
+      `<div style="${boxStyle}"><p style="${textStyle}">External link check: ${escapeHtml(WEB_RISK_LINE[link.webRiskStatus])}</p></div>`
     );
   }
   blocks.push(`</div>`);

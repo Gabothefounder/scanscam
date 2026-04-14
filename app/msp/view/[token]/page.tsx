@@ -36,7 +36,9 @@ const copy = {
     linkIntel: "Link details",
     submittedHost: "Submitted link host",
     resolvedDest: "Resolved destination",
-    webRiskUnsafe: "External link check: flagged as unsafe",
+    webRiskLineUnsafe: "Flagged by external threat intelligence",
+    webRiskLineUnknown: "No known threats detected in external database",
+    webRiskLineSkipped: "Link not checked by external database",
     confidence: "System confidence",
     image: "Image",
     submittedImageAlt: "Submitted image",
@@ -65,7 +67,9 @@ const copy = {
     linkIntel: "Détails du lien",
     submittedHost: "Hôte du lien soumis",
     resolvedDest: "Destination résolue",
-    webRiskUnsafe: "Vérification de lien externe : signalé comme dangereux",
+    webRiskLineUnsafe: "Signalé par une base de menaces externe",
+    webRiskLineUnknown: "Aucune menace connue détectée dans la base externe",
+    webRiskLineSkipped: "Lien non vérifié par la base externe",
     confidence: "Confiance du système",
     image: "Image",
     submittedImageAlt: "Image soumise",
@@ -94,7 +98,7 @@ type LinkMsp = {
   primaryHost: string;
   resolvedDest: string | null;
   shortened: boolean;
-  webRiskUnsafe: boolean;
+  webRiskStatus: "unsafe" | "unknown" | "skipped" | null;
 };
 
 function linkIntelForMsp(intel: unknown): LinkMsp | null {
@@ -123,9 +127,14 @@ function linkIntelForMsp(intel: unknown): LinkMsp | null {
       resolvedDest = fr || fd || null;
     }
     const wr = li.web_risk;
-    const webRiskUnsafe =
-      wr && typeof wr === "object" && (wr as { status?: unknown }).status === "unsafe";
-    return { primaryHost, resolvedDest, shortened, webRiskUnsafe: Boolean(webRiskUnsafe) };
+    let webRiskStatus: LinkMsp["webRiskStatus"] = null;
+    if (wr && typeof wr === "object") {
+      const st = String((wr as { status?: unknown }).status);
+      if (st === "unsafe" || st === "unknown" || st === "skipped") {
+        webRiskStatus = st;
+      }
+    }
+    return { primaryHost, resolvedDest, shortened, webRiskStatus };
   } catch {
     return null;
   }
@@ -513,8 +522,21 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
                   : "Shortened link: destination could not be resolved automatically."}
               </p>
             ) : null}
-            {linkMsp.webRiskUnsafe ? (
-              <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: "#b91c1c" }}>{t.webRiskUnsafe}</p>
+            {linkMsp.webRiskStatus ? (
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 14,
+                  fontWeight: linkMsp.webRiskStatus === "unsafe" ? 600 : 400,
+                  color: linkMsp.webRiskStatus === "unsafe" ? "#b91c1c" : "#374151",
+                }}
+              >
+                {linkMsp.webRiskStatus === "unsafe"
+                  ? t.webRiskLineUnsafe
+                  : linkMsp.webRiskStatus === "unknown"
+                    ? t.webRiskLineUnknown
+                    : t.webRiskLineSkipped}
+              </p>
             ) : null}
           </section>
         ) : null}
