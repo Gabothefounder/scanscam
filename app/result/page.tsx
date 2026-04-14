@@ -7,6 +7,11 @@ import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
+import {
+  parseAbuseInterpretationForSurface,
+  type InterpretationSurfaceConcept,
+  type ParsedAbuseInterpretationForSurface,
+} from "@/lib/scan-analysis/interpretationSurface";
 
 const firedOnce = new Set<string>();
 
@@ -590,17 +595,8 @@ function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact |
 }
 
 type WebRiskUiStatus = "unsafe" | "unknown" | "skipped";
-type InterpretationConcept =
-  | "brand_mismatch"
-  | "hidden_destination"
-  | "free_hosting"
-  | "suspicious_tld"
-  | "suspicious_structure"
-  | "behavior_infra_combo"
-  | "verify_official_channel";
-
 type InterpretationLine = {
-  concept: InterpretationConcept;
+  concept: InterpretationSurfaceConcept;
   text: string;
 };
 
@@ -608,17 +604,6 @@ type AbuseInterpretationUi = {
   riskCard: InterpretationLine[];
   whyFlagged: InterpretationLine[];
   nextStep: InterpretationLine[];
-};
-
-type AbuseInterpretationLike = {
-  brand_claim?: unknown;
-  brand_mismatch?: unknown;
-  official_domain_expected?: unknown;
-  hidden_destination?: unknown;
-  domain_category?: unknown;
-  suspicious_structure?: unknown;
-  risk_boost_floor?: unknown;
-  infra_explanations?: unknown;
 };
 
 function normalizeBrandLabel(claim: string): string {
@@ -642,16 +627,8 @@ function normalizeBrandLabel(claim: string): string {
   return map[claim] ?? claim;
 }
 
-function abuseInterpretationFromIntel(intel: Record<string, unknown>): AbuseInterpretationLike | null {
-  const raw = intel.abuse_interpretation_v1;
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  if (o.version !== 1) return null;
-  return o as AbuseInterpretationLike;
-}
-
 function buildInterpretationUiLines(
-  abuse: AbuseInterpretationLike | null,
+  abuse: ParsedAbuseInterpretationForSurface | null,
   lang: "en" | "fr"
 ): AbuseInterpretationUi {
   if (!abuse) return { riskCard: [], whyFlagged: [], nextStep: [] };
@@ -660,119 +637,112 @@ function buildInterpretationUiLines(
   const nextStep: InterpretationLine[] = [];
   const line = (en: string, fr: string) => (lang === "fr" ? fr : en);
 
-  const brandClaimRaw = typeof abuse.brand_claim === "string" ? abuse.brand_claim.trim() : "";
+  const brandClaimRaw = abuse.brandClaim ?? "";
   const brandLabel = brandClaimRaw ? normalizeBrandLabel(brandClaimRaw) : "this service";
-  const brandMismatch = abuse.brand_mismatch === true;
-  const officialExpected = abuse.official_domain_expected === true;
-  const hiddenDestination = abuse.hidden_destination === true;
-  const suspiciousStructure = abuse.suspicious_structure === true;
-  const domainCategory = typeof abuse.domain_category === "string" ? abuse.domain_category : "";
-  const riskBoostFloor = abuse.risk_boost_floor === "high" || abuse.risk_boost_floor === "medium"
-    ? abuse.risk_boost_floor
-    : null;
-  const infraIds = Array.isArray(abuse.infra_explanations)
-    ? abuse.infra_explanations.filter((x): x is string => typeof x === "string")
-    : [];
-  const hasBehaviorInfraCombo = infraIds.includes("behavior_infra_combo");
+  const conceptSet = new Set(abuse.concepts);
 
-  if (brandMismatch && officialExpected) {
-    riskCard.push({
-      concept: "brand_mismatch",
-      text: line(
-        `This link does not use an official ${brandLabel} domain.`,
-        `Ce lien n'utilise pas un domaine officiel de ${brandLabel}.`
-      ),
-    });
-    whyFlagged.push({
-      concept: "brand_mismatch",
-      text: line(
-        `The message claims to be from ${brandLabel}, but the link is not on an official ${brandLabel} website.`,
-        `Le message prétend venir de ${brandLabel}, mais le lien n'est pas sur un site officiel de ${brandLabel}.`
-      ),
-    });
-  }
-  if (hiddenDestination) {
-    riskCard.push({
-      concept: "hidden_destination",
-      text: line(
-        "This link hides its final destination.",
-        "Ce lien masque sa destination finale."
-      ),
-    });
-    whyFlagged.push({
-      concept: "hidden_destination",
-      text: line(
-        "The destination is hidden behind a shortened or wrapped link.",
-        "La destination est masquée derrière un lien raccourci ou enveloppé."
-      ),
-    });
-  }
-  if (domainCategory === "free_hosting") {
-    riskCard.push({
-      concept: "free_hosting",
-      text: line(
-        "This link uses a free website platform often seen in phishing pages.",
-        "Ce lien utilise une plateforme gratuite souvent vue dans des pages d'hameçonnage."
-      ),
-    });
-    whyFlagged.push({
-      concept: "free_hosting",
-      text: line(
-        "The linked page uses disposable-style hosting not typical for official account requests.",
-        "La page liée utilise un hébergement peu typique des demandes de compte officielles."
-      ),
-    });
-  }
-  if (domainCategory === "suspicious_tld") {
-    riskCard.push({
-      concept: "suspicious_tld",
-      text: line(
-        "This link uses an unusual domain ending not typically used by official services.",
-        "Ce lien utilise une terminaison de domaine inhabituelle, rarement utilisée par des services officiels."
-      ),
-    });
-  }
-  if (suspiciousStructure) {
-    riskCard.push({
-      concept: "suspicious_structure",
-      text: line(
-        "This link structure looks unusual for a normal service request.",
-        "La structure de ce lien semble inhabituelle pour une demande de service normale."
-      ),
-    });
-  }
-  if (hasBehaviorInfraCombo || riskBoostFloor === "high") {
-    whyFlagged.push({
-      concept: "behavior_infra_combo",
-      text: line(
-        "The message combines a request for action with a risky link pattern.",
-        "Le message combine une demande d'action avec un modèle de lien risqué."
-      ),
-    });
+  for (const concept of abuse.concepts) {
+    if (concept === "behaviorInfraCombo") {
+      riskCard.push({
+        concept,
+        text: line(
+          "This message combines a request for action with a risky link pattern.",
+          "Ce message combine une demande d'action et un modèle de lien risqué."
+        ),
+      });
+      whyFlagged.push({
+        concept,
+        text: line(
+          "Action intent and link risk signals appear together in this message.",
+          "L'intention d'action et les signaux de risque du lien apparaissent ensemble dans ce message."
+        ),
+      });
+    } else if (concept === "brandMismatch") {
+      riskCard.push({
+        concept,
+        text: line(
+          `This link does not use an official ${brandLabel} domain.`,
+          `Ce lien n'utilise pas un domaine officiel de ${brandLabel}.`
+        ),
+      });
+      whyFlagged.push({
+        concept,
+        text: line(
+          `The message claims to be from ${brandLabel}, but the link is not on an official ${brandLabel} website.`,
+          `Le message prétend venir de ${brandLabel}, mais le lien n'est pas sur un site officiel de ${brandLabel}.`
+        ),
+      });
+    } else if (concept === "hiddenDestination") {
+      riskCard.push({
+        concept,
+        text: line(
+          "This link hides its final destination.",
+          "Ce lien masque sa destination finale."
+        ),
+      });
+      whyFlagged.push({
+        concept,
+        text: line(
+          "The destination is hidden behind a shortened or wrapped link.",
+          "La destination est masquée derrière un lien raccourci ou enveloppé."
+        ),
+      });
+    } else if (concept === "freeHosting") {
+      riskCard.push({
+        concept,
+        text: line(
+          "This link uses a free website platform often seen in phishing pages.",
+          "Ce lien utilise une plateforme gratuite souvent vue dans des pages d'hameçonnage."
+        ),
+      });
+      whyFlagged.push({
+        concept,
+        text: line(
+          "The linked page uses disposable-style hosting not typical for official account requests.",
+          "La page liée utilise un hébergement peu typique des demandes de compte officielles."
+        ),
+      });
+    } else if (concept === "suspiciousTld") {
+      riskCard.push({
+        concept,
+        text: line(
+          "This link uses an unusual domain ending not typically used by official services.",
+          "Ce lien utilise une terminaison de domaine inhabituelle, rarement utilisée par des services officiels."
+        ),
+      });
+    } else if (concept === "suspiciousStructure") {
+      riskCard.push({
+        concept,
+        text: line(
+          "This link structure looks unusual for a normal service request.",
+          "La structure de ce lien semble inhabituelle pour une demande de service normale."
+        ),
+      });
+    }
   }
 
-  if (brandMismatch || officialExpected || riskBoostFloor === "high") {
+  if (conceptSet.has("behaviorInfraCombo")) {
     nextStep.push({
-      concept: "verify_official_channel",
+      concept: "verifyOfficialChannel",
       text: line(
         "Verify this request through the official website or app instead of this link.",
         "Vérifiez cette demande via le site ou l'application officielle plutôt qu'avec ce lien."
       ),
     });
-  } else if (hiddenDestination || domainCategory === "free_hosting" || domainCategory === "suspicious_tld") {
+  } else if (conceptSet.has("brandMismatch") || abuse.riskBoostFloor === "high") {
     nextStep.push({
-      concept: "verify_official_channel",
-      text: line(
-        "Open the official service manually in your browser to confirm this request.",
-        "Ouvrez le service officiel manuellement dans votre navigateur pour confirmer cette demande."
-      ),
-    });
-  } else if (hasBehaviorInfraCombo) {
-    nextStep.push({
-      concept: "verify_official_channel",
+      concept: "verifyOfficialChannel",
       text: line(
         "Do not log in or enter payment details through the linked page.",
         "N'entrez pas vos identifiants ni vos paiements via la page liée."
+      ),
+    });
+  } else if (conceptSet.has("hiddenDestination") || conceptSet.has("freeHosting") || conceptSet.has("suspiciousTld")) {
+    nextStep.push({
+      concept: "verifyOfficialChannel",
+      text: line(
+        "Open the official service manually in your browser to confirm this request.",
+        "Ouvrez le service officiel manuellement dans votre navigateur pour confirmer cette demande."
       ),
     });
   }
@@ -1307,7 +1277,7 @@ export default function ResultPage() {
   if (!result) return null;
   const linkArtifact = parseLinkArtifact(intel as Record<string, unknown>);
   const linkWebRiskStatus = linkWebRiskStatusFromIntel(intel as Record<string, unknown>);
-  const abuseInterpretation = abuseInterpretationFromIntel(intel as Record<string, unknown>);
+  const abuseInterpretation = parseAbuseInterpretationForSurface(intel as Record<string, unknown>);
   const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
   const groundedReasons: string[] = (() => {
@@ -1361,7 +1331,7 @@ export default function ResultPage() {
   const narrativeFamily = intel.narrative_family ?? "";
   const nextSteps = (t.narrativeNextSteps as Record<string, { action: string; explanation: string }[] | undefined>)?.[narrativeFamily] ?? t.guidance;
   const interpretationUi = buildInterpretationUiLines(abuseInterpretation, lang);
-  const usedInterpretationConcepts = new Set<InterpretationConcept>();
+  const usedInterpretationConcepts = new Set<InterpretationSurfaceConcept>();
   const consumeInterpretation = (lines: InterpretationLine[], limit: number): string[] => {
     const out: string[] = [];
     for (const l of lines) {

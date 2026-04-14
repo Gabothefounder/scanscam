@@ -1,4 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  parseAbuseInterpretationForSurface,
+  type InterpretationSurfaceConcept,
+} from "@/lib/scan-analysis/interpretationSurface";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +89,91 @@ const copy = {
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+}
+
+type InterpretationLine = {
+  concept: InterpretationSurfaceConcept;
+  text: string;
+};
+
+function buildMspInterpretationLines(
+  intel: Record<string, unknown>,
+  lang: Lang
+): { whyLines: InterpretationLine[]; nextLines: InterpretationLine[] } {
+  const parsed = parseAbuseInterpretationForSurface(intel);
+  if (!parsed) return { whyLines: [], nextLines: [] };
+  const whyLines: InterpretationLine[] = [];
+  const nextLines: InterpretationLine[] = [];
+  const line = (en: string, fr: string) => (lang === "fr" ? fr : en);
+  const brand = parsed.brandClaim ? parsed.brandClaim.toUpperCase() : "claimed brand";
+
+  for (const concept of parsed.concepts) {
+    if (concept === "behaviorInfraCombo") {
+      whyLines.push({
+        concept,
+        text: line(
+          "Combines urgency with an obfuscated link — consistent with phishing delivery patterns.",
+          "Combine l'urgence avec un lien obscurci — cohérent avec des schémas de distribution d'hameçonnage."
+        ),
+      });
+    } else if (concept === "brandMismatch") {
+      whyLines.push({
+        concept,
+        text: line(
+          `Brand/domain mismatch detected: claim references ${brand} while destination is outside official domains.`,
+          `Incohérence marque/domaine détectée : la revendication mentionne ${brand} alors que la destination est hors des domaines officiels.`
+        ),
+      });
+    } else if (concept === "hiddenDestination") {
+      whyLines.push({
+        concept,
+        text: line(
+          "Destination is obscured via shortener/wrapper behavior.",
+          "La destination est masquée via un lien raccourci/enveloppé."
+        ),
+      });
+    } else if (concept === "freeHosting") {
+      whyLines.push({
+        concept,
+        text: line(
+          "Linked infrastructure uses free-hosting patterns frequently seen in disposable phishing pages.",
+          "L'infrastructure liée utilise des schémas d'hébergement gratuit souvent observés dans des pages d'hameçonnage jetables."
+        ),
+      });
+    } else if (concept === "suspiciousTld") {
+      whyLines.push({
+        concept,
+        text: line(
+          "Destination uses a high-risk domain ending atypical for official service flows.",
+          "La destination utilise une terminaison de domaine à risque, atypique pour des flux de service officiels."
+        ),
+      });
+    }
+  }
+
+  if (parsed.concepts.includes("behaviorInfraCombo") || parsed.concepts.includes("brandMismatch")) {
+    nextLines.push({
+      concept: "verifyOfficialChannel",
+      text: line(
+        "Validate through official channel and block credential/payment entry from this path.",
+        "Validez via un canal officiel et bloquez toute saisie d'identifiants/paiement depuis ce chemin."
+      ),
+    });
+  } else if (
+    parsed.concepts.includes("hiddenDestination") ||
+    parsed.concepts.includes("freeHosting") ||
+    parsed.concepts.includes("suspiciousTld")
+  ) {
+    nextLines.push({
+      concept: "verifyOfficialChannel",
+      text: line(
+        "Open official service manually and verify request provenance before any user action.",
+        "Ouvrez le service officiel manuellement et vérifiez la provenance de la demande avant toute action utilisateur."
+      ),
+    });
+  }
+
+  return { whyLines, nextLines };
 }
 
 function userAddedContextFromIntel(intel: unknown): string | null {
@@ -338,10 +427,25 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
   if (scanError || !scan) return renderInvalidPage(t);
 
   const intel = (scan as { intel_features?: unknown }).intel_features;
+  const intelObj = asRecord(intel) ?? {};
   const addedContext = userAddedContextFromIntel(intel);
   const linkMsp = linkIntelForMsp(intel);
   const whyLines = whyFlaggedLines(intel, lang);
   const nextLine = nextStepLine(intel, lang);
+  const interpretation = buildMspInterpretationLines(intelObj, lang);
+  const usedConcepts = new Set<InterpretationSurfaceConcept>();
+  const takeInterpretation = (lines: InterpretationLine[], limit: number): string[] => {
+    const out: string[] = [];
+    for (const l of lines) {
+      if (out.length >= limit) break;
+      if (usedConcepts.has(l.concept)) continue;
+      usedConcepts.add(l.concept);
+      out.push(l.text);
+    }
+    return out;
+  };
+  const whyInterpretationLines = takeInterpretation(interpretation.whyLines, 2);
+  const nextInterpretationLines = takeInterpretation(interpretation.nextLines, 1);
   const conf = confidenceLabel(intel, lang);
 
   let signedImageUrl: string | null = null;
@@ -481,7 +585,7 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
           <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{summary}</p>
         </section>
 
-        {whyLines.length > 0 ? (
+        {whyLines.length > 0 || whyInterpretationLines.length > 0 ? (
           <section style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
               {t.whyFlagged}
@@ -490,16 +594,26 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
               {whyLines.map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
+              {whyInterpretationLines.map((line, i) => (
+                <li key={`interp-${i}`}>{line}</li>
+              ))}
             </ul>
           </section>
         ) : null}
 
-        {nextLine ? (
+        {nextLine || nextInterpretationLines.length > 0 ? (
           <section style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
               {t.whatNext}
             </h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "#374151" }}>{nextLine}</p>
+            {nextLine ? (
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "#374151" }}>{nextLine}</p>
+            ) : null}
+            {nextInterpretationLines.map((line, i) => (
+              <p key={`next-interp-${i}`} style={{ margin: nextLine ? "8px 0 0" : 0, fontSize: 14, lineHeight: 1.5, color: "#374151", fontWeight: 500 }}>
+                {line}
+              </p>
+            ))}
           </section>
         ) : null}
 
