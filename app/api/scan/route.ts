@@ -13,6 +13,7 @@ import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/ext
 import { expandUrl } from "@/lib/scan-analysis/expandUrl";
 import { lookupWebRisk } from "@/lib/scan-analysis/webRiskLookup";
 import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
+import { buildAbuseInterpretation } from "@/lib/scan-analysis/abuseInterpretation";
 import { passesScanTextAdmission } from "@/lib/scan/scanTextAdmission";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
@@ -1141,6 +1142,16 @@ function applyRiskTierCalibrationFloors(
   return t;
 }
 
+function applyRiskFloorRecommendation(
+  current: "low" | "medium" | "high",
+  floor?: "medium" | "high"
+): "low" | "medium" | "high" {
+  if (!floor) return current;
+  if (floor === "high") return "high";
+  if (floor === "medium" && current === "low") return "medium";
+  return current;
+}
+
 function confidenceCalibrationRank(level: string): number {
   if (level === "high") return 2;
   if (level === "medium") return 1;
@@ -2044,6 +2055,15 @@ export async function POST(req: Request) {
     });
     Object.assign(intel_features, harmonizeNarratives(intel_features as Record<string, unknown>));
 
+    const abuseInterpretation = buildAbuseInterpretation({
+      intel: intel_features as Record<string, unknown>,
+      linkIntel: link_intel,
+      rawText: contentText,
+    });
+    if (abuseInterpretation) {
+      (intel_features as Record<string, unknown>).abuse_interpretation_v1 = abuseInterpretation;
+    }
+
     if (!isInsufficientContext) {
       const reconAction = !intelSlotMissing(intel_features.requested_action)
         ? String(intel_features.requested_action)
@@ -2065,6 +2085,11 @@ export async function POST(req: Request) {
       refined: refinementSemanticsBoost,
       hasLinkArtifact: Boolean(linkArtifact),
     });
+
+    finalRiskTier = applyRiskFloorRecommendation(
+      finalRiskTier,
+      abuseInterpretation?.risk_boost_floor
+    );
 
     applyConfidenceCalibration(intel_features as Record<string, unknown>, {
       isInsufficientContext,
