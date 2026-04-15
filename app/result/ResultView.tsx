@@ -13,6 +13,7 @@ import {
   type InterpretationSurfaceConcept,
   type ParsedAbuseInterpretationForSurface,
 } from "@/lib/scan-analysis/interpretationSurface";
+import { scanApiUserMessage } from "@/lib/scan/scanApiUserMessage";
 
 const firedOnce = new Set<string>();
 
@@ -195,6 +196,15 @@ const copy = {
     },
     footerAdvisory:
       "ScanScam provides a pattern-based risk assessment. When in doubt, verify through the official source.",
+    feedbackNotAccurate:
+      "Not accurate? Send this result to your IT provider or reply to your ScanScam contact.",
+    refinementLineage: "Refined from a previous analysis",
+    resultLoadNotFound:
+      "This result could not be found or the link is no longer valid.",
+    contextRefinementNeedMore:
+      "Please add a bit more context so we can continue analysis.",
+    contextRefinementOriginalUnavailable:
+      "Original submission is unavailable for refinement.",
     whySuspicious: "Why this was flagged",
     groundedReasons: {
       limited_context: "Limited context — not enough information to classify reliably",
@@ -447,6 +457,15 @@ const copy = {
     },
     footerAdvisory:
       "ScanScam fournit une évaluation du risque basée sur des modèles de fraude connus. En cas de doute, vérifiez auprès de la source officielle.",
+    feedbackNotAccurate:
+      "Résultat inexact? Transmettez-le à votre équipe TI ou répondez à votre contact ScanScam.",
+    refinementLineage: "Analyse raffinée à partir d’un message précédent",
+    resultLoadNotFound:
+      "Ce résultat est introuvable ou le lien n'est plus valide.",
+    contextRefinementNeedMore:
+      "Veuillez ajouter un peu plus de contexte pour poursuivre l’analyse.",
+    contextRefinementOriginalUnavailable:
+      "La soumission d’origine n’est pas disponible pour l’affinage.",
     whySuspicious: "Pourquoi nous l’avons signalé",
     groundedReasons: {
       limited_context: "Contexte limité — pas assez d'informations pour classer de façon fiable",
@@ -1153,10 +1172,11 @@ export default function ResultView() {
                 applyHydrationSideEffects(data.result as Record<string, unknown>);
               } else {
                 setResult(null);
+                const code = data?.code as string | undefined;
                 setResultLoadError(
-                  nextLang === "fr"
-                    ? "Ce résultat est introuvable ou le lien n'est plus valide."
-                    : "This result could not be found or the link is no longer valid."
+                  code === "not_found"
+                    ? copy[nextLang].resultLoadNotFound
+                    : scanApiUserMessage(nextLang, code, data?.message as string | undefined)
                 );
                 logScanEvent("scan_error", {
                   props: { error_code: "result_recovery_failed" },
@@ -1165,11 +1185,7 @@ export default function ResultView() {
             } catch {
               if (!cancelled) {
                 setResult(null);
-                setResultLoadError(
-                  nextLang === "fr"
-                    ? "Impossible de charger ce résultat pour le moment."
-                    : "Could not load this result right now."
-                );
+                setResultLoadError(scanApiUserMessage(nextLang, undefined, undefined));
                 logScanEvent("scan_error", {
                   props: { error_code: "result_recovery_failed" },
                 });
@@ -1219,6 +1235,9 @@ export default function ResultView() {
   const submissionRoute = String(intel.submission_route ?? "");
   const knownCoreCount = Number(intel.known_core_dimension_count ?? 0);
   const wasRefined = intel.context_refined === true;
+  const hasRefinementParent = Boolean(
+    (intel as Record<string, unknown>).refinement_parent_scan_id
+  );
   const dataQuality = result?.data_quality as { url_only?: boolean } | undefined;
   const urlOnlyFlag = Boolean(dataQuality?.url_only);
 
@@ -1349,11 +1368,11 @@ export default function ResultView() {
   const submitContextRefinement = async () => {
     if (!result) return;
     if (!isMeaningfulContext(contextText)) {
-      setContextError("Please add a bit more context so we can continue analysis.");
+      setContextError(t.contextRefinementNeedMore);
       return;
     }
     if (!initialSubmissionText || initialSubmissionText.trim().length === 0) {
-      setContextError("Original submission is unavailable for refinement.");
+      setContextError(t.contextRefinementOriginalUnavailable);
       return;
     }
     setContextError(null);
@@ -1385,7 +1404,13 @@ export default function ResultView() {
       });
       const data = await res.json();
       if (!data?.ok || !data?.result) {
-        setContextError("We couldn't refine this analysis right now. Please try again.");
+        setContextError(
+          scanApiUserMessage(
+            lang,
+            data?.code as string | undefined,
+            data?.message as string | undefined
+          )
+        );
         setContextLoading(false);
         return;
       }
@@ -1414,7 +1439,7 @@ export default function ResultView() {
         },
       });
     } catch {
-      setContextError("We couldn't refine this analysis right now. Please try again.");
+      setContextError(scanApiUserMessage(lang, undefined, undefined));
       setContextLoading(false);
     }
   };
@@ -1917,6 +1942,14 @@ export default function ResultView() {
                 label={t.tier[risk]}
                 levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`}
               />
+              {hasRefinementParent && (
+                <p
+                  className="text-center text-xs text-gray-500"
+                  style={styles.refinementLineage}
+                >
+                  {t.refinementLineage}
+                </p>
+              )}
               <p className="text-sm text-gray-900" style={styles.summary}>
                 {summary}
               </p>
@@ -2085,6 +2118,9 @@ export default function ResultView() {
             {t.scanAnother}
           </a>
         )}
+        <p className="text-xs text-gray-500" style={styles.feedbackEscape}>
+          {t.feedbackNotAccurate}
+        </p>
         <p className="text-xs text-gray-500" style={styles.footerAdvisory}>
           {t.footerAdvisory}
         </p>
@@ -2488,6 +2524,19 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center" as const,
     textDecoration: "none",
     boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
+  },
+
+  feedbackEscape: {
+    textAlign: "center" as const,
+    margin: "4px 0 0",
+    lineHeight: 1.45,
+    color: "#6B7280",
+    fontSize: 12,
+  },
+
+  refinementLineage: {
+    margin: "0 0 8px",
+    lineHeight: 1.45,
   },
 
   footerAdvisory: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { scanApiUserMessage } from "@/lib/scan/scanApiUserMessage";
 import { passesScanTextAdmission, scanTextAdmissionErrorMessage } from "@/lib/scan/scanTextAdmission";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import type { PartnerConfig } from "@/lib/partners";
@@ -12,7 +13,6 @@ const copy = {
     uploadLabel: "📷 Upload a screenshot",
     button: "Scan",
     buttonLoading: "Analyzing…",
-    errorGeneric: "Something went wrong. Please try again.",
     errorTextAdmission: scanTextAdmissionErrorMessage("en"),
   },
   fr: {
@@ -21,7 +21,6 @@ const copy = {
     uploadLabel: "📷 Téléverser une capture d'écran",
     button: "Analyser",
     buttonLoading: "Analyse en cours…",
-    errorGeneric: "Une erreur est survenue. Veuillez réessayer.",
     errorTextAdmission: scanTextAdmissionErrorMessage("fr"),
   },
 };
@@ -136,7 +135,13 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
         logScanEvent("scan_error", {
           props: { error_code: (data?.code as string) ?? "api_error" },
         });
-        setError(data.message);
+        setError(
+          scanApiUserMessage(
+            lang,
+            data?.code as string | undefined,
+            data?.message as string | undefined
+          )
+        );
         setLoading(false);
         return;
       }
@@ -152,7 +157,7 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
       onScanSuccess(data.result);
     } catch {
       logScanEvent("scan_error", { props: { error_code: "network_error" } });
-      setError(t.errorGeneric);
+      setError(scanApiUserMessage(lang, undefined, undefined));
       setLoading(false);
     }
   };
