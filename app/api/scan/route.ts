@@ -15,6 +15,7 @@ import { lookupWebRisk } from "@/lib/scan-analysis/webRiskLookup";
 import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
 import { buildAbuseInterpretation } from "@/lib/scan-analysis/abuseInterpretation";
 import { passesScanTextAdmission } from "@/lib/scan/scanTextAdmission";
+import { getInsufficientContextSummary } from "@/lib/scan/insufficientContextSummary";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
@@ -1983,6 +1984,10 @@ export async function POST(req: Request) {
       (intel_features as Record<string, unknown>).intel_state = "weak_signal";
     }
 
+    if (isRefinedAnalysis && refinement_parent_scan_id) {
+      (intel_features as Record<string, unknown>).refinement_parent_scan_id = refinement_parent_scan_id;
+    }
+
     /* ---------- Trust-floor guardrail: cap risk for insufficient/fragment context ---------- */
     let finalRiskTier = riskTier as "low" | "medium" | "high";
     let finalSummary: string | null = result.summary_sentence ?? null;
@@ -1998,7 +2003,7 @@ export async function POST(req: Request) {
       if (linkArtifact && enrichment.contextQuality === "fragment") {
         finalSummary = summaryForLinkOnlyFragment(linkArtifact, language);
       } else {
-        finalSummary = "Not enough context is available to classify this reliably. Proceed with caution.";
+        finalSummary = getInsufficientContextSummary(language);
       }
     } else {
       const aiSum = String(finalSummary ?? "").trim();
@@ -2149,26 +2154,12 @@ export async function POST(req: Request) {
     const lp = sanitize(landing_path);
     if (lp != null) scanRow.landing_path = lp;
 
-    let scanData: { id?: string } | null = null;
-    let scanError: { message?: string } | null = null;
-    if (isRefinedAnalysis && refinement_parent_scan_id) {
-      const { data, error } = await supabase
-        .from("scans")
-        .update(scanRow)
-        .eq("id", refinement_parent_scan_id)
-        .select("id")
-        .single();
-      scanData = (data as { id?: string } | null) ?? null;
-      scanError = (error as { message?: string } | null) ?? null;
-    } else {
-      const { data, error } = await supabase
-        .from("scans")
-        .insert(scanRow)
-        .select("id")
-        .single();
-      scanData = (data as { id?: string } | null) ?? null;
-      scanError = (error as { message?: string } | null) ?? null;
-    }
+    /** Refined analysis always inserts a new row so shared canonical URLs stay stable. */
+    const { data: scanData, error: scanError } = await supabase
+      .from("scans")
+      .insert(scanRow)
+      .select("id")
+      .single();
 
     const persisted = !scanError;
     let scanId = persisted ? (scanData?.id ?? null) : null;

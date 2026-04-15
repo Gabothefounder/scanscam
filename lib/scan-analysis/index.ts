@@ -47,6 +47,7 @@ export function buildScanEnrichment(input: ScanAnalysisInput): ScanAnalysisResul
   });
 
   // 7. Summary
+  const lang = input.language === "fr" ? "fr" : "en";
   const summary = explain({
     submissionRoute,
     narrativeFamily: extractResult.narrativeFamily,
@@ -56,6 +57,7 @@ export function buildScanEnrichment(input: ScanAnalysisInput): ScanAnalysisResul
     confidenceLevel: riskResult.confidenceLevel,
     contextQuality,
     riskTier: riskResult.riskTier,
+    language: lang,
   });
 
   // 8. Return

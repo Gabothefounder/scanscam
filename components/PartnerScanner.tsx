@@ -41,7 +41,12 @@ export function PartnerScanner({ partner }: Props) {
     if (Object.keys(attrProps).length > 0) {
       sessionStorage.setItem("scan_attribution", JSON.stringify(attrProps));
     }
-    router.push(`/result?lang=${lang}&partner=${partner.slug}`);
+    const scanId = typeof result.scan_id === "string" ? result.scan_id.trim() : "";
+    if (scanId) {
+      router.push(`/result/${scanId}?lang=${lang}&partner=${partner.slug}`);
+    } else {
+      router.push(`/result?lang=${lang}&partner=${partner.slug}`);
+    }
   };
 
   if (!mounted) return null;

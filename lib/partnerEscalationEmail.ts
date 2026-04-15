@@ -220,7 +220,7 @@ export function formatEscalationBody(params: EmailParams): string {
   } else if (viewUrl != null) {
     lines.push(`(Open the review link above for the full message.)`);
   } else {
-    lines.push(`(Not available — user did not opt in to storing the full message.)`);
+    lines.push(`(Original submission text was not retained for this scan.)`);
   }
   lines.push(``);
   lines.push(`SCAN DETAILS`);
@@ -245,7 +245,7 @@ export function formatEscalationHtml(params: EmailParams): string {
       ? truncateRawPreview(String(payload.rawMessage), RAW_PREVIEW_MAX_CHARS)
       : viewUrl != null
         ? "(Open the review button above for the full message.)"
-        : "(Not available - user did not opt in to storing the full message.)";
+        : "(Original submission text was not retained for this scan.)";
 
   const addedBlock = added
     ? `<div style="margin:0 0 20px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">

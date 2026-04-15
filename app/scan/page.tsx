@@ -65,7 +65,12 @@ export default function ScanPage() {
     if (Object.keys(attrProps).length > 0) {
       sessionStorage.setItem("scan_attribution", JSON.stringify(attrProps));
     }
-    router.push(`/result?lang=${lang}`);
+    const scanId = typeof result.scan_id === "string" ? result.scan_id.trim() : "";
+    if (scanId) {
+      router.push(`/result/${scanId}?lang=${lang}`);
+    } else {
+      router.push(`/result?lang=${lang}`);
+    }
   };
 
   if (!mounted) return null;

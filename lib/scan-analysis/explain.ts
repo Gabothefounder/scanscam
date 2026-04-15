@@ -3,6 +3,8 @@
  * Never use: safe, guaranteed, criminal, scammer
  */
 
+import { getInsufficientContextSummary } from "@/lib/scan/insufficientContextSummary";
+
 export type ExplainInput = {
   submissionRoute: string;
   narrativeFamily: string;
@@ -12,6 +14,8 @@ export type ExplainInput = {
   confidenceLevel: string;
   contextQuality?: string;
   riskTier?: "low" | "medium" | "high";
+  /** When set, insufficient-context fallbacks match persisted /api/scan language. */
+  language?: "en" | "fr";
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -73,11 +77,12 @@ export function explain(input: ExplainInput): string {
     confidenceLevel,
     contextQuality,
     riskTier = "low",
+    language = "en",
   } = input;
 
-  // insufficient_context: always use cautious fallback
+  // insufficient_context: always use cautious fallback (language-aligned with persistence path)
   if (isInsufficientContext(submissionRoute, contextQuality)) {
-    return "Not enough context is available to classify this reliably. Proceed with caution.";
+    return getInsufficientContextSummary(language === "fr" ? "fr" : "en");
   }
 
   // -------------------------------------------------------------------------
