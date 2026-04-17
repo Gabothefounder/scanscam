@@ -1484,7 +1484,7 @@ async function persistOcrSubmissionImage(scanId: string, dataUrl: string): Promi
     upsert: false,
   });
   if (uploadError) {
-    console.error("[scan_persist_image]", uploadError.message);
+    console.error("[scan_persist_image] upload failed");
     return false;
   }
   const { error: updateError } = await supabase
@@ -1492,7 +1492,7 @@ async function persistOcrSubmissionImage(scanId: string, dataUrl: string): Promi
     .update({ submission_image_path: objectPath })
     .eq("id", scanId);
   if (updateError) {
-    console.error("[scan_persist_image_path]", updateError.message);
+    console.error("[scan_persist_image_path] update failed");
     return false;
   }
   return true;
@@ -1600,7 +1600,6 @@ export async function POST(req: Request) {
 
   /* ---------- Parse body (JSON or FormData) ---------- */
   const contentType = req.headers.get("content-type") ?? "";
-  console.log("[scan_debug]", { contentType });
 
   let text: string | undefined;
   let image: string | undefined;
@@ -1902,7 +1901,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { intel_features: rawLegacyIntel, mode: intelMode } = extractIntelFeatures(
+    const { intel_features: rawLegacyIntel } = extractIntelFeatures(
       result,
       analysisText,
       semanticPrimary,
@@ -2172,7 +2171,6 @@ export async function POST(req: Request) {
         context_quality: thinLowGuardMeta.context_quality,
         confidence_level: thinLowGuardMeta.confidence_level,
       };
-      console.warn("[thin_low_confidence_guardrail]", JSON.stringify(guardPayload));
       void logEvent("thin_low_confidence_guardrail", "info", "scan_api", guardPayload);
     }
 
@@ -2199,15 +2197,6 @@ export async function POST(req: Request) {
         }
       }
     }
-
-    /* ---------- Structured log ---------- */
-    console.log("[scan_persist]", JSON.stringify({
-      scan_id: scanId,
-      persisted,
-      raw_opt_in: rawOptIn,
-      intel_features_mode: intelMode,
-      supabase_error: scanError?.message ?? rawMessageError ?? null,
-    }));
 
     /**
      * 🔑 CANONICAL RESPONSE
@@ -2249,7 +2238,7 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     logEvent("analysis_failed", "critical", "ai");
-    console.error("SCAN_ANALYSIS_FAILED", err);
+    console.error("SCAN_ANALYSIS_FAILED");
     return reject(
       "analysis_failed",
       language === "fr"

@@ -14,7 +14,7 @@ export async function GET() {
     const payload = await buildRadarMspContextPayload(supabase);
     return NextResponse.json(payload);
   } catch (e) {
-    console.error("[radar-msp-context]", e);
+    console.error("[radar-msp-context] request failed");
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "radar_msp_context_failed" },
       { status: 500 }

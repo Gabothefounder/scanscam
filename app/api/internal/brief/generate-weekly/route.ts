@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      console.error("[generate-weekly] Supabase upsert:", error);
+      console.error("[generate-weekly] Supabase upsert failed");
       return NextResponse.json(
         { ok: false, error: "Failed to save weekly brief" },
         { status: 500 }
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
       brief_url: briefUrl,
     });
   } catch (err) {
-    console.error("[generate-weekly]", err);
+    console.error("[generate-weekly] request failed");
     return NextResponse.json(
       { ok: false, error: "Failed to generate weekly brief" },
       { status: 500 }

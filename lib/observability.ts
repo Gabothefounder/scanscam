@@ -34,7 +34,7 @@ export async function logEvent(
       ...(scan_id ? { scan_id } : {}),
     });
     if (error) {
-      console.error("[observability] events insert failed:", error);
+      console.error("[observability] events insert failed");
     }
   } catch {
     // Observability must never break the app

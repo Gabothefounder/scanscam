@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.error("[brief/weekly] Supabase:", error);
+      console.error("[brief/weekly] Supabase query failed");
       return NextResponse.json(
         { error: "Failed to load weekly brief" },
         { status: 500 }
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const payload = row.brief_json as BriefWeeklyResponse;
     return NextResponse.json(payload, { status: 200 });
   } catch (err) {
-    console.error("[brief/weekly]", err);
+    console.error("[brief/weekly] request failed");
     return NextResponse.json(
       { error: "Failed to load weekly brief" },
       { status: 500 }

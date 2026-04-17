@@ -223,7 +223,7 @@ export async function GET() {
 
     return NextResponse.json(payload, { status: 200 });
   } catch (err) {
-    console.error("[system-analysis-v2]", err);
+    console.error("[system-analysis-v2] request failed");
     return NextResponse.json(
       {
         generated_at_utc: new Date().toISOString(),

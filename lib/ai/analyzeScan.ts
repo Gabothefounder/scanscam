@@ -110,9 +110,10 @@ function trimForUI(result: AnalysisResult): AnalysisResult {
 }
 
 function logInternalFailure(code: string, details: string[]) {
+  const detailCount = Array.isArray(details) ? details.length : 0;
   console.warn("[AI_PARSE_FAILURE]", {
     code,
-    details,
+    detail_count: detailCount,
     timestamp: new Date().toISOString(),
   });
 }

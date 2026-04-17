@@ -310,21 +310,6 @@ export async function sendPartnerEscalationEmail(
     return { ok: false, error: "Email service not configured (RESEND_API_KEY missing)" };
   }
 
-  const src = params.payload.source ?? null;
-  const hasRaw =
-    params.payload.rawMessage != null && String(params.payload.rawMessage).trim().length > 0;
-  const hasViewUrl = Boolean(params.viewSubmissionUrl?.trim());
-
-  console.log("[partner-escalation-email-debug] enter sendPartnerEscalationEmail", {
-    source: src,
-    has_raw_message: hasRaw,
-    has_submission_image_path: Boolean(params.submissionImagePathPresent),
-    has_view_submission_url: hasViewUrl,
-    view_submission_url_raw:
-      typeof params.viewSubmissionUrl === "string" ? params.viewSubmissionUrl : null,
-    view_submission_url_normalized: normalizeViewSubmissionUrl(params.viewSubmissionUrl),
-  });
-
   const subject = formatEscalationSubject(params.payload.userCompany, params.partnerName);
   let body: string;
   let html: string;
@@ -332,7 +317,7 @@ export async function sendPartnerEscalationEmail(
     body = formatEscalationBody(params);
     html = formatEscalationHtml(params);
   } catch (e) {
-    console.error("[partner-escalation-email-debug] formatEscalationBody threw", e);
+    console.error("[partner-escalation-email] body formatting failed");
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Email body formatting failed",
@@ -350,17 +335,6 @@ export async function sendPartnerEscalationEmail(
 
   const fromValue = params.from;
   const toValue = recipient;
-  console.log("RESEND from:", fromValue);
-  console.log("RESEND to:", toValue);
-
-  console.log("[partner-escalation-email-debug] pre-resend.send", {
-    source: src,
-    has_raw_message: hasRaw,
-    has_submission_image_path: Boolean(params.submissionImagePathPresent),
-    has_view_submission_url: hasViewUrl,
-    subject_length: subject.length,
-    body_length: body.length,
-  });
 
   const { data, error } = await resend.emails.send({
     from: fromValue,

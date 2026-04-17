@@ -72,7 +72,6 @@ function printResults(results: EvalOutputRow[]) {
   for (const r of results) {
     console.log("\n" + "─".repeat(60));
     console.log(`LABEL:   ${r.label}`);
-    console.log(`INPUT:   ${r.input.slice(0, 60)}${r.input.length > 60 ? "..." : ""}`);
     console.log("─".repeat(60));
     console.log(`  submissionRoute:     ${r.submissionRoute}`);
     console.log(`  narrativeFamily:     ${r.narrativeFamily}`);
@@ -81,7 +80,6 @@ function printResults(results: EvalOutputRow[]) {
     console.log(`  threatStage:         ${r.threatStage}`);
     console.log(`  confidenceLevel:     ${r.confidenceLevel}`);
     console.log(`  contextQuality:      ${r.contextQuality}`);
-    console.log(`  summary:             ${r.summary ?? "(null)"}`);
   }
   console.log("\n" + "─".repeat(60) + "\n");
 }

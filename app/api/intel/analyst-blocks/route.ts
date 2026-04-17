@@ -36,7 +36,7 @@ export async function GET() {
 
     return NextResponse.json(payload, { status: 200 });
   } catch (err) {
-    console.error("[analyst-blocks]", err);
+    console.error("[analyst-blocks] request failed");
     return NextResponse.json(
       { current_snapshot: null, weekly_snapshot: null, system_quality_snapshot: null },
       { status: 200 }

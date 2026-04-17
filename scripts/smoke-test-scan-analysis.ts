@@ -20,10 +20,7 @@ for (const c of cases) {
     language: "en",
     source: "user_text",
   });
-  console.log(`\n--- ${c.id}: ${c.input.slice(0, 55)}${c.input.length > 55 ? "..." : ""} ---`);
+  console.log(`\n--- ${c.id} ---`);
   console.log("contextQuality:", r.contextQuality, "| submissionRoute:", r.submissionRoute);
-  console.log("narrativeFamily:", r.narrativeFamily, "| impersonationEntity:", r.impersonationEntity);
-  console.log("requestedAction:", r.requestedAction, "| threatStage:", r.threatStage);
   console.log("riskScore:", r.riskScore, "| riskTier:", r.riskTier, "| confidenceLevel:", r.confidenceLevel);
-  console.log("summary:", r.summary);
 }

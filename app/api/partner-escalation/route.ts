@@ -221,15 +221,6 @@ export async function POST(req: Request) {
 
     const scanSource = scanRow.source != null ? String(scanRow.source) : null;
     const isOcr = scanSource === "ocr";
-    console.log("[partner-escalation-debug] pre-upsert", {
-      scan_id: scanId,
-      input_type: isOcr ? "image_ocr" : "text",
-      source: scanSource,
-      has_client_note: Boolean(clientNote?.length),
-      has_raw_text: Boolean(rawText?.length),
-      raw_text_length: rawText?.length ?? 0,
-      has_image_path: Boolean(submissionImagePath),
-    });
 
     const { data: accessRows, error: accessErr } = await supabase
       .from("partner_escalation_access")
@@ -260,20 +251,10 @@ export async function POST(req: Request) {
       accessToken = fallbackRow?.access_token ? String(fallbackRow.access_token) : "";
     }
 
-    console.log("[partner-escalation-debug] post-upsert", {
-      input_type: isOcr ? "image_ocr" : "text",
-      upsert_error: accessErr?.message ?? null,
-      access_token_resolved: Boolean(accessToken),
-    });
-
     let viewSubmissionUrl: string | null = null;
     const base = getPublicAppBaseUrl();
-    console.log("[partner-escalation-debug] link-components", {
-      access_token: accessToken || null,
-      base_url: base,
-    });
     if (accessErr) {
-      console.error("[partner-escalation] partner_escalation_access upsert:", accessErr.message);
+      console.error("[partner-escalation] partner_escalation_access upsert failed");
     } else if (accessToken) {
       await logEvent("partner_escalation_submitted", "info", "partner_escalation_api", {
         scan_id: scanId,
@@ -288,12 +269,6 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log("[partner-escalation-debug] pre-send-email", {
-      input_type: isOcr ? "image_ocr" : "text",
-      has_view_submission_url: Boolean(viewSubmissionUrl),
-      view_submission_url: viewSubmissionUrl,
-    });
-
     const result = await sendPartnerEscalationEmail({
       payload,
       partnerName: partner.name,
@@ -301,12 +276,6 @@ export async function POST(req: Request) {
       from: FROM_EMAIL,
       viewSubmissionUrl,
       submissionImagePathPresent: Boolean(submissionImagePath),
-    });
-
-    console.log("[partner-escalation-debug] post-send-email", {
-      input_type: isOcr ? "image_ocr" : "text",
-      ok: result.ok,
-      error: result.ok ? null : result.error,
     });
 
     if (!result.ok) {
@@ -327,7 +296,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[partner-escalation]", err);
+    console.error("[partner-escalation] request failed");
     return NextResponse.json(
       {
         ok: false,

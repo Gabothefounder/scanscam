@@ -1,10 +1,5 @@
 import OpenAI from "openai";
 
-console.log(
-  "[ENV CHECK] OPENAI_API_KEY present:",
-  !!process.env.OPENAI_API_KEY
-);
-
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });

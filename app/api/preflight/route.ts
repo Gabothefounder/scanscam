@@ -29,7 +29,7 @@ export async function POST() {
     .single();
 
   if (error) {
-    console.error("PRE-FLIGHT INSERT FAILED", error);
+    console.error("PRE-FLIGHT INSERT FAILED");
     return new Response(
       JSON.stringify({
         status: "error",

@@ -13,7 +13,6 @@ export async function GET() {
   try {
     const resend = getResendClient();
     const recipient = "gab.gabcaron@gmail.com";
-    console.log("Email recipient:", recipient);
     const { data, error } = await resend.emails.send({
       from: "ScanScam <onboarding@resend.dev>",
       to: recipient,

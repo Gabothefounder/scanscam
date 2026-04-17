@@ -7,8 +7,6 @@ const COOKIE_NAME = "internal_radar_auth";
 
 export async function POST(req: Request) {
   const expected = process.env.INTERNAL_RADAR_PIN;
-  // DEBUG: remove after confirming env loading
-  console.log("[pin] POST: INTERNAL_RADAR_PIN present?", !!expected, "len=" + (expected?.length ?? 0));
   if (!expected || expected === "") {
     return Response.json(
       { ok: false, error: "Internal radar PIN is not configured" },
@@ -42,8 +40,6 @@ export async function POST(req: Request) {
 
 export async function GET() {
   const expected = process.env.INTERNAL_RADAR_PIN;
-  // DEBUG: remove after confirming env loading
-  console.log("[pin] GET: INTERNAL_RADAR_PIN present?", !!expected, "len=" + (expected?.length ?? 0));
   if (!expected || expected === "") {
     return Response.json(
       { ok: false, error: "Internal radar PIN is not configured" },

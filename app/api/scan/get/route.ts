@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   if (error) {
-    console.error("[scan_get]", error.message);
+    console.error("[scan_get] lookup failed");
     await logEvent("scan_get_failed", "warning", "scan_get_api", { scan_id: scanIdRaw });
     return NextResponse.json(
       { ok: false, code: "lookup_failed", message: "Could not load this scan." },

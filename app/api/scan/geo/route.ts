@@ -73,14 +73,12 @@ export async function POST(req: Request) {
     .eq("id", scan_id);
 
   if (error) {
-    console.error("[scan/geo] update failed:", error.message);
+    console.error("[scan/geo] update failed");
     return NextResponse.json(
       { ok: false, code: "update_failed", message: "Database update failed" },
       { status: 500 }
     );
   }
-
-  console.log("[scan/geo]", { scan_id, ...updateData });
 
   return new Response(null, { status: 204 });
 }

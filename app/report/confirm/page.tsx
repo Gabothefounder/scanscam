@@ -235,7 +235,7 @@ export default function ConfirmPage() {
         setIsSubmitting(false);
       }
     } catch (err) {
-      console.error("Report submission failed:", err);
+      console.error("Report submission failed");
       setError("Failed to submit report");
       setIsSubmitting(false);
     }

@@ -414,7 +414,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, { status: 200 });
   } catch (err) {
-    console.error("[radar-weekly]", err);
+    console.error("[radar-weekly] request failed");
     return NextResponse.json(
       emptyResponse(req.nextUrl.searchParams.get("week_start") ?? ""),
       { status: 200 }

@@ -136,19 +136,6 @@ function extractSafePayload(body: any): {
 }
 
 export async function POST(req: Request) {
-  let supabaseHost = "missing";
-  try {
-    if (process.env.SUPABASE_URL) {
-      supabaseHost = new URL(process.env.SUPABASE_URL).hostname;
-    }
-  } catch {
-    // leave as "missing"
-  }
-  console.log("[telemetry] env", {
-    supabaseHost,
-    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  });
-
   let body: any;
 
   // 400 only on JSON parse failure
@@ -171,12 +158,6 @@ export async function POST(req: Request) {
 
     return new Response(null, { status: 204 });
   }
-
-  console.log("[telemetry] incoming", {
-    event: body.event ?? body.event_type,
-    has_scan_id: typeof body.scan_id === "string",
-    scan_id: body.scan_id,
-  });
 
   const safePayload = extractSafePayload(body);
   if (!safePayload) {
