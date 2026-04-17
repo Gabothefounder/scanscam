@@ -41,6 +41,6 @@ export function passesScanTextAdmission(raw: string): boolean {
 
 export function scanTextAdmissionErrorMessage(lang: "en" | "fr"): string {
   return lang === "fr"
-    ? "Ajoutez un peu plus de texte ou des précisions utiles (lien, contexte)."
-    : "Add a bit more text or useful detail (e.g. a link or what happened).";
+    ? "Impossible d'analyser ce message pour l'instant. Ajoutez plus de détails (par exemple: lien, demande reçue, ou contexte)."
+    : "We cannot analyze this yet. Add more detail (for example: the link, what they asked you to do, or context).";
 }

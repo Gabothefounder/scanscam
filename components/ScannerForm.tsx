@@ -39,6 +39,7 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [textareaFocused, setTextareaFocused] = useState(false);
+  const [admissionError, setAdmissionError] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -64,6 +65,18 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
 
   const clearImage = () => setImageFile(null);
 
+  useEffect(() => {
+    if (loading) return;
+    const trimmedText = text.trim();
+    const hasText = trimmedText.length > 0;
+    const blockedByAdmission =
+      hasText && !imageFile && !passesScanTextAdmission(trimmedText);
+    setAdmissionError(blockedByAdmission);
+    if (!blockedByAdmission && error === t.errorTextAdmission) {
+      setError(null);
+    }
+  }, [text, imageFile, loading, error, t.errorTextAdmission]);
+
   const handleScan = async () => {
     setError(null);
     const attempt_id = crypto.randomUUID();
@@ -86,6 +99,7 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
     const trimmedText = text.trim();
     if (!imageFile && !passesScanTextAdmission(trimmedText)) {
       setError(t.errorTextAdmission);
+      setAdmissionError(true);
       setLoading(false);
       return;
     }
@@ -217,9 +231,9 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
         )}
       </div>
 
-      {error && (
+      {(admissionError || error) && (
         <p style={styles.error} role="alert">
-          {error}
+          {admissionError ? t.errorTextAdmission : error}
         </p>
       )}
 
@@ -228,8 +242,7 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
         style={styles.scanButton}
         disabled={
           loading ||
-          (!text.trim() && !imageFile) ||
-          (!!text.trim() && !imageFile && !passesScanTextAdmission(text.trim()))
+          (!text.trim() && !imageFile)
         }
       >
         {loading ? t.buttonLoading : t.button}

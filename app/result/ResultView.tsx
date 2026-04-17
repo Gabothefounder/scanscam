@@ -1908,21 +1908,6 @@ export default function ResultView() {
             >
               {wg.limitedAnalysisLink}
             </button>
-            {partner ? (
-              <div style={styles.weakGatePartnerEscalation}>
-                {escalationStatus === "success" && renderPartnerEscalationSuccess()}
-                {showEscalationForm && escalationStatus !== "success" && renderPartnerEscalationForm()}
-                {!showEscalationForm && escalationStatus !== "success" && (
-                  <button
-                    type="button"
-                    onClick={openPartnerEscalationForm}
-                    style={styles.weakGateTertiaryLink}
-                  >
-                    {t.mspTrigger}
-                  </button>
-                )}
-              </div>
-            ) : null}
           </div>
         ) : (
           <>
