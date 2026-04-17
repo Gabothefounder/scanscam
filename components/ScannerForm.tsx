@@ -63,22 +63,14 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
       reader.readAsDataURL(file);
     });
 
-  const clearImage = () => setImageFile(null);
-
-  useEffect(() => {
-    if (loading) return;
-    const trimmedText = text.trim();
-    const hasText = trimmedText.length > 0;
-    const blockedByAdmission =
-      hasText && !imageFile && !passesScanTextAdmission(trimmedText);
-    setAdmissionError(blockedByAdmission);
-    if (!blockedByAdmission && error === t.errorTextAdmission) {
-      setError(null);
-    }
-  }, [text, imageFile, loading, error, t.errorTextAdmission]);
+  const clearImage = () => {
+    setImageFile(null);
+    if (admissionError) setAdmissionError(false);
+  };
 
   const handleScan = async () => {
     setError(null);
+    setAdmissionError(false);
     const attempt_id = crypto.randomUUID();
     sessionStorage.setItem("scan_attempt_id", attempt_id);
 
@@ -190,7 +182,10 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
         style={textareaStyle}
         placeholder={t.placeholder}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (admissionError) setAdmissionError(false);
+        }}
         onFocus={() => setTextareaFocused(true)}
         onBlur={() => setTextareaFocused(false)}
         disabled={!!imageFile || loading}
@@ -211,6 +206,7 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
               if (e.target.files?.[0]) {
                 setImageFile(e.target.files[0]);
                 setText("");
+                if (admissionError) setAdmissionError(false);
               }
             }}
           />

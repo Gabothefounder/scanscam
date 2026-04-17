@@ -2093,12 +2093,8 @@ export default function ResultView() {
         {!weakInputGateActive && (
           <a
             href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
-            className="text-sm font-semibold"
-            style={
-              prioritizePartnerEscalation && partner
-                ? styles.scanAnotherSecondary
-                : styles.scanAnotherButton
-            }
+            className="text-sm font-medium"
+            style={styles.scanAnotherQuiet}
           >
             {t.scanAnother}
           </a>
@@ -2180,6 +2176,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     textDecoration: "none",
     boxSizing: "border-box" as const,
+  },
+  scanAnotherQuiet: {
+    display: "inline",
+    alignSelf: "center",
+    color: "#6B7280",
+    textDecoration: "underline",
+    textUnderlineOffset: "2px",
+    textDecorationThickness: "1px",
+    textDecorationColor: "#9CA3AF",
   },
   card: {
     width: "100%",
