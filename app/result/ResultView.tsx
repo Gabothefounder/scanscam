@@ -167,8 +167,7 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
-    /** Appended after partner name: "{name} — your IT security partner" */
-    partnerBrandingRole: " — your IT security partner",
+    partnerScannerTitle: "Security Message Scanner",
     poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
       low: "Still unsure? Send to your IT provider",
@@ -429,7 +428,7 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
-    partnerBrandingRole: " — votre partenaire de sécurité TI",
+    partnerScannerTitle: "Analyseur de messages suspects",
     poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
       low: "Encore un doute ? Envoyez à votre fournisseur TI",
@@ -1819,15 +1818,13 @@ export default function ResultView() {
         {partner && (
           <div style={styles.partnerHeader}>
             {partner.logoUrl && (
-              <img src={partner.logoUrl} alt={`${partner.name} logo`} style={styles.partnerLogo} />
+              <div style={styles.partnerLogoFrame}>
+                <img src={partner.logoUrl} alt={`${partner.name} logo`} style={styles.partnerLogo} />
+              </div>
             )}
-            <p className="text-base font-semibold text-gray-900" style={styles.partnerBrandingPrimary}>
-              {partner.name}
-              {t.partnerBrandingRole}
-            </p>
-            <p className="text-xs text-gray-500" style={styles.partnerPoweredBy}>
-              {t.poweredByScanScam}
-            </p>
+            <h1 style={styles.partnerBrandingPrimary}>{partner.name}</h1>
+            <h2 style={styles.partnerScannerSubtitle}>{t.partnerScannerTitle}</h2>
+            <p style={styles.partnerPoweredBy}>{t.poweredByScanScam}</p>
           </div>
         )}
 
@@ -2306,22 +2303,48 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 8,
-    paddingBottom: 8,
+    gap: 10,
+    paddingBottom: 10,
     borderBottom: "1px solid #E5E7EB",
   },
+  partnerLogoFrame: {
+    width: "100%",
+    maxWidth: 260,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    border: "1px solid #E5E7EB",
+    backgroundColor: "#F8FAFC",
+    padding: "8px 14px",
+  },
   partnerLogo: {
-    maxHeight: 40,
-    maxWidth: 140,
+    maxHeight: 112,
+    maxWidth: "100%",
     objectFit: "contain",
   },
   partnerBrandingPrimary: {
     margin: 0,
-    lineHeight: 1.35,
+    fontSize: 36,
+    fontWeight: 800,
+    letterSpacing: "0.01em",
+    color: "#0F172A",
+    lineHeight: 1.1,
+    textAlign: "center" as const,
+  },
+  partnerScannerSubtitle: {
+    margin: 0,
+    fontSize: 21,
+    fontWeight: 600,
+    color: "#1E293B",
+    lineHeight: 1.3,
     textAlign: "center" as const,
   },
   partnerPoweredBy: {
     margin: 0,
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#64748B",
     lineHeight: 1.4,
     textAlign: "center" as const,
   },

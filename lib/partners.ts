@@ -15,6 +15,7 @@ const PARTNERS: PartnerConfig[] = [
     slug: "acme-it",
     name: "ACME IT Solutions",
     email: "gestionrockwell@gmail.com",
+    logoUrl: "/partners/acme-it-solutions.png",
     active: true,
   },
   {

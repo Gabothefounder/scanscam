@@ -7,9 +7,16 @@ import type { PartnerConfig } from "@/lib/partners";
 
 type Props = {
   partner: PartnerConfig;
+  copyOverrides?: Partial<{
+    placeholder: string;
+    divider: string;
+    uploadLabel: string;
+    button: string;
+    buttonLoading: string;
+  }>;
 };
 
-export function PartnerScanner({ partner }: Props) {
+export function PartnerScanner({ partner, copyOverrides }: Props) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
@@ -51,5 +58,12 @@ export function PartnerScanner({ partner }: Props) {
 
   if (!mounted) return null;
 
-  return <ScannerForm lang={lang} onScanSuccess={handleScanSuccess} partner={partner} />;
+  return (
+    <ScannerForm
+      lang={lang}
+      onScanSuccess={handleScanSuccess}
+      partner={partner}
+      copyOverrides={copyOverrides}
+    />
+  );
 }

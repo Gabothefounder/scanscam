@@ -29,9 +29,16 @@ type Props = {
   lang: "en" | "fr";
   onScanSuccess: (result: Record<string, unknown>) => void;
   partner?: PartnerConfig | null;
+  copyOverrides?: Partial<{
+    placeholder: string;
+    divider: string;
+    uploadLabel: string;
+    button: string;
+    buttonLoading: string;
+  }>;
 };
 
-export function ScannerForm({ lang, onScanSuccess }: Props) {
+export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
   const [mounted, setMounted] = useState(false);
   const [attribution, setAttribution] = useState<Record<string, string | null>>({});
   const [text, setText] = useState("");
@@ -53,7 +60,10 @@ export function ScannerForm({ lang, onScanSuccess }: Props) {
     setMounted(true);
   }, []);
 
-  const t = copy[lang];
+  const t = {
+    ...copy[lang],
+    ...copyOverrides,
+  };
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
