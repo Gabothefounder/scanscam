@@ -14,6 +14,8 @@ import { expandUrl } from "@/lib/scan-analysis/expandUrl";
 import { lookupWebRisk } from "@/lib/scan-analysis/webRiskLookup";
 import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
 import { buildAbuseInterpretation } from "@/lib/scan-analysis/abuseInterpretation";
+import { applyArchetypeOverrides } from "@/lib/scan-analysis/applyArchetypeOverrides";
+import { validateArchetypeOverrideConsistency } from "@/lib/scan-analysis/validateArchetypeOverrideConsistency";
 import { passesScanTextAdmission } from "@/lib/scan/scanTextAdmission";
 import { getInsufficientContextSummary } from "@/lib/scan/insufficientContextSummary";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -29,6 +31,9 @@ const supabase = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
+
+const ENABLE_ARCHETYPE_OVERRIDES = process.env.ENABLE_ARCHETYPE_OVERRIDES === "true";
+const ENABLE_ARCHETYPE_OVERRIDES_SHADOW = process.env.ENABLE_ARCHETYPE_OVERRIDES_SHADOW === "true";
 
 /* -------------------------------------------------
    Intel features extraction (additive + none vs unknown)
@@ -2066,6 +2071,75 @@ export async function POST(req: Request) {
     });
     if (abuseInterpretation) {
       (intel_features as Record<string, unknown>).abuse_interpretation_v1 = abuseInterpretation;
+    }
+
+    const runArchetypeOverride = ENABLE_ARCHETYPE_OVERRIDES || ENABLE_ARCHETYPE_OVERRIDES_SHADOW;
+    if (runArchetypeOverride) {
+      const overrideMode = ENABLE_ARCHETYPE_OVERRIDES_SHADOW ? "shadow" : "apply";
+      const archetypeOverride = applyArchetypeOverrides({
+        intel: intel_features as Record<string, unknown>,
+        corpusLower: reconciliationCorpus,
+        mode: overrideMode,
+        context: {
+          context_quality: String(intel_features.context_quality ?? "unknown"),
+          intel_state: String(intel_features.intel_state ?? "unknown"),
+          input_type: String(intel_features.input_type ?? "unknown"),
+          context_refined: intel_features.context_refined === true,
+        },
+        hints: {
+          abuse_interpretation: abuseInterpretation ?? null,
+          link_artifact: linkArtifact,
+          link_present: Boolean(linkArtifact),
+        },
+      });
+
+      if (
+        archetypeOverride.reason === "kill_context_quality" ||
+        archetypeOverride.reason === "kill_insufficient_context" ||
+        archetypeOverride.reason === "kill_link_only_unrefined" ||
+        archetypeOverride.reason === "kill_meta_discussion"
+      ) {
+        void logEvent("archetype_override_blocked_kill", "info", "scan_api", { reason: archetypeOverride.reason });
+      } else if (archetypeOverride.reason === "blocked_by_exclusion") {
+        void logEvent("archetype_override_blocked_exclusion", "info", "scan_api", {
+          archetype: archetypeOverride.meta?.archetype,
+          score: archetypeOverride.meta?.score,
+        });
+      }
+
+      if (archetypeOverride.applied) {
+        const overrideConsistency = validateArchetypeOverrideConsistency({
+          intel: archetypeOverride.intel,
+          overrideMeta: archetypeOverride.overrideMeta,
+        });
+        const finalOverrideIntel = overrideConsistency.intel;
+        const finalOverrideMeta = overrideConsistency.overrideMeta;
+
+        void logEvent("archetype_override_applied", "info", "scan_api", {
+          mode: overrideMode,
+          archetype: finalOverrideMeta?.override_rule_id,
+          score: finalOverrideMeta?.override_score,
+        });
+        if (overrideConsistency.partialRollback) {
+          void logEvent("archetype_override_validator_partial_rollback", "warning", "scan_api", {
+            reverted_fields: finalOverrideMeta?.override_reverted_fields ?? [],
+          });
+        }
+        if (overrideConsistency.fullRevert) {
+          void logEvent("archetype_override_validator_full_revert", "warning", "scan_api", {
+            reverted_fields: finalOverrideMeta?.override_reverted_fields ?? [],
+          });
+        }
+
+        if (overrideMode === "apply") {
+          Object.assign(intel_features as Record<string, unknown>, finalOverrideIntel);
+          if (finalOverrideMeta) {
+            (intel_features as Record<string, unknown>).override_meta = finalOverrideMeta;
+          }
+        } else if (overrideMode === "shadow" && finalOverrideMeta) {
+          (intel_features as Record<string, unknown>).override_meta_shadow = finalOverrideMeta;
+        }
+      }
     }
 
     if (!isInsufficientContext) {
