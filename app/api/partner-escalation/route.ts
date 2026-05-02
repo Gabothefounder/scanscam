@@ -58,7 +58,13 @@ function escalationLinkIntelFromScanIntel(
         const wr = li.web_risk;
         if (wr && typeof wr === "object") {
           const st = String((wr as { status?: unknown }).status);
-          if (st === "unsafe" || st === "unknown" || st === "skipped") {
+          if (
+            st === "unsafe" ||
+            st === "clean" ||
+            st === "error" ||
+            st === "skipped" ||
+            st === "unknown"
+          ) {
             webRiskStatus = st;
           }
         }

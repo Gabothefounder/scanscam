@@ -41,6 +41,8 @@ const copy = {
     submittedHost: "Submitted link host",
     resolvedDest: "Resolved destination",
     webRiskLineUnsafe: "Flagged by external threat intelligence",
+    webRiskLineClean: "External threat check completed: no known threats listed",
+    webRiskLineError: "External threat database check failed or timed out",
     webRiskLineUnknown: "No known threats detected in external database",
     webRiskLineSkipped: "Link not checked by external database",
     confidence: "System confidence",
@@ -72,6 +74,8 @@ const copy = {
     submittedHost: "Hôte du lien soumis",
     resolvedDest: "Destination résolue",
     webRiskLineUnsafe: "Signalé par une base de menaces externe",
+    webRiskLineClean: "Vérification externe terminée : aucune menace répertoriée",
+    webRiskLineError: "Échec ou délai dépassé pour la base de menaces externe",
     webRiskLineUnknown: "Aucune menace connue détectée dans la base externe",
     webRiskLineSkipped: "Lien non vérifié par la base externe",
     confidence: "Confiance du système",
@@ -187,7 +191,7 @@ type LinkMsp = {
   primaryHost: string;
   resolvedDest: string | null;
   shortened: boolean;
-  webRiskStatus: "unsafe" | "unknown" | "skipped" | null;
+  webRiskStatus: "unsafe" | "clean" | "error" | "skipped" | "unknown" | null;
 };
 
 function linkIntelForMsp(intel: unknown): LinkMsp | null {
@@ -219,7 +223,13 @@ function linkIntelForMsp(intel: unknown): LinkMsp | null {
     let webRiskStatus: LinkMsp["webRiskStatus"] = null;
     if (wr && typeof wr === "object") {
       const st = String((wr as { status?: unknown }).status);
-      if (st === "unsafe" || st === "unknown" || st === "skipped") {
+      if (
+        st === "unsafe" ||
+        st === "clean" ||
+        st === "error" ||
+        st === "skipped" ||
+        st === "unknown"
+      ) {
         webRiskStatus = st;
       }
     }
@@ -690,15 +700,27 @@ export default async function MspViewPage({ params, searchParams }: PageProps) {
                 style={{
                   margin: "8px 0 0",
                   fontSize: 14,
-                  fontWeight: linkMsp.webRiskStatus === "unsafe" ? 600 : 400,
-                  color: linkMsp.webRiskStatus === "unsafe" ? "#b91c1c" : "#374151",
+                  fontWeight:
+                    linkMsp.webRiskStatus === "unsafe" || linkMsp.webRiskStatus === "error"
+                      ? 600
+                      : 400,
+                  color:
+                    linkMsp.webRiskStatus === "unsafe"
+                      ? "#b91c1c"
+                      : linkMsp.webRiskStatus === "error"
+                        ? "#92400e"
+                        : "#374151",
                 }}
               >
                 {linkMsp.webRiskStatus === "unsafe"
                   ? t.webRiskLineUnsafe
-                  : linkMsp.webRiskStatus === "unknown"
-                    ? t.webRiskLineUnknown
-                    : t.webRiskLineSkipped}
+                  : linkMsp.webRiskStatus === "clean"
+                    ? t.webRiskLineClean
+                    : linkMsp.webRiskStatus === "error"
+                      ? t.webRiskLineError
+                      : linkMsp.webRiskStatus === "unknown"
+                        ? t.webRiskLineUnknown
+                        : t.webRiskLineSkipped}
               </p>
             ) : null}
           </section>

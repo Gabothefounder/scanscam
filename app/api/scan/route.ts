@@ -12,6 +12,7 @@ import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
 import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
 import { expandUrl } from "@/lib/scan-analysis/expandUrl";
 import { lookupWebRisk } from "@/lib/scan-analysis/webRiskLookup";
+import { lookupDomainRegistration } from "@/lib/scan-analysis/rdapLookup";
 import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
 import { buildAbuseInterpretation } from "@/lib/scan-analysis/abuseInterpretation";
 import { applyArchetypeOverrides } from "@/lib/scan-analysis/applyArchetypeOverrides";
@@ -1883,12 +1884,30 @@ export async function POST(req: Request) {
           status: webRisk.status,
           checked_url_type: webRiskCheckedType,
           checked_at: new Date().toISOString(),
+          ...(webRisk.threat_types && webRisk.threat_types.length > 0
+            ? { threat_types: webRisk.threat_types }
+            : {}),
+          ...(webRisk.status === "error"
+            ? {
+                ...(webRisk.error_reason ? { error_reason: webRisk.error_reason } : {}),
+                ...(typeof webRisk.http_status === "number" ? { http_status: webRisk.http_status } : {}),
+                ...(webRisk.api_error_message ? { api_error_message: webRisk.api_error_message } : {}),
+              }
+            : {}),
         };
       } else {
         link_intel.web_risk = {
           status: "skipped",
           checked_at: new Date().toISOString(),
         };
+      }
+
+      const rdapDomainRaw =
+        (typeof link_intel.primary.root_domain === "string" && link_intel.primary.root_domain.trim()) ||
+        (typeof link_intel.primary.domain === "string" && link_intel.primary.domain.trim()) ||
+        "";
+      if (rdapDomainRaw) {
+        link_intel.domain_registration = await lookupDomainRegistration(rdapDomainRaw);
       }
     }
     const linkArtifact = link_intel ? linkArtifactFromLinkIntel(link_intel) : null;

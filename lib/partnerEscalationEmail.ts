@@ -5,7 +5,13 @@
 
 import { Resend } from "resend";
 
-export type WebRiskDisplayStatus = "unsafe" | "unknown" | "skipped";
+export type WebRiskDisplayStatus =
+  | "unsafe"
+  | "clean"
+  | "error"
+  | "skipped"
+  /** Legacy persisted scans only */
+  | "unknown";
 
 export type EscalationLinkIntel = {
   primaryHost: string;
@@ -18,8 +24,10 @@ export type EscalationLinkIntel = {
 
 const WEB_RISK_LINE: Record<WebRiskDisplayStatus, string> = {
   unsafe: "Flagged by external threat intelligence",
-  unknown: "No known threats detected in external database",
+  clean: "External threat check completed: no known threats listed",
+  error: "External threat database check failed or timed out",
   skipped: "Link not checked by external database",
+  unknown: "No known threats detected in external database",
 };
 
 export type EscalationPayload = {
@@ -143,12 +151,17 @@ function formatLinkInMessageSectionHtml(link: EscalationLinkIntel): string {
   }
   if (link.webRiskStatus) {
     const isUnsafe = link.webRiskStatus === "unsafe";
+    const isWarnBox = link.webRiskStatus === "error";
     const boxStyle = isUnsafe
       ? "margin:12px 0 0;padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;"
-      : "margin:12px 0 0;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;";
+      : isWarnBox
+        ? "margin:12px 0 0;padding:10px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;"
+        : "margin:12px 0 0;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;";
     const textStyle = isUnsafe
       ? "margin:0;font-size:13px;font-weight:700;color:#991b1b;"
-      : "margin:0;font-size:13px;color:#334155;";
+      : isWarnBox
+        ? "margin:0;font-size:13px;font-weight:600;color:#92400e;"
+        : "margin:0;font-size:13px;color:#334155;";
     blocks.push(
       `<div style="${boxStyle}"><p style="${textStyle}">External link check: ${escapeHtml(WEB_RISK_LINE[link.webRiskStatus])}</p></div>`
     );

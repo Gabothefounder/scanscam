@@ -31,10 +31,35 @@ export type ExpandUrlOutcome = {
 export type LinkExpansionResult = ExpandUrlOutcome | { status: "skipped" };
 
 export type LinkIntelWebRiskV1 = {
-  status: "unsafe" | "unknown" | "skipped";
+  /** `unknown` may appear on legacy persisted scans (pre–Phase 1 Web Risk mapping). */
+  status: "unsafe" | "clean" | "error" | "skipped" | "unknown";
   checked_url_type?: "expanded" | "primary";
   checked_at: string;
+  /** Present when status is unsafe and the API returned threat types. */
+  threat_types?: string[];
+  /** Populated when status is error (diagnostics only). */
+  error_reason?: string;
+  http_status?: number;
+  api_error_message?: string;
 };
+
+export type DomainRegistrationLookup =
+  | {
+      status: "ok";
+      source: "rdap";
+      created_at: string | null;
+      registrar?: string | null;
+    }
+  | {
+      status: "error";
+      source: "rdap";
+      error_reason?: string;
+    }
+  | {
+      status: "skipped";
+      source: "rdap";
+      error_reason?: string;
+    };
 
 export type LinkIntelV1 = {
   version: 1;
@@ -43,6 +68,8 @@ export type LinkIntelV1 = {
   expansion?: LinkExpansionResult;
   /** Optional external URL reputation check; never used for core risk scoring. */
   web_risk?: LinkIntelWebRiskV1;
+  /** Optional RDAP-derived registration metadata; never used for core risk scoring. */
+  domain_registration?: DomainRegistrationLookup;
 };
 
 export function linkIntelFromArtifact(artifact: LinkArtifact): LinkIntelV1 {
