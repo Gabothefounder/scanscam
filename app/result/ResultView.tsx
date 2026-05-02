@@ -63,6 +63,22 @@ const copy = {
       webRiskLineUnknown: "No known threats detected in external database",
       webRiskLineSkipped: "Link not checked by external database",
     },
+    linkIntelFree: {
+      title: "Link intelligence",
+      rowLinkType: "Link type",
+      rowDomain: "Domain signal",
+      rowThreatDb: "Threat database",
+      linkTypeShortened: "Shortened link",
+      linkTypeUnusual: "Unusual domain",
+      linkTypeStandard: "Standard link",
+      domainRecent: "Recently registered domain",
+      domainEstablished: "Established domain",
+      domainMid: "Domain registration is not brand new",
+      domainUnavailable: "Domain registration check unavailable",
+      threatDbUnsafe: "Flagged as unsafe by Google’s threat database.",
+      threatTypeOne: "Detected threat type: {types}",
+      threatTypesMany: "Detected threat types: {types}",
+    },
     refinementIncomplete: {
       preliminaryBadge: "Limited analysis — a little context helps",
       headlineLinkOnly: "We only saw a link",
@@ -318,6 +334,22 @@ const copy = {
       webRiskLineUnsafe: "Signalé par une base de menaces externe",
       webRiskLineUnknown: "Aucune menace connue détectée dans la base externe",
       webRiskLineSkipped: "Lien non vérifié par la base externe",
+    },
+    linkIntelFree: {
+      title: "Renseignements sur le lien",
+      rowLinkType: "Type de lien",
+      rowDomain: "Signal du domaine",
+      rowThreatDb: "Base de menaces",
+      linkTypeShortened: "Lien raccourci",
+      linkTypeUnusual: "Domaine inhabituel",
+      linkTypeStandard: "Lien courant",
+      domainRecent: "Domaine récemment enregistré",
+      domainEstablished: "Domaine établi",
+      domainMid: "L’enregistrement du domaine n’est pas tout récent",
+      domainUnavailable: "Vérification de l’enregistrement du domaine indisponible",
+      threatDbUnsafe: "Signalé comme dangereux par la base de menaces de Google.",
+      threatTypeOne: "Type de menace détecté : {types}",
+      threatTypesMany: "Types de menace détectés : {types}",
     },
     refinementIncomplete: {
       preliminaryBadge: "Analyse limitée — un peu de contexte aide",
@@ -613,7 +645,28 @@ function parseLinkArtifact(intel: Record<string, unknown>): ParsedLinkArtifact |
   return parseLinkIntelV1(intel) ?? parseLinkArtifactLegacy(intel);
 }
 
-type WebRiskUiStatus = "unsafe" | "unknown" | "skipped";
+function getLinkIntelV1Slice(intel: Record<string, unknown>): {
+  web_risk?: Record<string, unknown>;
+  domain_registration?: Record<string, unknown>;
+} | null {
+  try {
+    const raw = intel.link_intel;
+    if (!raw || typeof raw !== "object") return null;
+    const li = raw as Record<string, unknown>;
+    if (li.version !== 1) return null;
+    const wr = li.web_risk;
+    const dr = li.domain_registration;
+    return {
+      ...(wr && typeof wr === "object" ? { web_risk: wr as Record<string, unknown> } : {}),
+      ...(dr && typeof dr === "object"
+        ? { domain_registration: dr as Record<string, unknown> }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 type InterpretationLine = {
   concept: InterpretationSurfaceConcept;
   text: string;
@@ -784,21 +837,6 @@ function buildInterpretationUiLines(
   return { riskCard, whyFlagged, nextStep };
 }
 
-function linkWebRiskStatusFromIntel(intel: Record<string, unknown>): WebRiskUiStatus | null {
-  try {
-    const raw = intel.link_intel;
-    if (!raw || typeof raw !== "object") return null;
-    const li = raw as Record<string, unknown>;
-    const wr = li.web_risk;
-    if (!wr || typeof wr !== "object") return null;
-    const st = String((wr as { status?: unknown }).status);
-    if (st === "unsafe" || st === "unknown" || st === "skipped") return st as WebRiskUiStatus;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function linkSurfaceLines(
   link: ParsedLinkArtifact,
   lang: "en" | "fr"
@@ -848,6 +886,101 @@ function hostnameMayMimicBrand(domain: string | null, root: string | null): bool
   if (!BRAND_LIKE_HOST_SUBSTRINGS_UI.test(d)) return false;
   if (OFFICIAL_BRAND_ROOT_UI.test(r)) return false;
   return true;
+}
+
+function linkTypeFreeLabel(link: ParsedLinkArtifact, lang: "en" | "fr"): string {
+  const f = copy[lang].linkIntelFree;
+  if (link.is_shortened) return f.linkTypeShortened;
+  if (
+    link.has_suspicious_tld ||
+    link.is_ip_address ||
+    hostnameMayMimicBrand(link.domain, link.root_domain)
+  ) {
+    return f.linkTypeUnusual;
+  }
+  return f.linkTypeStandard;
+}
+
+/** Free-tier bucket only: no exact dates or ages shown. */
+function domainSignalFreeLabel(
+  slice: { domain_registration?: Record<string, unknown> } | null,
+  lang: "en" | "fr"
+): string {
+  const f = copy[lang].linkIntelFree;
+  const dr = slice?.domain_registration;
+  if (!dr || typeof dr !== "object") return f.domainUnavailable;
+  const status = String((dr as { status?: unknown }).status ?? "");
+  if (status !== "ok") return f.domainUnavailable;
+  const createdRaw = (dr as { created_at?: unknown }).created_at;
+  if (createdRaw == null || typeof createdRaw !== "string" || !createdRaw.trim()) {
+    return f.domainUnavailable;
+  }
+  const created = new Date(createdRaw.trim());
+  if (Number.isNaN(created.getTime())) return f.domainUnavailable;
+  const ageMs = Date.now() - created.getTime();
+  if (ageMs < 0) return f.domainUnavailable;
+  const dayMs = 86400000;
+  const ageDays = ageMs / dayMs;
+  if (ageDays < 30) return f.domainRecent;
+  if (ageDays >= 365) return f.domainEstablished;
+  return f.domainMid;
+}
+
+function LinkIntelligenceFreeBlock({
+  intel,
+  link,
+  lang,
+}: {
+  intel: Record<string, unknown>;
+  link: ParsedLinkArtifact;
+  lang: "en" | "fr";
+}) {
+  const f = copy[lang].linkIntelFree;
+  const slice = getLinkIntelV1Slice(intel);
+  const linkType = linkTypeFreeLabel(link, lang);
+  const domainSignal = domainSignalFreeLabel(slice, lang);
+
+  let isUnsafe = false;
+  let threatTypesLine: string | null = null;
+  const wr = slice?.web_risk;
+  if (wr && typeof wr === "object") {
+    const st = String((wr as { status?: unknown }).status ?? "");
+    if (st === "unsafe") {
+      isUnsafe = true;
+      const rawTypes = (wr as { threat_types?: unknown }).threat_types;
+      if (Array.isArray(rawTypes) && rawTypes.length > 0) {
+        const parts = rawTypes
+          .filter((x): x is string => typeof x === "string" && Boolean(x.trim()))
+          .map((x) => x.trim());
+        if (parts.length === 1) {
+          threatTypesLine = f.threatTypeOne.replace("{types}", parts[0]);
+        } else if (parts.length > 1) {
+          threatTypesLine = f.threatTypesMany.replace("{types}", parts.join(", "));
+        }
+      }
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded border border-gray-200 bg-gray-50/80 px-3 py-2 text-xs leading-snug text-gray-800">
+      <div className="mb-1.5 font-semibold text-gray-800">{f.title}</div>
+      <div className="space-y-1">
+        <div>
+          <span className="text-gray-600">{f.rowLinkType}:</span> {linkType}
+        </div>
+        <div>
+          <span className="text-gray-600">{f.rowDomain}:</span> {domainSignal}
+        </div>
+        {isUnsafe ? (
+          <div>
+            <span className="text-gray-600">{f.rowThreatDb}:</span>{" "}
+            <span className="font-semibold text-red-800">{f.threatDbUnsafe}</span>
+          </div>
+        ) : null}
+      </div>
+      {threatTypesLine ? <p className="mt-1.5 text-gray-600">{threatTypesLine}</p> : null}
+    </div>
+  );
 }
 
 /** Strip scan-API link-fragment action clauses so the UI line below owns “before clicking” guidance. */
@@ -1478,7 +1611,6 @@ export default function ResultView() {
   }
 
   const linkArtifact = parseLinkArtifact(intel as Record<string, unknown>);
-  const linkWebRiskStatus = linkWebRiskStatusFromIntel(intel as Record<string, unknown>);
   const abuseInterpretation = parseAbuseInterpretationForSurface(intel as Record<string, unknown>);
   const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
@@ -1851,17 +1983,11 @@ export default function ResultView() {
                       {ls.line2 ? (
                         <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
                       ) : null}
-                      {linkWebRiskStatus ? (
-                        <p
-                          className={`mt-2 text-sm leading-normal ${linkWebRiskStatus === "unsafe" ? "font-semibold text-red-800" : "text-gray-900"}`}
-                        >
-                          {linkWebRiskStatus === "unsafe"
-                            ? t.linkIntel.webRiskLineUnsafe
-                            : linkWebRiskStatus === "unknown"
-                              ? t.linkIntel.webRiskLineUnknown
-                              : t.linkIntel.webRiskLineSkipped}
-                        </p>
-                      ) : null}
+                      <LinkIntelligenceFreeBlock
+                        intel={intel as Record<string, unknown>}
+                        link={linkArtifact}
+                        lang={lang}
+                      />
                     </>
                   );
                 })()}
@@ -1951,17 +2077,11 @@ export default function ResultView() {
                         {ls.line2 ? (
                           <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
                         ) : null}
-                        {linkWebRiskStatus ? (
-                          <p
-                            className={`mt-2 text-sm leading-normal ${linkWebRiskStatus === "unsafe" ? "font-semibold text-red-800" : "text-gray-900"}`}
-                          >
-                            {linkWebRiskStatus === "unsafe"
-                              ? t.linkIntel.webRiskLineUnsafe
-                              : linkWebRiskStatus === "unknown"
-                                ? t.linkIntel.webRiskLineUnknown
-                                : t.linkIntel.webRiskLineSkipped}
-                          </p>
-                        ) : null}
+                        <LinkIntelligenceFreeBlock
+                          intel={intel as Record<string, unknown>}
+                          link={linkArtifact}
+                          lang={lang}
+                        />
                       </>
                     );
                   })()}
