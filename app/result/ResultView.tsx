@@ -79,6 +79,28 @@ const copy = {
       threatTypeOne: "Detected threat type: {types}",
       threatTypesMany: "Detected threat types: {types}",
     },
+    proCta: {
+      unsafe: {
+        title: "This link was flagged as unsafe",
+        body: "Preview a breakdown of the threat, possible consequences, and what to do now.",
+        button: "Preview safety guidance",
+      },
+      full_message: {
+        title: "Need a decision-ready breakdown?",
+        body: "The free result summarizes what we saw. A full breakdown can explain the risk, what scammers may want, and what to do next.",
+        button: "Preview full breakdown",
+      },
+      insufficient_context: {
+        title: "Need a decision-ready breakdown?",
+        body: "The free result uses the context available. A full breakdown can organize the signals, explain what may be happening, and show what to do next.",
+        button: "Preview full breakdown",
+      },
+      link_only: {
+        title: "Still unsure about this link?",
+        body: "Preview a clearer breakdown of what this link may be trying to do, what could happen if you act, and what to do next.",
+        button: "Preview full breakdown",
+      },
+    },
     refinementIncomplete: {
       preliminaryBadge: "Limited analysis — a little context helps",
       headlineLinkOnly: "We only saw a link",
@@ -150,6 +172,7 @@ const copy = {
     mspPromotedSupporting: "Your IT provider will receive the message and review it securely.",
     mspCloseForm: "Close",
     actionTitle: "What to do next",
+    freeVerifyHint: "When in doubt, verify through the official source.",
     guidance: [
       { action: "Pause before responding", explanation: "Legitimate services don't require immediate action." },
       { action: "Verify through the official website", explanation: "Use the official website instead of the link in the message." },
@@ -351,6 +374,28 @@ const copy = {
       threatTypeOne: "Type de menace détecté : {types}",
       threatTypesMany: "Types de menace détectés : {types}",
     },
+    proCta: {
+      unsafe: {
+        title: "Ce lien a été signalé comme dangereux",
+        body: "Aperçu d’une analyse de la menace, des conséquences possibles et des mesures à prendre maintenant.",
+        button: "Aperçu des conseils de sécurité",
+      },
+      full_message: {
+        title: "Besoin d’une analyse prête à décider?",
+        body: "Le résultat gratuit résume ce que nous avons observé. Une analyse complète peut expliquer le risque, ce que les fraudeurs peuvent viser et quoi faire ensuite.",
+        button: "Aperçu de l’analyse complète",
+      },
+      insufficient_context: {
+        title: "Besoin d’une analyse prête à décider?",
+        body: "Le résultat gratuit repose sur le contexte disponible. Une analyse complète peut organiser les signaux, expliquer ce qui se passe peut-être et indiquer quoi faire ensuite.",
+        button: "Aperçu de l’analyse complète",
+      },
+      link_only: {
+        title: "Encore des doutes sur ce lien?",
+        body: "Aperçu d’une analyse plus claire de ce que ce lien peut chercher à faire, de ce qui pourrait se passer si vous agissez et de quoi faire ensuite.",
+        button: "Aperçu de l’analyse complète",
+      },
+    },
     refinementIncomplete: {
       preliminaryBadge: "Analyse limitée — un peu de contexte aide",
       headlineLinkOnly: "Nous n’avons vu qu’un lien",
@@ -427,6 +472,7 @@ const copy = {
       "Votre fournisseur TI recevra le message et l’examinera de façon sécurisée.",
     mspCloseForm: "Fermer",
     actionTitle: "Que faire maintenant",
+    freeVerifyHint: "En cas de doute, vérifiez via la source officielle.",
     guidance: [
       { action: "Prenez un moment avant de répondre", explanation: "Les services légitimes n'exigent pas d'action immédiate." },
       { action: "Vérifiez via le site officiel", explanation: "Utilisez le site officiel plutôt que le lien dans le message." },
@@ -901,29 +947,137 @@ function linkTypeFreeLabel(link: ParsedLinkArtifact, lang: "en" | "fr"): string 
   return f.linkTypeStandard;
 }
 
+type DomainSignalBucket = "recent" | "established" | "mid" | "unavailable";
+
+function getDomainSignalBucket(
+  slice: { domain_registration?: Record<string, unknown> } | null
+): DomainSignalBucket {
+  const dr = slice?.domain_registration;
+  if (!dr || typeof dr !== "object") return "unavailable";
+  const status = String((dr as { status?: unknown }).status ?? "");
+  if (status !== "ok") return "unavailable";
+  const createdRaw = (dr as { created_at?: unknown }).created_at;
+  if (createdRaw == null || typeof createdRaw !== "string" || !createdRaw.trim()) {
+    return "unavailable";
+  }
+  const created = new Date(createdRaw.trim());
+  if (Number.isNaN(created.getTime())) return "unavailable";
+  const ageMs = Date.now() - created.getTime();
+  if (ageMs < 0) return "unavailable";
+  const dayMs = 86400000;
+  const ageDays = ageMs / dayMs;
+  if (ageDays < 30) return "recent";
+  if (ageDays >= 365) return "established";
+  return "mid";
+}
+
+function isStandardLinkArtifact(link: ParsedLinkArtifact): boolean {
+  return (
+    !link.is_shortened &&
+    !link.has_suspicious_tld &&
+    !link.is_ip_address &&
+    !hostnameMayMimicBrand(link.domain, link.root_domain)
+  );
+}
+
+function linkTypeTelemetrySlug(link: ParsedLinkArtifact | null): "shortened" | "unusual" | "standard" {
+  if (!link) return "standard";
+  if (link.is_shortened) return "shortened";
+  if (
+    link.has_suspicious_tld ||
+    link.is_ip_address ||
+    hostnameMayMimicBrand(link.domain, link.root_domain)
+  ) {
+    return "unusual";
+  }
+  return "standard";
+}
+
+type ProCtaCopyVariant = "unsafe" | "full_message" | "insufficient_context" | "link_only";
+
+type ProCtaIntent = {
+  show: boolean;
+  cta_reason: string;
+  copyVariant: ProCtaCopyVariant;
+  web_risk_status: string;
+  link_type: string;
+  domain_signal: string;
+};
+
+function computeProCtaIntent(args: {
+  intel: Record<string, unknown>;
+  risk: "low" | "medium" | "high";
+  inputType: string;
+  intelState: string;
+  submissionRoute: string;
+  scanId: string;
+  weakInputGateActive: boolean;
+  linkArtifact: ParsedLinkArtifact | null;
+}): ProCtaIntent {
+  const slice = getLinkIntelV1Slice(args.intel);
+  const wr = slice?.web_risk;
+  const webRiskStatus =
+    wr && typeof wr === "object" ? String((wr as { status?: unknown }).status ?? "none") : "none";
+  const isUnsafe = webRiskStatus === "unsafe";
+
+  const bucket = getDomainSignalBucket(slice);
+  const linkSlug = linkTypeTelemetrySlug(args.linkArtifact);
+  const standard = args.linkArtifact ? isStandardLinkArtifact(args.linkArtifact) : true;
+  const shortenedOrUnusual = linkSlug === "shortened" || linkSlug === "unusual";
+
+  const insufficient =
+    args.intelState === "insufficient_context" || args.submissionRoute === "insufficient_context";
+  const mediumHigh = args.risk === "medium" || args.risk === "high";
+  const fullMessage = args.inputType === "full_message";
+  const recent = bucket === "recent";
+
+  const positive =
+    isUnsafe || mediumHigh || recent || shortenedOrUnusual || fullMessage || insufficient;
+  const obviousLow =
+    args.risk === "low" &&
+    bucket === "established" &&
+    standard &&
+    !isUnsafe &&
+    !insufficient;
+
+  const show =
+    Boolean(args.scanId) && positive && !obviousLow && !args.weakInputGateActive;
+
+  let cta_reason = "full_message";
+  if (isUnsafe) cta_reason = "unsafe";
+  else if (mediumHigh) cta_reason = "medium_high_risk";
+  else if (insufficient) cta_reason = "insufficient_context";
+  else if (recent) cta_reason = "recent_domain";
+  else if (shortenedOrUnusual) cta_reason = "shortened_or_unusual";
+  else if (fullMessage) cta_reason = "full_message";
+
+  let copyVariant: ProCtaCopyVariant = "link_only";
+  if (isUnsafe) copyVariant = "unsafe";
+  else if (insufficient) copyVariant = "insufficient_context";
+  else if (fullMessage) copyVariant = "full_message";
+  else copyVariant = "link_only";
+
+  return {
+    show,
+    cta_reason,
+    copyVariant,
+    web_risk_status: webRiskStatus,
+    link_type: linkSlug,
+    domain_signal: bucket,
+  };
+}
+
 /** Free-tier bucket only: no exact dates or ages shown. */
 function domainSignalFreeLabel(
   slice: { domain_registration?: Record<string, unknown> } | null,
   lang: "en" | "fr"
 ): string {
   const f = copy[lang].linkIntelFree;
-  const dr = slice?.domain_registration;
-  if (!dr || typeof dr !== "object") return f.domainUnavailable;
-  const status = String((dr as { status?: unknown }).status ?? "");
-  if (status !== "ok") return f.domainUnavailable;
-  const createdRaw = (dr as { created_at?: unknown }).created_at;
-  if (createdRaw == null || typeof createdRaw !== "string" || !createdRaw.trim()) {
-    return f.domainUnavailable;
-  }
-  const created = new Date(createdRaw.trim());
-  if (Number.isNaN(created.getTime())) return f.domainUnavailable;
-  const ageMs = Date.now() - created.getTime();
-  if (ageMs < 0) return f.domainUnavailable;
-  const dayMs = 86400000;
-  const ageDays = ageMs / dayMs;
-  if (ageDays < 30) return f.domainRecent;
-  if (ageDays >= 365) return f.domainEstablished;
-  return f.domainMid;
+  const b = getDomainSignalBucket(slice);
+  if (b === "recent") return f.domainRecent;
+  if (b === "established") return f.domainEstablished;
+  if (b === "mid") return f.domainMid;
+  return f.domainUnavailable;
 }
 
 function LinkIntelligenceFreeBlock({
@@ -1472,6 +1626,57 @@ export default function ResultView() {
     });
   }, [contextMode, contextTriggerReason, scanIdForContext, inputType, result]);
 
+  const linkArtifactForProCta = result
+    ? parseLinkArtifact(intel as Record<string, unknown>)
+    : null;
+  const proCtaIntent = computeProCtaIntent({
+    intel: intel as Record<string, unknown>,
+    risk,
+    inputType,
+    intelState,
+    submissionRoute,
+    scanId: scanIdForContext,
+    weakInputGateActive,
+    linkArtifact: linkArtifactForProCta,
+  });
+
+  useEffect(() => {
+    if (weakInputGateActive || !proCtaIntent.show || !scanIdForContext) return;
+    const key = `ss_pro_cta_shown:${scanIdForContext}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      return;
+    }
+    logScanEvent("cta_shown", {
+      scan_id: scanIdForContext,
+      props: {
+        risk_tier: risk,
+        input_type: inputType,
+        intel_state: intelState,
+        context_quality: contextQuality,
+        cta_reason: proCtaIntent.cta_reason,
+        variant: "A",
+        web_risk_status: proCtaIntent.web_risk_status,
+        link_type: proCtaIntent.link_type,
+        domain_signal: proCtaIntent.domain_signal,
+      },
+    });
+  }, [
+    weakInputGateActive,
+    proCtaIntent.show,
+    proCtaIntent.cta_reason,
+    scanIdForContext,
+    risk,
+    inputType,
+    intelState,
+    contextQuality,
+    proCtaIntent.web_risk_status,
+    proCtaIntent.link_type,
+    proCtaIntent.domain_signal,
+  ]);
+
   const openPartnerEscalationForm = useCallback(() => {
     const ctx =
       typeof intel.user_context_text === "string" && intel.user_context_text.trim().length > 0
@@ -1614,56 +1819,6 @@ export default function ResultView() {
   const abuseInterpretation = parseAbuseInterpretationForSurface(intel as Record<string, unknown>);
   const linkDisplayDomain = linkArtifact ? linkArtifact.root_domain || linkArtifact.domain : null;
 
-  const groundedReasons: string[] = (() => {
-    const reasons: string[] = [];
-    const gr = t.groundedReasons;
-    const seen = new Set<string>();
-
-    const add = (s: string) => {
-      if (s && !seen.has(s)) {
-        seen.add(s);
-        reasons.push(s);
-      }
-    };
-
-    const route = intel.submission_route ?? "";
-    const ctx = intel.context_quality ?? "";
-    const narrative = intel.narrative_family ?? "";
-    const entity = intel.impersonation_entity ?? "";
-    const action = intel.requested_action ?? "";
-    const threat = intel.threat_stage ?? "";
-
-    if (
-      (route === "insufficient_context" || ctx === "fragment") &&
-      !(wasRefined && hasMeaningfulClassification)
-    ) {
-      add(gr.limited_context);
-    }
-    if (narrative && narrative !== "unknown" && gr.narrative[narrative]) {
-      add(gr.narrative[narrative]);
-    }
-    if (entity && entity !== "unknown" && gr.entity[entity]) {
-      add(gr.entity[entity]);
-    }
-    if (action && action !== "unknown" && action !== "none" && gr.action[action]) {
-      add(gr.action[action]);
-    }
-    if (threat && threat !== "unclear" && gr.threat[threat]) {
-      add(gr.threat[threat]);
-    }
-
-    return reasons;
-  })();
-
-  const narrativeGuidanceText: string | null = (() => {
-    const narrative = intel.narrative_family ?? "";
-    if (!narrative || narrative === "unknown") return null;
-    const g = t.narrativeGuidance as Record<string, string>;
-    return g[narrative] ?? null;
-  })();
-
-  const narrativeFamily = intel.narrative_family ?? "";
-  const nextSteps = (t.narrativeNextSteps as Record<string, { action: string; explanation: string }[] | undefined>)?.[narrativeFamily] ?? t.guidance;
   const interpretationUi = buildInterpretationUiLines(abuseInterpretation, lang, risk);
   const usedInterpretationConcepts = new Set<InterpretationSurfaceConcept>();
   const consumeInterpretation = (lines: InterpretationLine[], limit: number): string[] => {
@@ -1677,8 +1832,6 @@ export default function ResultView() {
     return out;
   };
   const riskCardInterpretationLines = consumeInterpretation(interpretationUi.riskCard, 2);
-  const whyFlaggedInterpretationLines = consumeInterpretation(interpretationUi.whyFlagged, 2);
-  const nextStepInterpretationLines = consumeInterpretation(interpretationUi.nextStep, 1);
 
   const summaryRaw = result.summary_sentence || t.defaultSummary[risk];
   const apiSummary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
@@ -2105,47 +2258,60 @@ export default function ResultView() {
               )}
             </div>
 
-            {/* ---------- Why this was flagged ---------- */}
-            {(groundedReasons.length > 0 || whyFlaggedInterpretationLines.length > 0 || narrativeGuidanceText) && (
+            <div style={styles.sectionDivider} className="rounded-lg border border-gray-200/90 bg-gray-50/60 px-3 py-2.5">
+              <p className="text-center text-xs leading-relaxed text-gray-600">{t.freeVerifyHint}</p>
+            </div>
+
+            {proCtaIntent.show ? (
               <div style={styles.sectionDivider}>
-                <div style={styles.reasonsBlock}>
-                  <div style={styles.sectionEyebrow}>{t.whySuspicious}</div>
-                  {(groundedReasons.length > 0 || whyFlaggedInterpretationLines.length > 0) && (
-                    <ul className="mt-2 list-disc pl-[18px] text-sm text-gray-900 leading-snug" style={styles.reasons}>
-                      {groundedReasons.slice(0, 3).map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                      {whyFlaggedInterpretationLines.map((c, i) => (
-                        <li key={`why-ai-${i}`}>{c}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {narrativeGuidanceText && (
-                    <p className="mt-2 text-xs text-gray-600 leading-snug" style={styles.narrativeGuidance}>
-                      {narrativeGuidanceText}
-                    </p>
-                  )}
+                <div className="rounded-lg border border-amber-200/90 bg-gradient-to-b from-amber-50/95 to-orange-50/40 px-3.5 py-3.5 text-sm text-gray-900 shadow-sm">
+                  <p className="text-[15px] font-semibold leading-snug text-gray-900">
+                    {t.proCta[proCtaIntent.copyVariant].title}
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-gray-700">
+                    {t.proCta[proCtaIntent.copyVariant].body}
+                  </p>
+                  <a
+                    href={(() => {
+                      const u = new URLSearchParams();
+                      u.set("scan_id", scanIdForContext);
+                      u.set("lang", lang);
+                      u.set("reason", proCtaIntent.cta_reason);
+                      u.set("risk_tier", risk);
+                      u.set("input_type", inputType);
+                      u.set("intel_state", intelState);
+                      u.set("context_quality", contextQuality);
+                      u.set("web_risk_status", proCtaIntent.web_risk_status);
+                      u.set("link_type", proCtaIntent.link_type);
+                      u.set("domain_signal", proCtaIntent.domain_signal);
+                      const ad = (linkDisplayDomain ?? "").trim();
+                      if (ad) u.set("analyzed_domain", ad);
+                      if (partner) u.set("partner", partner.slug);
+                      return `/pro?${u.toString()}`;
+                    })()}
+                    className="mt-3 inline-flex items-center justify-center rounded-md bg-amber-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+                    onClick={() => {
+                      logScanEvent("cta_clicked", {
+                        scan_id: scanIdForContext,
+                        props: {
+                          risk_tier: risk,
+                          input_type: inputType,
+                          intel_state: intelState,
+                          context_quality: contextQuality,
+                          cta_reason: proCtaIntent.cta_reason,
+                          variant: "A",
+                          web_risk_status: proCtaIntent.web_risk_status,
+                          link_type: proCtaIntent.link_type,
+                          domain_signal: proCtaIntent.domain_signal,
+                        },
+                      });
+                    }}
+                  >
+                    {t.proCta[proCtaIntent.copyVariant].button}
+                  </a>
                 </div>
               </div>
-            )}
-
-            {/* ---------- What to do next + optional context + MSP ---------- */}
-            <div style={{ ...styles.actionBlock, ...styles.sectionDivider }} className="gap-2">
-              <div style={styles.sectionEyebrow}>{t.actionTitle}</div>
-              <ul className="list-disc pl-4 text-sm text-gray-900" style={styles.actionList}>
-                {nextSteps.map((g, i) => (
-                  <li key={i} className="mb-2 last:mb-0">
-                    <span className="font-medium text-gray-900">{g.action}</span>
-                    <span className="mt-0.5 block text-xs font-normal text-gray-500">{g.explanation}</span>
-                  </li>
-                ))}
-                {nextStepInterpretationLines.map((line, i) => (
-                  <li key={`next-ai-${i}`} className="mb-2 last:mb-0">
-                    <span className="font-medium text-gray-900">{line}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            ) : null}
 
             {partner ? (
               <>
@@ -2529,37 +2695,9 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "4px 0 0",
     lineHeight: 1.45,
   },
-  narrativeGuidance: {
-    lineHeight: 1.5,
-    margin: 0,
-  },
   refinementLimitedNote: {
     margin: "0 0 -4px",
     lineHeight: 1.4,
-  },
-
-  reasonsBlock: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 0,
-  },
-  reasons: {
-    margin: 0,
-  },
-
-  actionBlock: {
-    backgroundColor: "#E8EAEF",
-    borderRadius: 10,
-    padding: "12px 14px",
-    border: "1px solid #C4C9D4",
-    display: "flex",
-    flexDirection: "column",
-  },
-  actionList: {
-    margin: 0,
-    paddingLeft: 0,
-    lineHeight: 1.5,
-    listStyle: "disc",
   },
 
   escalationFormBlock: {
