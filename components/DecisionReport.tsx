@@ -117,10 +117,20 @@ const copy = {
       "Use this report to explain the risk clearly to someone else — a family member, colleague, IT provider, or support contact.",
     shareUseLinkAbove: "Use the private link at the top of this page if you want to share this report.",
     videoPlaceholder: "1-minute explanation video coming soon",
-    feedbackPrompt: "Was this breakdown useful?",
+    reportFeedbackTitle: "Was this report useful?",
     feedbackYes: "Yes",
     feedbackNo: "No",
-    feedbackPlaceholder: "What was missing?",
+    feedbackHelpedLabel: "What helped most?",
+    feedbackMissingLabel: "What was missing?",
+    worthTitle: "Would this have felt worth $5?",
+    worthYes: "Yes",
+    worthNotYet: "Not yet",
+    worthMaybe: "Maybe, with more detail",
+    feedbackSend: "Send feedback",
+    feedbackThanks: "Thank you for your feedback.",
+    feedbackPrivacy:
+      "Please do not include sensitive personal information such as passwords, banking details, verification codes, or government ID numbers.",
+    feedbackError: "Could not send feedback. Please try again.",
     back: "Back to result",
     backScan: "Back to scanner",
   },
@@ -218,17 +228,27 @@ const copy = {
     shareUseLinkAbove:
       "Utilisez le lien privé en haut de cette page si vous souhaitez partager ce rapport.",
     videoPlaceholder: "Vidéo d’explication d’une minute — bientôt disponible",
-    feedbackPrompt: "Cette analyse vous a-t-elle été utile ?",
+    reportFeedbackTitle: "Ce rapport vous a-t-il été utile ?",
     feedbackYes: "Oui",
     feedbackNo: "Non",
-    feedbackPlaceholder: "Qu’est-ce qui manquait ?",
+    feedbackHelpedLabel: "Qu’est-ce qui vous a le plus aidé ?",
+    feedbackMissingLabel: "Qu’est-ce qui manquait ?",
+    worthTitle: "Cela aurait-il valu 5 $ pour vous ?",
+    worthYes: "Oui",
+    worthNotYet: "Pas encore",
+    worthMaybe: "Peut-être, avec plus de détails",
+    feedbackSend: "Envoyer les commentaires",
+    feedbackThanks: "Merci pour vos commentaires.",
+    feedbackPrivacy:
+      "Veuillez ne pas inclure d’informations personnelles sensibles telles que mots de passe, données bancaires, codes de vérification ou numéros d’identité gouvernementaux.",
+    feedbackError: "Envoi impossible. Veuillez réessayer.",
     back: "Retour au résultat",
     backScan: "Retour à l’analyse",
   },
 } as const;
 
 type Lang = "en" | "fr";
-type UsefulChoice = "yes" | "no";
+type WorthFiveChoice = "yes" | "not_yet" | "maybe_more_detail";
 
 function shortenScanId(id: string): string {
   if (!id) return "";
@@ -322,10 +342,6 @@ function buildRiskyBullets(lang: Lang, tel: DecisionReportTelemetry): string[] {
   return out;
 }
 
-function usefulStorageKey(scanId: string): string {
-  return `ss_pro_useful_${scanId}`;
-}
-
 export function DecisionReport({
   lang,
   scanId,
@@ -340,9 +356,13 @@ export function DecisionReport({
   ctaReasonForTelemetry,
 }: DecisionReportProps) {
   const t = copy[lang];
-  const [usefulChoice, setUsefulChoice] = useState<UsefulChoice | null>(null);
-  const [usefulNote, setUsefulNote] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [reportUseful, setReportUseful] = useState<boolean | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [worthFive, setWorthFive] = useState<WorthFiveChoice | "">("");
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackDone, setFeedbackDone] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [resolvedReportUrl, setResolvedReportUrl] = useState<string | null>(() => {
     const fromServer = reportAbsoluteUrl?.trim();
     if (fromServer) return fromServer;
@@ -384,15 +404,18 @@ export function DecisionReport({
 
   useEffect(() => {
     setMounted(true);
-    if (scanId) {
-      try {
-        const u = sessionStorage.getItem(usefulStorageKey(scanId));
-        if (u === "yes" || u === "no") setUsefulChoice(u);
-      } catch {
-        /* ignore */
-      }
+  }, []);
+
+  const tokenForFeedback = shareToken?.trim() ?? "";
+  useEffect(() => {
+    if (!tokenForFeedback) return;
+    try {
+      const k = `ss_report_feedback_sent:${tokenForFeedback.slice(0, 24)}`;
+      if (sessionStorage.getItem(k)) setFeedbackDone(true);
+    } catch {
+      /* ignore */
     }
-  }, [scanId]);
+  }, [tokenForFeedback]);
 
   const signalItems = useMemo(() => buildSignalItems(lang, telemetry), [lang, telemetry]);
 
@@ -456,24 +479,51 @@ export function DecisionReport({
 
   const confidenceTier = resolveConfidence(telemetry);
 
-  const selectUseful = (value: UsefulChoice) => {
-    setUsefulChoice(value);
-    if (value === "yes") setUsefulNote("");
-    if (scanId) {
+  const sendReportFeedback = async () => {
+    if (reportUseful === null || !tokenForFeedback) return;
+    setFeedbackSending(true);
+    setFeedbackError(null);
+    try {
+      const res = await fetch("/api/pro-report/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: tokenForFeedback,
+          useful: reportUseful,
+          feedback_text: feedbackText.trim() || undefined,
+          worth_five: worthFive || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setFeedbackError(t.feedbackError);
+        setFeedbackSending(false);
+        return;
+      }
       try {
-        sessionStorage.setItem(usefulStorageKey(scanId), value);
+        sessionStorage.setItem(`ss_report_feedback_sent:${tokenForFeedback.slice(0, 24)}`, "1");
       } catch {
         /* ignore */
       }
+      setFeedbackDone(true);
+      logScanEvent("report_feedback_submitted", {
+        scan_id: scanId || undefined,
+        props: {
+          flow: "shared_report",
+          report_useful: reportUseful ? "yes" : "no",
+          ...(worthFive ? { worth_five: worthFive } : {}),
+        },
+      });
+    } catch {
+      setFeedbackError(t.feedbackError);
     }
-    if (value === "yes") logScanEvent("pro_useful_yes", scanId ? { scan_id: scanId } : undefined);
-    else logScanEvent("pro_useful_no", scanId ? { scan_id: scanId } : undefined);
+    setFeedbackSending(false);
   };
 
   const choiceBtn =
     "rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400";
 
-  const token = shareToken?.trim() ?? "";
+  const token = tokenForFeedback;
   const relativeReportPath = token ? `/r/${encodeURIComponent(token)}` : "";
   const displayReportUrl = (resolvedReportUrl?.trim() || relativeReportPath).trim();
 
@@ -671,47 +721,107 @@ export function DecisionReport({
         <p className="text-xs font-medium text-slate-500">{t.videoPlaceholder}</p>
       </section>
 
-      <section className="mt-8 rounded-lg border border-slate-200 bg-white/60 px-4 py-4" aria-labelledby="feedback">
-        <h2 id="feedback" className="text-sm font-semibold text-slate-800">
-          {t.feedbackPrompt}
-        </h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => selectUseful("yes")}
-            className={`${choiceBtn} ${
-              usefulChoice === "yes"
-                ? "border-slate-600 bg-slate-100 text-slate-900"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/80"
-            }`}
-          >
-            {t.feedbackYes}
-          </button>
-          <button
-            type="button"
-            onClick={() => selectUseful("no")}
-            className={`${choiceBtn} ${
-              usefulChoice === "no"
-                ? "border-slate-600 bg-slate-100 text-slate-900"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/80"
-            }`}
-          >
-            {t.feedbackNo}
-          </button>
-        </div>
-        {usefulChoice === "no" ? (
-          <label className="mt-3 block">
-            <span className="sr-only">{t.feedbackPlaceholder}</span>
-            <textarea
-              rows={3}
-              value={usefulNote}
-              onChange={(e) => setUsefulNote(e.target.value)}
-              placeholder={t.feedbackPlaceholder}
-              className="mt-1 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300"
-            />
-          </label>
-        ) : null}
-      </section>
+      {token ? (
+        <section className="mt-8 rounded-lg border border-slate-200 bg-white/60 px-4 py-4" aria-labelledby="feedback">
+          <h2 id="feedback" className="text-sm font-semibold text-slate-800">
+            {t.reportFeedbackTitle}
+          </h2>
+          {feedbackDone ? (
+            <p className="mt-3 text-sm text-slate-700">{t.feedbackThanks}</p>
+          ) : (
+            <>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportUseful(true);
+                    setFeedbackError(null);
+                  }}
+                  className={`${choiceBtn} ${
+                    reportUseful === true
+                      ? "border-slate-600 bg-slate-100 text-slate-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/80"
+                  }`}
+                >
+                  {t.feedbackYes}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportUseful(false);
+                    setFeedbackError(null);
+                  }}
+                  className={`${choiceBtn} ${
+                    reportUseful === false
+                      ? "border-slate-600 bg-slate-100 text-slate-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50/80"
+                  }`}
+                >
+                  {t.feedbackNo}
+                </button>
+              </div>
+              {reportUseful !== null ? (
+                <div className="mt-4 space-y-4">
+                  <label className="block text-sm text-slate-800">
+                    <span className="font-medium">
+                      {reportUseful ? t.feedbackHelpedLabel : t.feedbackMissingLabel}
+                    </span>
+                    <textarea
+                      rows={3}
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      className="mt-1 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300"
+                    />
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.feedbackPrivacy}</p>
+                  </label>
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium text-slate-800">{t.worthTitle}</legend>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="radio"
+                        name="worth5"
+                        checked={worthFive === "yes"}
+                        onChange={() => setWorthFive("yes")}
+                      />
+                      {t.worthYes}
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="radio"
+                        name="worth5"
+                        checked={worthFive === "not_yet"}
+                        onChange={() => setWorthFive("not_yet")}
+                      />
+                      {t.worthNotYet}
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="radio"
+                        name="worth5"
+                        checked={worthFive === "maybe_more_detail"}
+                        onChange={() => setWorthFive("maybe_more_detail")}
+                      />
+                      {t.worthMaybe}
+                    </label>
+                  </fieldset>
+                  {feedbackError ? (
+                    <p className="text-sm font-medium text-red-700">{feedbackError}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void sendReportFeedback()}
+                    disabled={feedbackSending}
+                    className="rounded-md border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {t.feedbackSend}
+                  </button>
+                  <p className="text-xs leading-relaxed text-slate-500">{t.feedbackPrivacy}</p>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
 
       <footer className="mt-10 border-t border-slate-200 pt-8">
         <a

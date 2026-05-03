@@ -15,7 +15,18 @@ export function logScanEvent(
     | "scan_created"
     | "context_refinement_shown"
     | "context_refinement_submitted"
-    | "context_refinement_completed_analysis",
+    | "context_refinement_completed_analysis"
+    | "cta_shown"
+    | "cta_clicked"
+    | "pro_preview_viewed"
+    | "pro_sales_viewed"
+    | "pro_unlock_clicked"
+    | "beta_unlock_started"
+    | "beta_unlock_completed"
+    | "report_feedback_submitted"
+    | "user_state_selected"
+    | "pro_useful_yes"
+    | "pro_useful_no",
   data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;

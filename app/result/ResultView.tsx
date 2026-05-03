@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
+import { getProBridgeKeyFromCopyVariant } from "@/lib/proReports/salesIntent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
@@ -100,6 +101,17 @@ const copy = {
         body: "Preview a clearer breakdown of what this link may be trying to do, what could happen if you act, and what to do next.",
         button: "Preview full breakdown",
       },
+    },
+    proBridge: {
+      link_only:
+        "This scan is based mainly on the link itself. ScanScam detected signals that can help you decide whether this link deserves caution before you interact with it.",
+      full_message:
+        "This message contains patterns often used to push people into acting quickly. ScanScam detected signals that can help you understand what may be happening before you respond.",
+      insufficient_context:
+        "This result is based on the context available. There is not enough information to confirm the full situation, but the detected signals are enough to justify caution before acting.",
+      ctaLead:
+        "Need to make a decision? Get a decision-ready report with the risk explained, likely scenarios, and what to do next.",
+      getFullReportButton: "Get full report",
     },
     refinementIncomplete: {
       preliminaryBadge: "Limited analysis — a little context helps",
@@ -395,6 +407,17 @@ const copy = {
         body: "Aperçu d’une analyse plus claire de ce que ce lien peut chercher à faire, de ce qui pourrait se passer si vous agissez et de quoi faire ensuite.",
         button: "Aperçu de l’analyse complète",
       },
+    },
+    proBridge: {
+      link_only:
+        "Cette analyse repose surtout sur le lien lui-même. ScanScam a détecté des signaux pour vous aider à décider si ce lien mérite prudence avant d’interagir avec lui.",
+      full_message:
+        "Ce message comporte des schémas souvent utilisés pour pousser les gens à agir vite. ScanScam a détecté des signaux pour vous aider à comprendre ce qui se passe peut-être avant de répondre.",
+      insufficient_context:
+        "Ce résultat repose sur le contexte disponible. Il n’y a pas assez d’information pour confirmer la situation complète, mais les signaux détectés suffisent pour justifier la prudence avant d’agir.",
+      ctaLead:
+        "Besoin de décider? Obtenez un rapport prêt à décider avec le risque expliqué, les scénarios probables et les prochaines étapes.",
+      getFullReportButton: "Obtenir le rapport complet",
     },
     refinementIncomplete: {
       preliminaryBadge: "Analyse limitée — un peu de contexte aide",
@@ -2269,7 +2292,10 @@ export default function ResultView() {
                     {t.proCta[proCtaIntent.copyVariant].title}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-gray-700">
-                    {t.proCta[proCtaIntent.copyVariant].body}
+                    {t.proBridge[getProBridgeKeyFromCopyVariant(proCtaIntent.copyVariant)]}
+                  </p>
+                  <p className="mt-2 text-xs font-medium leading-relaxed text-gray-800">
+                    {t.proBridge.ctaLead}
                   </p>
                   <a
                     href={(() => {
@@ -2307,7 +2333,7 @@ export default function ResultView() {
                       });
                     }}
                   >
-                    {t.proCta[proCtaIntent.copyVariant].button}
+                    {t.proBridge.getFullReportButton}
                   </a>
                 </div>
               </div>

@@ -37,6 +37,17 @@ const ALLOWED_EVENTS = [
   "report_submit_success",
   "report_submit_failed",
   "telemetry_rejected_payload",
+  "cta_shown",
+  "cta_clicked",
+  "pro_preview_viewed",
+  "pro_sales_viewed",
+  "pro_unlock_clicked",
+  "beta_unlock_started",
+  "beta_unlock_completed",
+  "report_feedback_submitted",
+  "user_state_selected",
+  "pro_useful_yes",
+  "pro_useful_no",
 ] as const;
 
 const ALLOWED_PROPS = [
@@ -59,6 +70,17 @@ const ALLOWED_PROPS = [
   "trigger_reason",
   "input_type",
   "char_len_bucket",
+  "intel_state",
+  "context_quality",
+  "cta_reason",
+  "variant",
+  "web_risk_status",
+  "link_type",
+  "domain_signal",
+  "state",
+  "price",
+  "report_useful",
+  "worth_five",
 ] as const;
 
 const BANNED_KEYS = [
