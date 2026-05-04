@@ -5,9 +5,28 @@ import { buildReportAbsoluteUrl, resolveReportSiteOrigin } from "@/lib/proReport
 
 type PageProps = {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ lang?: string | string[] }>;
 };
 
-export default async function SharedReportTokenPage({ params }: PageProps) {
+function firstQueryValue(v: string | string[] | undefined): string | undefined {
+  if (v == null) return undefined;
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function resolveReportDisplayLang(
+  urlLangRaw: string | undefined,
+  scanLanguage: string | null | undefined
+): "en" | "fr" {
+  const u = (urlLangRaw ?? "").trim().toLowerCase();
+  if (u === "fr") return "fr";
+  if (u === "en") return "en";
+  const s = String(scanLanguage ?? "").trim().toLowerCase();
+  if (s === "fr") return "fr";
+  if (s === "en") return "en";
+  return "en";
+}
+
+export default async function SharedReportTokenPage({ params, searchParams }: PageProps) {
   const { token } = await params;
   const result = await getProReportByToken(token);
 
@@ -34,14 +53,16 @@ export default async function SharedReportTokenPage({ params }: PageProps) {
   }
 
   const { access, scan } = result;
-  const lang = scan.language === "fr" ? "fr" : "en";
+  const query = searchParams ? await searchParams : {};
+  const urlLang = firstQueryValue(query.lang);
+  const lang = resolveReportDisplayLang(urlLang, scan.language);
   const intel = scan.intel_features ?? {};
   const telemetry = buildTelemetryFromIntel(intel, scan.risk_tier);
   const analyzedDomain = extractAnalyzedDomainFromIntel(intel);
   const generatedAtMs = new Date(access.created_at).getTime();
   const reportExpiresAtMs = new Date(access.expires_at).getTime();
   const siteOrigin = await resolveReportSiteOrigin();
-  const reportAbsoluteUrl = buildReportAbsoluteUrl(siteOrigin, token);
+  const reportAbsoluteUrl = buildReportAbsoluteUrl(siteOrigin, token, lang);
 
   return (
     <DecisionReport

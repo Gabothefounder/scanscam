@@ -24,8 +24,13 @@ export async function resolveReportSiteOrigin(): Promise<string | null> {
 }
 
 /** Full URL to open the tokenized report, or a root-relative path if origin is unknown. */
-export function buildReportAbsoluteUrl(origin: string | null, token: string): string {
+export function buildReportAbsoluteUrl(
+  origin: string | null,
+  token: string,
+  lang?: "en" | "fr"
+): string {
   const path = `/r/${encodeURIComponent(token)}`;
-  if (!origin) return path;
-  return `${origin.replace(/\/+$/, "")}${path}`;
+  const qs = lang ? `?${new URLSearchParams({ lang }).toString()}` : "";
+  if (!origin) return `${path}${qs}`;
+  return `${origin.replace(/\/+$/, "")}${path}${qs}`;
 }
