@@ -99,6 +99,7 @@ const copy = {
     msgLabelPaymentWording: "Payment or account wording",
     msgLabelPressure: "Pressure signal",
     msgLabelAuthorityStyle: "Authority style",
+    guidanceModifiersTitle: "Helpful context",
     riskTier: { low: "Low", medium: "Medium", high: "High" } as Record<string, string>,
     linkType: {
       shortened: "Shortened",
@@ -139,39 +140,39 @@ const copy = {
       low: {
         recPrimary: "No strong warning signs were found from the information submitted.",
         recSupporting:
-          "This result appears low risk based on the available signals. If this message was unexpected, verify through the official source before acting.",
+          "This result appears low risk based on the available signals. A low-risk result applies only to this scan; review the situation again if a later message asks for money, codes, personal information, or urgent action.",
         riskTitle: "What this result means",
         riskBody: [
           "This scan did not find strong warning signs in the submitted information.",
           "A low-risk result applies only to this specific scan. A link or short message may not show the full message, sender, or request, so ScanScam avoids over-interpreting incomplete inputs.",
         ],
-        doTitle: "What to watch for next",
+        doTitle: "What could change this result",
         doIntro:
-          "This scan looks low risk based on what was submitted. Review the situation again if a new message or follow-up asks you to take action, share information, pay money, enter a code, or respond under pressure.",
+          "This scan looks low risk based on what was submitted. Review the situation again if a follow-up message asks for:",
         doBullets: [
-          "A request for money, passwords, codes, banking details, or personal information",
-          "Pressure to act quickly",
-          "A sender you cannot verify",
-          "A message that does not match what you expected",
-          "Repeated or unusual messages, especially in a work context",
+          "money",
+          "passwords or verification codes",
+          "banking details or personal information",
+          "urgent action",
+          "a reply from a sender you cannot verify",
         ],
         doClosing:
-          "If this is work-related or part of repeated unusual messages, send the report to IT or someone who can review the broader context.",
+          "If this is work-related or part of repeated unusual messages, share the report with IT or someone who can review the broader pattern.",
         escTitle: "",
         escIntro: null,
         escBullets: [],
       },
       medium: {
-        recPrimary: "Do not act until the source and requested action are verified.",
+        recPrimary: "Pause before acting until the source and requested action are verified.",
         recSupporting:
-          "ScanScam found cautionary signals. The safest next step is to verify through the official source before clicking, replying, paying, or sharing more information.",
+          "ScanScam found cautionary signals. You do not need to decide in a rush; verify through an official source or trusted contact method before clicking, replying, paying, or sharing more information.",
         riskTitle: "Why this deserves attention",
         riskBody: ["This scan found cautionary signals that deserve attention before you act."],
-        doTitle: "What to do before acting",
+        doTitle: "What to verify before acting",
         doBullets: [
-          "Do not use the link until the source is verified.",
-          "Go to the official website manually.",
-          "Verify through a trusted channel before clicking, replying, paying, or sharing information.",
+          "Do not follow the request until the source is verified.",
+          "Use the official website or a trusted contact method.",
+          "Verify before clicking, replying, paying, or sharing information.",
         ],
         doIntro: null,
         doClosing: null,
@@ -186,9 +187,9 @@ const copy = {
       },
       high: {
         recPrimary:
-          "Do not click, reply, pay, or share more information until this is verified through an official source.",
+          "Stop before acting. Do not click, reply, pay, or share more information until this is verified through an official source.",
         recSupporting:
-          "ScanScam found stronger warning signs that may indicate suspicious intent, pressure, or a request to act.",
+          "ScanScam found stronger warning signs that may indicate suspicious intent, pressure, or a request to act. The safest next step is to verify outside the message.",
         riskTitle: "What triggered the risk",
         riskBody: ["This scan found stronger warning signs that should be verified before any further action."],
         doTitle: "What to do now",
@@ -284,6 +285,7 @@ const copy = {
     msgLabelPaymentWording: "Formulation liée au paiement ou au compte",
     msgLabelPressure: "Signal de pression",
     msgLabelAuthorityStyle: "Style d’autorité",
+    guidanceModifiersTitle: "Contexte utile",
     riskTier: { low: "Faible", medium: "Moyen", high: "Élevé" } as Record<string, string>,
     linkType: {
       shortened: "Raccourci",
@@ -324,43 +326,44 @@ const copy = {
     tier: {
       low: {
         recPrimary:
-          "Aucun signal d’avertissement fort n’a été trouvé à partir des informations soumises.",
+          "Aucun signal fortement inquiétant n’a été trouvé à partir des informations soumises.",
         recSupporting:
-          "Ce résultat semble à faible risque d’après les signaux disponibles. Si le message était inattendu, vérifiez auprès de la source officielle avant d’agir.",
+          "Ce résultat semble faible risque selon les signaux disponibles. Un résultat faible risque s’applique seulement à ce scan; revoyez la situation si un autre message demande de l’argent, des codes, des informations personnelles ou une action urgente.",
         riskTitle: "Ce que signifie ce résultat",
         riskBody: [
           "Cette analyse n’a pas trouvé de signaux d’avertissement forts dans les informations soumises.",
           "Un résultat à faible risque s’applique seulement à cette analyse précise. Un lien ou un court message peut ne pas montrer le message complet, l’expéditeur ou la demande, donc ScanScam évite de sur-interpréter les entrées incomplètes.",
         ],
-        doTitle: "Sur quoi veiller ensuite",
+        doTitle: "Ce qui pourrait changer ce résultat",
         doIntro:
-          "Cette analyse semble à faible risque d’après ce qui a été soumis. Réexaminez la situation si un nouveau message ou un suivi vous demande d’agir, de partager des renseignements, de payer, de saisir un code ou de réagir sous pression.",
+          "Ce scan semble faible risque selon ce qui a été soumis. Revoyez la situation si un message de suivi demande :",
         doBullets: [
-          "Une demande d’argent, de mots de passe, de codes, de données bancaires ou de renseignements personnels",
-          "Une pression pour agir vite",
-          "Un expéditeur que vous ne pouvez pas vérifier",
-          "Un message qui ne correspond pas à ce que vous attendiez",
-          "Des messages répétés ou inhabituels, surtout dans un contexte professionnel",
+          "de l’argent",
+          "des mots de passe ou des codes de vérification",
+          "des données bancaires ou des informations personnelles",
+          "une action urgente",
+          "une réponse à un expéditeur que vous ne pouvez pas vérifier",
         ],
         doClosing:
-          "Si c’est lié au travail ou à des messages inhabituels répétés, envoyez le rapport à la TI ou à une personne qui peut examiner le contexte plus large.",
+          "Si c’est lié au travail ou à des messages répétés ou inhabituels, partagez le rapport avec l’équipe TI ou quelqu’un qui peut examiner le contexte plus large.",
         escTitle: "",
         escIntro: null,
         escBullets: [],
       },
       medium: {
-        recPrimary: "N’agissez pas tant que la source et l’action demandée ne sont pas vérifiées.",
+        recPrimary:
+          "Faites une pause avant d’agir, jusqu’à ce que la source et l’action demandée soient vérifiées.",
         recSupporting:
-          "ScanScam a détecté des signaux de prudence. L’étape la plus sûre est de vérifier auprès de la source officielle avant de cliquer, répondre, payer ou partager davantage d’informations.",
+          "ScanScam a trouvé des signaux qui méritent prudence. Vous n’avez pas besoin de décider dans la précipitation; vérifiez par une source officielle ou un moyen de contact fiable avant de cliquer, répondre, payer ou partager plus d’informations.",
         riskTitle: "Pourquoi cela mérite attention",
         riskBody: [
           "Cette analyse a trouvé des signaux de prudence qui méritent attention avant d’agir.",
         ],
-        doTitle: "Que faire avant d’agir",
+        doTitle: "Quoi vérifier avant d’agir",
         doBullets: [
-          "N’utilisez pas le lien tant que la source n’est pas vérifiée.",
-          "Allez sur le site officiel manuellement.",
-          "Vérifiez par un canal de confiance avant de cliquer, répondre, payer ou partager des informations.",
+          "Ne suivez pas la demande avant d’avoir vérifié la source.",
+          "Utilisez le site officiel ou un moyen de contact fiable.",
+          "Vérifiez avant de cliquer, répondre, payer ou partager des informations.",
         ],
         doIntro: null,
         doClosing: null,
@@ -375,18 +378,18 @@ const copy = {
       },
       high: {
         recPrimary:
-          "Ne cliquez pas, ne répondez pas, ne payez pas et ne partagez pas d’informations tant que cela n’est pas vérifié par une source officielle.",
+          "Arrêtez-vous avant d’agir. Ne cliquez pas, ne répondez pas, ne payez pas et ne partagez pas plus d’informations avant d’avoir vérifié par une source officielle.",
         recSupporting:
-          "ScanScam a détecté des signaux d’avertissement plus forts pouvant indiquer une intention suspecte, une pression ou une demande d’agir.",
+          "ScanScam a trouvé des signaux plus sérieux qui peuvent indiquer une intention suspecte, une pression ou une demande d’action. La prochaine étape la plus sûre est de vérifier en dehors du message.",
         riskTitle: "Ce qui a déclenché le risque",
         riskBody: [
           "Cette analyse a trouvé des signaux d’avertissement plus forts qui devraient être vérifiés avant toute autre action.",
         ],
-        doTitle: "Que faire maintenant",
+        doTitle: "Quoi faire maintenant",
         doBullets: [
-          "Ne cliquez pas, ne répondez pas, ne payez pas et ne partagez pas d’informations.",
-          "Ne saisissez pas de mots de passe, codes, données bancaires ou renseignements personnels.",
-          "Vérifiez via le site officiel, le fournisseur, la banque, le soutien au travail ou un autre canal de confiance.",
+          "Ne cliquez pas, ne répondez pas, ne payez pas et ne partagez pas plus d’informations.",
+          "N’entrez pas de mots de passe, de codes, de données bancaires ou d’informations personnelles.",
+          "Vérifiez par le site officiel, le fournisseur, la banque, le support au travail ou un autre canal fiable.",
         ],
         doIntro: null,
         doClosing: null,
@@ -629,6 +632,73 @@ function effectiveRiskBand(tel: DecisionReportTelemetry): RiskBand {
   return "low";
 }
 
+const GUIDANCE_MODIFIER_PHRASES: Record<
+  Lang,
+  { payment: string; pressure: string; authority: string; link: string }
+> = {
+  en: {
+    payment:
+      "Do not enter passwords, verification codes, banking details, or payment information through a link or contact method in the message.",
+    pressure:
+      "Pressure is a reason to slow down. You do not need to act from the message itself.",
+    authority:
+      "If this appears to come from an organization, verify through the official website or a trusted contact method — not through the message.",
+    link: "Open the official website manually instead of using the link in the message.",
+  },
+  fr: {
+    payment:
+      "N’entrez pas de mots de passe, de codes de vérification, de données bancaires ou d’informations de paiement à partir d’un lien ou d’un contact dans le message.",
+    pressure:
+      "La pression est une raison de ralentir. Vous n’avez pas besoin d’agir à partir du message lui-même.",
+    authority:
+      "Si cela semble venir d’une organisation, vérifiez par le site officiel ou un moyen de contact fiable — pas à partir du message.",
+    link: "Ouvrez le site officiel manuellement plutôt que d’utiliser le lien dans le message.",
+  },
+};
+
+function buildGuidanceModifiers(
+  tel: DecisionReportTelemetry,
+  lang: Lang,
+  riskBand: RiskBand
+): string[] {
+  const ra = tel.requested_action.trim().toLowerCase();
+  const pi = tel.payment_intent.trim().toLowerCase();
+  const payConcrete = pi.length > 0 && pi !== "none" && pi !== "unknown";
+  const paymentApplies =
+    ra === "submit_credentials" || ra === "pay_money" || payConcrete;
+
+  const esc = tel.escalation_pattern.trim().toLowerCase();
+  const pressureApplies =
+    esc === "time_pressure" || esc === "legal_threat" || esc === "account_threat";
+
+  const auth = tel.authority_type.trim().toLowerCase();
+  const authorityApplies =
+    auth === "government" ||
+    auth === "financial_institution" ||
+    auth === "corporate" ||
+    auth === "tech_company";
+
+  const linkApplies =
+    tel.has_usable_link === true && (riskBand === "medium" || riskBand === "high");
+
+  const phrases = GUIDANCE_MODIFIER_PHRASES[lang];
+  const ordered: string[] = [];
+  if (paymentApplies) ordered.push(phrases.payment);
+  if (pressureApplies) ordered.push(phrases.pressure);
+  if (authorityApplies) ordered.push(phrases.authority);
+  if (linkApplies) ordered.push(phrases.link);
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of ordered) {
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+    if (out.length >= 2) break;
+  }
+  return out;
+}
+
 function shortenScanId(id: string): string {
   if (!id) return "";
   if (id.length <= 14) return id;
@@ -744,6 +814,10 @@ export function DecisionReport({
 
   const riskBand = useMemo(() => effectiveRiskBand(telemetry), [telemetry]);
   const tierCopy = copy[lang].tier[riskBand];
+  const guidanceModifiers = useMemo(
+    () => buildGuidanceModifiers(telemetry, lang, riskBand),
+    [telemetry, lang, riskBand]
+  );
 
   const showWhyLimited = useMemo(() => showWhyConfidenceLimited(telemetry), [telemetry]);
 
@@ -950,6 +1024,16 @@ export function DecisionReport({
         </h2>
         <p className="mt-3 text-base font-semibold leading-snug text-slate-900">{tierCopy.recPrimary}</p>
         <p className="mt-2 text-sm leading-relaxed text-slate-700">{tierCopy.recSupporting}</p>
+        {guidanceModifiers.length > 0 ? (
+          <div className="mt-3 rounded-md border border-slate-200/90 bg-slate-50/80 px-3 py-2.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t.guidanceModifiersTitle}</p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-slate-600">
+              {guidanceModifiers.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="mt-3 text-sm text-slate-600">{confidenceDisplay(lang, confidenceTier)}</p>
       </section>
 
