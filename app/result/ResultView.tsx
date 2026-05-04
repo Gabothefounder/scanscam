@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
-import { getProBridgeKeyFromCopyVariant } from "@/lib/proReports/salesIntent";
+import { getResultUpsellCopy } from "@/lib/result/getResultUpsellCopy";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
@@ -79,39 +79,6 @@ const copy = {
       threatDbUnsafe: "Flagged as unsafe by Google’s threat database.",
       threatTypeOne: "Detected threat type: {types}",
       threatTypesMany: "Detected threat types: {types}",
-    },
-    proCta: {
-      unsafe: {
-        title: "This link was flagged as unsafe",
-        body: "Preview a breakdown of the threat, possible consequences, and what to do now.",
-        button: "Preview safety guidance",
-      },
-      full_message: {
-        title: "Need a decision-ready breakdown?",
-        body: "The free result summarizes what we saw. A full breakdown can explain the risk, what scammers may want, and what to do next.",
-        button: "Preview full breakdown",
-      },
-      insufficient_context: {
-        title: "Need a decision-ready breakdown?",
-        body: "The free result uses the context available. A full breakdown can organize the signals, explain what may be happening, and show what to do next.",
-        button: "Preview full breakdown",
-      },
-      link_only: {
-        title: "Still unsure about this link?",
-        body: "Preview a clearer breakdown of what this link may be trying to do, what could happen if you act, and what to do next.",
-        button: "Preview full breakdown",
-      },
-    },
-    proBridge: {
-      link_only:
-        "This scan is based mainly on the link itself. ScanScam detected signals that can help you decide whether this link deserves caution before you interact with it.",
-      full_message:
-        "This message contains patterns often used to push people into acting quickly. ScanScam detected signals that can help you understand what may be happening before you respond.",
-      insufficient_context:
-        "This result is based on the context available. There is not enough information to confirm the full situation, but the detected signals are enough to justify caution before acting.",
-      ctaLead:
-        "Need to make a decision? Get a decision-ready report with the risk explained, likely scenarios, and what to do next.",
-      getFullReportButton: "Get full report",
     },
     refinementIncomplete: {
       preliminaryBadge: "Limited analysis — a little context helps",
@@ -385,39 +352,6 @@ const copy = {
       threatDbUnsafe: "Signalé comme dangereux par la base de menaces de Google.",
       threatTypeOne: "Type de menace détecté : {types}",
       threatTypesMany: "Types de menace détectés : {types}",
-    },
-    proCta: {
-      unsafe: {
-        title: "Ce lien a été signalé comme dangereux",
-        body: "Aperçu d’une analyse de la menace, des conséquences possibles et des mesures à prendre maintenant.",
-        button: "Aperçu des conseils de sécurité",
-      },
-      full_message: {
-        title: "Besoin d’une analyse prête à décider?",
-        body: "Le résultat gratuit résume ce que nous avons observé. Une analyse complète peut expliquer le risque, ce que les fraudeurs peuvent viser et quoi faire ensuite.",
-        button: "Aperçu de l’analyse complète",
-      },
-      insufficient_context: {
-        title: "Besoin d’une analyse prête à décider?",
-        body: "Le résultat gratuit repose sur le contexte disponible. Une analyse complète peut organiser les signaux, expliquer ce qui se passe peut-être et indiquer quoi faire ensuite.",
-        button: "Aperçu de l’analyse complète",
-      },
-      link_only: {
-        title: "Encore des doutes sur ce lien?",
-        body: "Aperçu d’une analyse plus claire de ce que ce lien peut chercher à faire, de ce qui pourrait se passer si vous agissez et de quoi faire ensuite.",
-        button: "Aperçu de l’analyse complète",
-      },
-    },
-    proBridge: {
-      link_only:
-        "Cette analyse repose surtout sur le lien lui-même. ScanScam a détecté des signaux pour vous aider à décider si ce lien mérite prudence avant d’interagir avec lui.",
-      full_message:
-        "Ce message comporte des schémas souvent utilisés pour pousser les gens à agir vite. ScanScam a détecté des signaux pour vous aider à comprendre ce qui se passe peut-être avant de répondre.",
-      insufficient_context:
-        "Ce résultat repose sur le contexte disponible. Il n’y a pas assez d’information pour confirmer la situation complète, mais les signaux détectés suffisent pour justifier la prudence avant d’agir.",
-      ctaLead:
-        "Besoin de décider? Obtenez un rapport prêt à décider avec le risque expliqué, les scénarios probables et les prochaines étapes.",
-      getFullReportButton: "Obtenir le rapport complet",
     },
     refinementIncomplete: {
       preliminaryBadge: "Analyse limitée — un peu de contexte aide",
@@ -1663,6 +1597,22 @@ export default function ResultView() {
     linkArtifact: linkArtifactForProCta,
   });
 
+  const rawRisk = String(result?.risk ?? result?.risk_tier ?? "low").toLowerCase();
+  const normalizedRisk =
+    rawRisk === "medium" || rawRisk === "high" ? (rawRisk as "medium" | "high") : "low";
+  const isLinkOnly = inputType === "link_only";
+  const isLimitedContext =
+    intelState === "insufficient_context" ||
+    submissionRoute === "insufficient_context" ||
+    contextQuality === "fragment" ||
+    contextQuality === "thin";
+  const upsell = getResultUpsellCopy({
+    lang: lang === "fr" ? "fr" : "en",
+    riskTier: normalizedRisk,
+    isLimitedContext,
+    isLinkOnly,
+  });
+
   useEffect(() => {
     if (weakInputGateActive || !proCtaIntent.show || !scanIdForContext) return;
     const key = `ss_pro_cta_shown:${scanIdForContext}`;
@@ -2289,14 +2239,13 @@ export default function ResultView() {
               <div style={styles.sectionDivider}>
                 <div className="rounded-lg border border-amber-200/90 bg-gradient-to-b from-amber-50/95 to-orange-50/40 px-3.5 py-3.5 text-sm text-gray-900 shadow-sm">
                   <p className="text-[15px] font-semibold leading-snug text-gray-900">
-                    {t.proCta[proCtaIntent.copyVariant].title}
+                    {upsell.headline}
                   </p>
-                  <p className="mt-2 text-xs leading-relaxed text-gray-700">
-                    {t.proBridge[getProBridgeKeyFromCopyVariant(proCtaIntent.copyVariant)]}
-                  </p>
-                  <p className="mt-2 text-xs font-medium leading-relaxed text-gray-800">
-                    {t.proBridge.ctaLead}
-                  </p>
+                  <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-900">{upsell.lead}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-700">{upsell.body}</p>
+                  {upsell.note ? (
+                    <p className="mt-2 text-[11px] leading-relaxed text-gray-500">{upsell.note}</p>
+                  ) : null}
                   <a
                     href={(() => {
                       const u = new URLSearchParams();
@@ -2333,7 +2282,7 @@ export default function ResultView() {
                       });
                     }}
                   >
-                    {t.proBridge.getFullReportButton}
+                    {upsell.ctaLabel}
                   </a>
                 </div>
               </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { getSalesIntentFromParams, type SalesIntentBucket } from "@/lib/proReports/salesIntent";
+import { getDecisionReportSalesCopy } from "@/lib/proReports/getDecisionReportSalesCopy";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 type Lang = "en" | "fr";
@@ -17,148 +17,142 @@ type SalesTelemetry = {
   domain_signal: string;
 };
 
-type CopyBlock = {
-  emotionalSubtitle: string;
+type BenefitStep = { heading: string; body: string };
+
+type UiLabels = {
+  benefitJourneyTitle: string;
+  benefitSteps: readonly BenefitStep[];
   contextTitle: string;
+  detectedBridgeLine: string;
   riskLevel: string;
   linkType: string;
   domainSignal: string;
-  threatDb: string;
-  threatDbUnsafe: string;
-  limitedContextNote: string;
-  valueTitle: string;
-  valueBullets: readonly string[];
-  useTitle: string;
-  useBullets: readonly string[];
-  previewTitle: string;
-  videoTitle: string;
-  videoBody: string;
-  videoSoon: string;
-  ctaUnlock: string;
+  reportIncludesTitle: string;
+  reportIncludesHelper: string;
+  reportIncludesItems: readonly BenefitStep[];
+  closingBenefitLine: string;
+  importantLimitsHeading: string;
   ctaBetaNote: string;
-  trustNote: string;
   backResult: string;
   backScan: string;
-  hero: Record<SalesIntentBucket, string>;
-  previewLine1: Record<SalesIntentBucket, string>;
-  previewLine2: Record<SalesIntentBucket, string>;
 };
 
-const copy: Record<Lang, CopyBlock> = {
+const uiLabels: Record<Lang, UiLabels> = {
   en: {
-    emotionalSubtitle:
-      "You already received the free scan. The full report turns the detected signals into a clear recommendation, likely scenarios, and next steps.",
+    benefitJourneyTitle: "How the report helps",
+    benefitSteps: [
+      {
+        heading: "Get clear faster",
+        body: "See what ScanScam found and why it matters.",
+      },
+      {
+        heading: "Know what to do next",
+        body: "Get a clearer recommendation for how to proceed.",
+      },
+      {
+        heading: "Keep a shareable record",
+        body: "Save a time-stamped report you can keep or send to someone you trust.",
+      },
+    ],
     contextTitle: "What ScanScam already detected",
+    detectedBridgeLine:
+      "The free scan gives you the first read. The full report turns it into a clearer decision.",
     riskLevel: "Risk level",
     linkType: "Link type",
     domainSignal: "Domain signal",
-    threatDb: "Threat database",
-    threatDbUnsafe: "Flagged in threat database",
-    limitedContextNote:
-      "This scan has limited context, so the report avoids overclaiming and focuses on the safest next step.",
-    valueTitle: "The full report gives you:",
-    valueBullets: [
-      "A clear recommendation",
-      "Why this deserves caution",
-      "What may happen if you proceed",
-      "What scammers may be trying to get",
-      "What to do if you already clicked or shared information",
-      "A secure report link you can send to someone else",
+    reportIncludesTitle: "Inside the full report",
+    reportIncludesHelper: "A clear, shareable breakdown built from this scan.",
+    reportIncludesItems: [
+      {
+        heading: "Recommendation",
+        body: "What to do next based on the available signals.",
+      },
+      {
+        heading: "Reasoning",
+        body: "Why the result points in that direction.",
+      },
+      {
+        heading: "Limits",
+        body: "What remains unknown or cannot be confirmed.",
+      },
+      {
+        heading: "Next steps",
+        body: "What to do if you clicked, replied, paid, or shared information.",
+      },
+      {
+        heading: "Shareable link",
+        body: "A private report link you can send to someone you trust.",
+      },
+      {
+        heading: "Time-stamped record",
+        body: "A clear scan record you can keep or use to explain the situation.",
+      },
     ],
-    useTitle: "Use it to:",
-    useBullets: [
-      "decide what to do next",
-      "explain the situation to someone else",
-      "send to a colleague, IT, support team, or family member",
-      "keep a time-stamped record of the scan",
-    ],
-    previewTitle: "Example from your report",
-    videoTitle: "1-minute explanation",
-    videoBody:
-      "Gabriel from ScanScam explains how to read this report and what to do before acting.",
-    videoSoon: "Video coming soon",
-    ctaUnlock: "Unlock full report — $5",
+    closingBenefitLine:
+      "Move from uncertainty to a clearer next step — with a shareable record you can keep.",
+    importantLimitsHeading: "Important limits",
     ctaBetaNote:
       "Beta access: today, you can unlock it for free after answering 4 short questions.",
-    trustNote: "No account required. Secure report link valid for 21 days.",
     backResult: "Back to result",
     backScan: "Back to scanner",
-    hero: {
-      link: "Get a clearer answer before you click",
-      full_message: "Understand what this message may be trying to do",
-      insufficient: "Turn this scan into a clearer decision report",
-    },
-    previewLine1: {
-      link: "Recommended action: Treat this link as untrusted until verified through an official source.",
-      full_message:
-        "Recommended action: Do not respond until the message is verified through an official source.",
-      insufficient:
-        "Recommended action: Do not act until the source and requested action are verified.",
-    },
-    previewLine2: {
-      link: "Why: The scan detected a recently registered domain and limited surrounding context.",
-      full_message: "Why: The scan detected patterns commonly used to create urgency or pressure.",
-      insufficient:
-        "Why: The scan found cautionary signals, but not enough context to confirm the full situation.",
-    },
   },
   fr: {
-    emotionalSubtitle:
-      "Vous avez déjà reçu l’analyse gratuite. Le rapport complet transforme les signaux détectés en recommandation claire, scénarios probables et prochaines étapes.",
+    benefitJourneyTitle: "Comment le rapport aide",
+    benefitSteps: [
+      {
+        heading: "Comprendre plus vite",
+        body: "Voyez ce que ScanScam a trouvé et pourquoi cela compte.",
+      },
+      {
+        heading: "Savoir quoi faire ensuite",
+        body: "Obtenez une recommandation plus claire pour la suite.",
+      },
+      {
+        heading: "Garder une trace partageable",
+        body: "Conservez un rapport horodaté que vous pouvez garder ou envoyer à une personne de confiance.",
+      },
+    ],
     contextTitle: "Ce que ScanScam a déjà détecté",
+    detectedBridgeLine:
+      "Le scan gratuit vous donne une première lecture. Le rapport complet la transforme en décision plus claire.",
     riskLevel: "Niveau de risque",
     linkType: "Type de lien",
     domainSignal: "Signal du domaine",
-    threatDb: "Base de menaces",
-    threatDbUnsafe: "Signalée dans la base de menaces",
-    limitedContextNote:
-      "Cette analyse repose sur un contexte limité; le rapport évite les affirmations excessives et se concentre sur la prochaine étape la plus prudente.",
-    valueTitle: "Le rapport complet vous apporte :",
-    valueBullets: [
-      "Une recommandation claire",
-      "Pourquoi il faut être prudent",
-      "Ce qui peut se passer si vous poursuivez",
-      "Ce que les fraudeurs peuvent chercher à obtenir",
-      "Que faire si vous avez déjà cliqué ou partagé des informations",
-      "Un lien de rapport sécurisé à envoyer à une autre personne",
+    reportIncludesTitle: "Dans le rapport complet",
+    reportIncludesHelper: "Un résumé clair et partageable construit à partir de ce scan.",
+    reportIncludesItems: [
+      {
+        heading: "Recommandation",
+        body: "Quoi faire ensuite selon les signaux disponibles.",
+      },
+      {
+        heading: "Raisonnement",
+        body: "Pourquoi le résultat va dans cette direction.",
+      },
+      {
+        heading: "Limites",
+        body: "Ce qui reste inconnu ou ne peut pas être confirmé.",
+      },
+      {
+        heading: "Prochaines étapes",
+        body: "Quoi faire si vous avez déjà cliqué, répondu, payé ou partagé des informations.",
+      },
+      {
+        heading: "Lien partageable",
+        body: "Un lien privé que vous pouvez envoyer à une personne de confiance.",
+      },
+      {
+        heading: "Trace horodatée",
+        body: "Un résumé du scan que vous pouvez garder ou utiliser pour expliquer la situation.",
+      },
     ],
-    useTitle: "Vous pouvez l’utiliser pour :",
-    useBullets: [
-      "décider quoi faire ensuite",
-      "expliquer la situation à quelqu’un d’autre",
-      "l’envoyer à un collègue, à la TI, à l’assistance ou à un proche",
-      "conserver une trace horodatée de l’analyse",
-    ],
-    previewTitle: "Exemple tiré de votre rapport",
-    videoTitle: "Explication d’une minute",
-    videoBody:
-      "Gabriel de ScanScam explique comment lire ce rapport et quoi faire avant d’agir.",
-    videoSoon: "Vidéo à venir",
-    ctaUnlock: "Déverrouiller le rapport complet — 5 $",
+    closingBenefitLine:
+      "Passez de l’incertitude à une prochaine étape plus claire — avec une trace partageable que vous pouvez garder.",
+    importantLimitsHeading: "Limites importantes",
     ctaBetaNote:
       "Accès bêta : aujourd’hui, vous pouvez le déverrouiller gratuitement en répondant à 4 courtes questions.",
-    trustNote: "Aucun compte requis. Lien de rapport sécurisé valide 21 jours.",
     backResult: "Retour au résultat",
     backScan: "Retour à l’analyse",
-    hero: {
-      link: "Obtenez une réponse plus claire avant de cliquer",
-      full_message: "Comprendre ce que ce message peut chercher à faire",
-      insufficient: "Transformez cette analyse en rapport décisionnel plus clair",
-    },
-    previewLine1: {
-      link: "Action recommandée : traitez ce lien comme non fiable tant qu’il n’est pas vérifié par une source officielle.",
-      full_message:
-        "Action recommandée : ne répondez pas tant que le message n’est pas vérifié par une source officielle.",
-      insufficient:
-        "Action recommandée : n’agissez pas tant que la source et l’action demandée ne sont pas vérifiées.",
-    },
-    previewLine2: {
-      link: "Pourquoi : l’analyse a détecté un domaine récemment enregistré et un contexte limité.",
-      full_message:
-        "Pourquoi : l’analyse a détecté des schémas souvent utilisés pour créer de l’urgence ou de la pression.",
-      insufficient:
-        "Pourquoi : l’analyse a relevé des signaux de prudence, mais pas assez de contexte pour confirmer la situation complète.",
-    },
   },
 };
 
@@ -223,6 +217,44 @@ function buildTelemetryProps(tel: SalesTelemetry, reason: string): Record<string
   return props;
 }
 
+function emphasizeSubheadline(text: string, lang: Lang): ReactNode {
+  const phrases =
+    lang === "fr"
+      ? [
+          "ce que le message pourrait chercher à vous faire faire",
+          "quelles étapes suivre maintenant",
+          "les prochaines étapes",
+          "ce qui reste inconnu",
+          "quoi faire ensuite",
+        ]
+      : [
+          "what the message may be trying to get you to do",
+          "what remains unknown",
+          "what steps to take now",
+          "your next steps",
+          "what to do next",
+        ];
+
+  const escaped = phrases.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`(${escaped.join("|")})`, "gi");
+  const parts = text.split(re);
+  const lowerSet = new Set(phrases.map((p) => p.toLowerCase()));
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        lowerSet.has(part.toLowerCase()) ? (
+          <strong key={i} className="font-semibold text-slate-900">
+            {part}
+          </strong>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function ProSalesInner() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -253,23 +285,40 @@ function ProSalesInner() {
     setMounted(true);
   }, []);
 
-  const t = copy[lang];
+  const labels = uiLabels[lang];
 
-  const intent = useMemo(() => {
-    if (!telemetry) return "link" as SalesIntentBucket;
-    return getSalesIntentFromParams({
-      input_type: telemetry.input_type,
-      intel_state: telemetry.intel_state,
-      reason,
+  const sales = useMemo(() => {
+    if (!telemetry) {
+      return getDecisionReportSalesCopy({
+        lang,
+        riskTier: "low",
+        isLimitedContext: false,
+        isLinkOnly: false,
+        linkType: "",
+        domainSignal: "",
+      });
+    }
+    const rawRisk = String(telemetry.risk_tier ?? "low").toLowerCase();
+    const normalizedRisk =
+      rawRisk === "medium" || rawRisk === "high" ? (rawRisk as "medium" | "high") : "low";
+    const intel = telemetry.intel_state.trim().toLowerCase();
+    const cq = telemetry.context_quality.trim().toLowerCase();
+    const isLimitedContext =
+      intel === "insufficient_context" ||
+      reason === "insufficient_context" ||
+      cq === "fragment" ||
+      cq === "thin";
+    const isLinkOnly = telemetry.input_type.trim().toLowerCase() === "link_only";
+
+    return getDecisionReportSalesCopy({
+      lang,
+      riskTier: normalizedRisk,
+      isLimitedContext,
+      isLinkOnly,
+      linkType: telemetry.link_type,
+      domainSignal: telemetry.domain_signal,
     });
-  }, [telemetry, reason]);
-
-  const showLimitedContextNote =
-    intent === "insufficient" ||
-    telemetry?.intel_state.trim().toLowerCase() === "insufficient_context" ||
-    reason === "insufficient_context";
-
-  const showThreatRow = telemetry?.web_risk_status.trim().toLowerCase() === "unsafe";
+  }, [lang, telemetry, reason]);
 
   useEffect(() => {
     if (!mounted || !telemetry) return;
@@ -307,122 +356,133 @@ function ProSalesInner() {
       : `/scan?lang=${lang}`;
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-10 text-gray-900">
-      <header className="border-b border-slate-200 pb-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">ScanScam</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{t.hero[intent]}</h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.emotionalSubtitle}</p>
-      </header>
-
-      <section
-        className="mt-8 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-4"
-        aria-labelledby="context-summary"
-      >
-        <h2 id="context-summary" className="text-sm font-semibold text-slate-900">
-          {t.contextTitle}
-        </h2>
-        <dl className="mt-3 space-y-2 text-sm text-slate-800">
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="font-medium text-slate-600">{t.riskLevel}</dt>
-            <dd>{displayRiskTier(lang, telemetry.risk_tier)}</dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="font-medium text-slate-600">{t.linkType}</dt>
-            <dd>{displayLinkType(lang, telemetry.link_type)}</dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="font-medium text-slate-600">{t.domainSignal}</dt>
-            <dd>{displayDomainSignal(lang, telemetry.domain_signal)}</dd>
-          </div>
-          {showThreatRow ? (
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="font-medium text-slate-600">{t.threatDb}</dt>
-              <dd>{t.threatDbUnsafe}</dd>
+    <div className="min-h-screen bg-[#e9edf3] text-slate-950">
+      <main className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_4px_14px_rgba(15,23,42,0.06)] sm:p-8">
+          <header className="border-b border-slate-200 pb-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-600">ScanScam</p>
+            <div className="mt-2 max-w-prose">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-950">{sales.headline}</h1>
+              <p className="mt-3 text-sm leading-relaxed text-slate-700">
+                {emphasizeSubheadline(sales.subheadline, lang)}
+              </p>
             </div>
-          ) : null}
-        </dl>
-        {showLimitedContextNote ? (
-          <p className="mt-4 border-t border-slate-200 pt-3 text-sm leading-relaxed text-slate-700">
-            {t.limitedContextNote}
-          </p>
-        ) : null}
-      </section>
+          </header>
 
-      <section className="mt-8" aria-labelledby="value-prop">
-        <h2 id="value-prop" className="text-base font-semibold text-slate-900">
-          {t.valueTitle}
-        </h2>
-        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
-          {t.valueBullets.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      </section>
+          <section className="mt-5" aria-labelledby="benefit-journey">
+            <h2 id="benefit-journey" className="text-sm font-semibold text-slate-950">
+              {labels.benefitJourneyTitle}
+            </h2>
+            <div className="mt-2.5 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+              <div className="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-3 md:divide-x md:divide-y-0">
+                {labels.benefitSteps.map((step) => (
+                  <div key={step.heading} className="bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                    <h3 className="text-[13px] font-semibold text-slate-950">{step.heading}</h3>
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-700">{step.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
 
-      <section className="mt-8" aria-labelledby="use-cases">
-        <h2 id="use-cases" className="text-base font-semibold text-slate-900">
-          {t.useTitle}
-        </h2>
-        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
-          {t.useBullets.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      </section>
+          <section className="mt-6" aria-labelledby="context-summary">
+            <h2 id="context-summary" className="text-sm font-semibold text-slate-950">
+              {labels.contextTitle}
+            </h2>
+            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-3.5">
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-xs text-slate-800 sm:grid-cols-3 sm:text-[13px]">
+                <div className="flex flex-wrap items-baseline gap-x-1.5 sm:flex-col sm:gap-0">
+                  <dt className="shrink-0 text-slate-600">{labels.riskLevel}</dt>
+                  <dd className="font-semibold text-slate-950">{displayRiskTier(lang, telemetry.risk_tier)}</dd>
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-1.5 sm:flex-col sm:gap-0">
+                  <dt className="shrink-0 text-slate-600">{labels.linkType}</dt>
+                  <dd className="font-semibold text-slate-950">{displayLinkType(lang, telemetry.link_type)}</dd>
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-1.5 sm:flex-col sm:gap-0">
+                  <dt className="shrink-0 text-slate-600">{labels.domainSignal}</dt>
+                  <dd className="font-semibold text-slate-950">{displayDomainSignal(lang, telemetry.domain_signal)}</dd>
+                </div>
+              </dl>
+              <p className="mt-2.5 border-t border-slate-200 pt-2.5 text-xs leading-relaxed text-slate-700">
+                {sales.detectedContextLine}
+              </p>
+            </div>
+          </section>
 
-      <section
-        className="mt-8 rounded-lg border border-slate-200 bg-white px-4 py-4"
-        aria-labelledby="preview"
-      >
-        <h2 id="preview" className="text-base font-semibold text-slate-900">
-          {t.previewTitle}
-        </h2>
-        <p className="mt-3 rounded-md border border-slate-100 bg-slate-50/90 px-3 py-2.5 text-sm font-medium leading-snug text-slate-800">
-          {t.previewLine1[intent]}
-        </p>
-        <p className="mt-2 rounded-md border border-slate-100 bg-slate-50/90 px-3 py-2.5 text-sm leading-relaxed text-slate-700">
-          {t.previewLine2[intent]}
-        </p>
-      </section>
+          <div className="mt-7">
+            <p className="border-l-[3px] border-amber-500/85 pl-3 text-sm font-semibold leading-snug text-slate-900">
+              {labels.detectedBridgeLine}
+            </p>
 
-      <section
-        className="mt-8 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-4"
-        aria-labelledby="video-explainer"
-      >
-        <h2 id="video-explainer" className="text-base font-semibold text-slate-900">
-          {t.videoTitle}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.videoBody}</p>
-        <button
-          type="button"
-          disabled
-          className="mt-3 cursor-not-allowed rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-400"
-        >
-          {t.videoSoon}
-        </button>
-      </section>
+            <section
+              className="mt-3 overflow-hidden rounded-2xl border-2 border-slate-200 bg-gradient-to-b from-slate-100 to-slate-50 shadow-[0_2px_8px_rgba(15,23,42,0.08),0_8px_24px_rgba(15,23,42,0.06)]"
+              aria-labelledby="report-includes"
+            >
+              <div className="border-b border-slate-200 bg-slate-100/90 px-4 py-4 sm:px-6 sm:py-5">
+                <h2 id="report-includes" className="text-lg font-semibold tracking-tight text-slate-950">
+                  {labels.reportIncludesTitle}
+                </h2>
+                <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-slate-600">
+                  {labels.reportIncludesHelper}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 bg-slate-100/50 p-4 sm:grid-cols-2 sm:gap-3.5 sm:p-5">
+                {labels.reportIncludesItems.map((item) => (
+                  <div
+                    key={item.heading}
+                    className="flex min-h-[5.75rem] flex-col rounded-lg border border-slate-200 bg-white px-3.5 py-3 shadow-sm sm:min-h-[6rem] sm:px-4 sm:py-3.5"
+                  >
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+                      {item.heading}
+                    </h3>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-800">{item.body}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
 
-      <section className="mt-10" aria-label="Purchase">
-        <button
-          type="button"
-          onClick={onUnlock}
-          className="w-full rounded-lg bg-amber-800 px-4 py-3.5 text-center text-base font-semibold text-white shadow-sm transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
-        >
-          {t.ctaUnlock}
-        </button>
-        <p className="mt-2 text-center text-xs leading-relaxed text-slate-600">{t.ctaBetaNote}</p>
-        <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">{t.trustNote}</p>
-      </section>
+          <section className="mt-6" aria-labelledby="important-limits">
+            <h2
+              id="important-limits"
+              className="text-[11px] font-semibold uppercase tracking-wider text-slate-600"
+            >
+              {labels.importantLimitsHeading}
+            </h2>
+            <p className="mt-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-relaxed text-slate-700">
+              {sales.importantLimits}
+            </p>
+          </section>
 
-      <footer className="mt-12 border-t border-slate-200 pt-8">
-        <a
-          href={backHref}
-          className="text-sm font-semibold text-slate-800 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
-        >
-          {scanId.length > 0 ? t.backResult : t.backScan}
-        </a>
-      </footer>
-    </main>
+          <section className="mt-6 border-t border-slate-200 pt-6" aria-label="Purchase">
+            <div className="rounded-xl border border-amber-300/70 bg-gradient-to-b from-amber-50 to-amber-50/70 px-4 py-5 shadow-sm sm:px-5">
+              <p className="mb-4 text-center text-sm font-semibold leading-snug text-slate-900 sm:text-left">
+                {labels.closingBenefitLine}
+              </p>
+              <button
+                type="button"
+                onClick={onUnlock}
+                className="w-full rounded-lg bg-amber-800 px-4 py-3.5 text-center text-base font-semibold text-white shadow-md transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+              >
+                {sales.ctaLabel}
+              </button>
+              <p className="mt-2 text-center text-xs leading-relaxed text-slate-700">{labels.ctaBetaNote}</p>
+              <p className="mt-3 text-center text-xs leading-relaxed text-slate-600">{sales.trustFooter}</p>
+            </div>
+          </section>
+        </div>
+
+        <footer className="mt-6 px-1">
+          <a
+            href={backHref}
+            className="text-sm text-slate-700 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
+          >
+            {scanId.length > 0 ? labels.backResult : labels.backScan}
+          </a>
+        </footer>
+      </main>
+    </div>
   );
 }
 
