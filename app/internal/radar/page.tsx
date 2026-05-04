@@ -20,6 +20,7 @@ import { formatSocialSignalText, formatWeekStartForSocial, fraudLabelFr, FRAUD_L
 import { buildAllPartnersReportRow, type RadarMspContextResponse } from "@/lib/intel/radarMspContext";
 import { formatMspReport } from "@/lib/intel/formatMspReport";
 import { formatMspPilotReport } from "@/lib/intel/formatMspPilotReport";
+import type { DecisionReportBetaRadarResponse } from "@/lib/intel/decisionReportBetaRadarPayload";
 
 type SystemHealth = {
   scan_count: number;
@@ -1102,6 +1103,263 @@ function MetricWoWIndicator({
   );
 }
 
+const WILLINGNESS_LABELS: Record<string, string> = {
+  free_only: "Free only",
+  five_report: "$5 report",
+  ten_twenty_fuller: "$10–20 fuller",
+  fifty_plus_evidence: "$50+ evidence",
+  hundred_plus_serious_help: "$100+ serious help",
+};
+
+function willingnessDisplay(key: string | null | undefined): string {
+  if (!key) return "—";
+  return WILLINGNESS_LABELS[key] ?? formatLandscapeLabel(key);
+}
+
+function desiredHelpIdLabel(id: string): string {
+  return formatLandscapeLabel(id);
+}
+
+function sortCountEntries(map: Record<string, number>): [string, number][] {
+  return Object.entries(map).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function formatDecisionReportBetaCreated(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("en-CA", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function feedbackCell(meta: DecisionReportBetaRadarResponse["recent"][0]["feedback_meta"]): string {
+  if (!meta) return "—";
+  if (meta.rating === "yes" || meta.rating === "somewhat" || meta.rating === "no") {
+    return meta.rating.charAt(0).toUpperCase() + meta.rating.slice(1);
+  }
+  if (meta.useful === true) return "Useful (legacy)";
+  if (meta.useful === false) return "Not useful (legacy)";
+  return "—";
+}
+
+function DecisionReportBetaSection({
+  isMobile,
+  mobileStyles,
+}: {
+  isMobile?: boolean;
+  mobileStyles?: Record<string, React.CSSProperties>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [payload, setPayload] = useState<DecisionReportBetaRadarResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /** Prevents duplicate fetch (React Strict Mode) and retry loops on error while expanded. Reset when section collapses. */
+  const loadStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!expanded) {
+      loadStartedRef.current = false;
+      return;
+    }
+    if (payload != null) return;
+    if (loadStartedRef.current) return;
+    loadStartedRef.current = true;
+    setLoading(true);
+    setError(null);
+    fetch("/api/internal/radar-decision-report-beta", { credentials: "include" })
+      .then(async (r) => {
+        const body = (await r.json()) as { ok?: boolean; error?: string };
+        if (r.status === 401) throw new Error(body?.error ?? "Unauthorized");
+        if (!r.ok) throw new Error(body?.error ?? "Request failed");
+        if (!body || typeof body !== "object" || !("ok" in body) || body.ok !== true) {
+          throw new Error("error" in body && typeof body.error === "string" ? body.error : "Invalid response");
+        }
+        return body as DecisionReportBetaRadarResponse;
+      })
+      .then((data) => {
+        setPayload(data);
+      })
+      .catch((e) => {
+        setError(e?.message ?? "Failed to load");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [expanded, payload]);
+
+  const agg = payload?.aggregates;
+  const mediumPlus =
+    agg != null ? (agg.risk_tier.medium ?? 0) + (agg.risk_tier.high ?? 0) : null;
+
+  return (
+    <section
+      style={{
+        ...styles.section,
+        ...(mobileStyles?.section ?? {}),
+        ...styles.analystBlocksSection,
+        marginTop: "24px",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        style={{ ...styles.analystBlocksHeader, ...(isMobile ? (mobileStyles?.analystBlocksHeader ?? {}) : {}) }}
+        aria-expanded={expanded}
+      >
+        <span style={styles.analystBlocksChevron}>{expanded ? "▼" : "▶"}</span>
+        <h2 style={styles.analystBlocksTitle}>Decision Report Beta</h2>
+      </button>
+      {expanded && (
+        <>
+          <p style={styles.analystBlocksSubtitle}>
+            Beta unlock cohort (<code style={styles.mspCode}>report_snapshot.source = beta_unlock</code>), capped at{" "}
+            {payload?.window.row_limit ?? 250} recent rows. No message text or free-text survey answers.
+          </p>
+          {error && <p style={{ ...styles.signalsEmpty, color: "#f0883e", marginTop: "8px" }}>{error}</p>}
+          {loading && !payload && (
+            <p style={{ color: "#8b949e", marginTop: "8px", fontSize: "13px" }}>
+              Loading Decision Report beta metrics…
+            </p>
+          )}
+          {payload && agg && (
+            <>
+              <div style={{ ...styles.metrics, ...(mobileStyles?.metrics ?? {}), marginTop: "12px" }}>
+                <div style={styles.metric} title="Rows with beta_unlock snapshot in the capped window.">
+                  <span style={styles.metricLabel}>Beta unlocks</span>
+                  <span style={styles.metricValue}>{agg.row_count.toLocaleString()}</span>
+                </div>
+                <div style={styles.metric} title="Rows with saved report_feedback.">
+                  <span style={styles.metricLabel}>With feedback</span>
+                  <span style={styles.metricValue}>{agg.with_report_feedback.toLocaleString()}</span>
+                </div>
+                <div style={styles.metric} title="Explicit rating counts (legacy rows in Unknown).">
+                  <span style={styles.metricLabel}>Yes / Somewhat / No</span>
+                  <span style={styles.metricValue}>
+                    {agg.feedback_rating.yes} / {agg.feedback_rating.somewhat} / {agg.feedback_rating.no}
+                  </span>
+                </div>
+                <div style={styles.metric} title="Scans at medium or high risk at unlock time.">
+                  <span style={styles.metricLabel}>Medium+ risk</span>
+                  <span style={styles.metricValue}>{mediumPlus != null ? mediumPlus.toLocaleString() : "—"}</span>
+                </div>
+              </div>
+
+              {agg.row_count === 0 ? (
+                <p style={{ ...styles.signalsEmpty, marginTop: "12px" }}>
+                  No beta Decision Report rows in the current window.
+                </p>
+              ) : (
+                <>
+                  <h3 style={{ ...styles.trendChartTitle, marginTop: "24px" }}>Risk tier</h3>
+                  <ul style={styles.mspList}>
+                    <li style={styles.mspListItem}>
+                      High: {agg.risk_tier.high} · Medium: {agg.risk_tier.medium} · Low: {agg.risk_tier.low} · Unknown:{" "}
+                      {agg.risk_tier.unknown}
+                    </li>
+                  </ul>
+
+                  <h3 style={{ ...styles.trendChartTitle, marginTop: "16px" }}>User situation</h3>
+                  {sortCountEntries(agg.beta_survey.user_situation).length === 0 ? (
+                    <p style={styles.signalsEmpty}>No structured situations in window.</p>
+                  ) : (
+                    <ul style={styles.mspList}>
+                      {sortCountEntries(agg.beta_survey.user_situation).map(([k, n]) => (
+                        <li key={k} style={styles.mspListItem}>
+                          {formatLandscapeLabel(k)} · {n.toLocaleString()}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h3 style={{ ...styles.trendChartTitle, marginTop: "16px" }}>Desired help (multi-select counts)</h3>
+                  {sortCountEntries(agg.beta_survey.desired_help_ids).length === 0 ? (
+                    <p style={styles.signalsEmpty}>No desired-help selections in window.</p>
+                  ) : (
+                    <ul style={styles.mspList}>
+                      {sortCountEntries(agg.beta_survey.desired_help_ids).map(([id, n]) => (
+                        <li key={id} style={styles.mspListItem}>
+                          {desiredHelpIdLabel(id)} · {n.toLocaleString()}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h3 style={{ ...styles.trendChartTitle, marginTop: "16px" }}>
+                    Q4 / willingness to pay (stored field)
+                  </h3>
+                  {sortCountEntries(agg.beta_survey.willingness_to_pay).length === 0 ? (
+                    <p style={styles.signalsEmpty}>No willingness responses in window.</p>
+                  ) : (
+                    <ul style={styles.mspList}>
+                      {sortCountEntries(agg.beta_survey.willingness_to_pay).map(([k, n]) => (
+                        <li key={k} style={styles.mspListItem}>
+                          {willingnessDisplay(k)} · {n.toLocaleString()}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h3 style={{ ...styles.trendChartTitle, marginTop: "20px" }}>Recent rows</h3>
+                  <div style={styles.signalsTableWrap}>
+                    <table style={{ ...styles.signalsTable, minWidth: "720px" }}>
+                      <thead>
+                        <tr>
+                          <th style={styles.signalsTh}>Created</th>
+                          <th style={styles.signalsTh}>Risk</th>
+                          <th style={styles.signalsTh}>Input</th>
+                          <th style={styles.signalsTh}>Situation</th>
+                          <th style={styles.signalsTh}>Desired help #</th>
+                          <th style={styles.signalsTh}>Q4 context</th>
+                          <th style={styles.signalsTh}>Feedback</th>
+                          <th style={styles.signalsTh}>Scan ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payload.recent.map((row) => (
+                          <tr key={row.access_id}>
+                            <td style={styles.signalsTd}>{formatDecisionReportBetaCreated(row.created_at)}</td>
+                            <td style={styles.signalsTd}>
+                              {row.scan?.risk_tier
+                                ? formatRiskTierLabel(String(row.scan.risk_tier))
+                                : "—"}
+                            </td>
+                            <td style={styles.signalsTd}>{row.scan?.input_type ?? "—"}</td>
+                            <td style={styles.signalsTd}>
+                              {row.beta_survey_meta?.user_situation
+                                ? formatLandscapeLabel(row.beta_survey_meta.user_situation)
+                                : "—"}
+                            </td>
+                            <td style={styles.signalsTd}>
+                              {row.beta_survey_meta ? row.beta_survey_meta.desired_help_count : "—"}
+                            </td>
+                            <td style={styles.signalsTd}>
+                              {willingnessDisplay(row.beta_survey_meta?.willingness_to_pay ?? null)}
+                            </td>
+                            <td style={styles.signalsTd}>{feedbackCell(row.feedback_meta)}</td>
+                            <td style={{ ...styles.signalsTd, fontFamily: "ui-monospace, monospace", fontSize: "11px" }}>
+                              {row.scan_id ? `${row.scan_id.slice(0, 8)}…` : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function RadarPage() {
   const [data, setData] = useState<RadarData | null>(null);
   const [systemV2Data, setSystemV2Data] = useState<SystemAnalysisV2Data | null>(null);
@@ -2016,6 +2274,8 @@ export default function RadarPage() {
                 <RecentSignalsContent signals={systemV2Data.recent_signals} />
               )}
             </section>
+
+            <DecisionReportBetaSection isMobile={isMobile} mobileStyles={mobile} />
 
             <AnalystBlocksSection isMobile={isMobile} mobileStyles={mobile} />
 
