@@ -91,6 +91,14 @@ const copy = {
     linkBasedChecksNAValue: "Not applicable",
     linkBasedChecksNADetail:
       "No usable link was found in the submitted message, so link, domain, and external threat checks were not run for this scan.",
+    messageFromTitle: "From the message",
+    messageFromHelper:
+      "These signals are based on the wording and context submitted. They are not proof of who sent the message.",
+    msgLabelPossiblePattern: "Possible pattern",
+    msgLabelActionRequested: "Action requested",
+    msgLabelPaymentWording: "Payment or account wording",
+    msgLabelPressure: "Pressure signal",
+    msgLabelAuthorityStyle: "Authority style",
     riskTier: { low: "Low", medium: "Medium", high: "High" } as Record<string, string>,
     linkType: {
       shortened: "Shortened",
@@ -268,6 +276,14 @@ const copy = {
     linkBasedChecksNAValue: "Non applicable",
     linkBasedChecksNADetail:
       "Aucun lien utilisable n’a été trouvé dans le message soumis; les vérifications de lien, de domaine et de menace externe n’ont donc pas été effectuées pour ce scan.",
+    messageFromTitle: "Dans le message",
+    messageFromHelper:
+      "Ces signaux sont basés sur le texte et le contexte soumis. Ils ne prouvent pas qui a envoyé le message.",
+    msgLabelPossiblePattern: "Thème possible",
+    msgLabelActionRequested: "Action demandée",
+    msgLabelPaymentWording: "Formulation liée au paiement ou au compte",
+    msgLabelPressure: "Signal de pression",
+    msgLabelAuthorityStyle: "Style d’autorité",
     riskTier: { low: "Faible", medium: "Moyen", high: "Élevé" } as Record<string, string>,
     linkType: {
       shortened: "Raccourci",
@@ -392,6 +408,123 @@ type RiskBand = "low" | "medium" | "high";
 type UsefulChoice = "yes" | "somewhat" | "no" | null;
 
 type SignalRow = { label: string; value: string; details: string[] };
+
+type MsgInterpRow = { label: string; value: string };
+
+const MESSAGE_SLUG_HIDE = new Set(["", "unknown", "none"]);
+
+const NARRATIVE_VALUE: Record<Lang, Record<string, string>> = {
+  en: {
+    delivery_scam: "Delivery or package issue",
+    government_impersonation: "Government-style request",
+    law_enforcement: "Law-enforcement-style pressure",
+    account_verification: "Account verification",
+    employment_scam: "Job or employment offer",
+    recovery_scam: "Recovery or refund help",
+    reward_claim: "Reward or refund claim",
+    social_engineering_opener: "Conversation opener",
+    investment_fraud: "Investment or money opportunity",
+  },
+  fr: {
+    delivery_scam: "Problème de livraison ou de colis",
+    government_impersonation: "Demande de style gouvernemental",
+    law_enforcement: "Pression de style forces de l’ordre",
+    account_verification: "Vérification de compte",
+    employment_scam: "Offre d’emploi ou de travail",
+    recovery_scam: "Aide au recouvrement ou au remboursement",
+    reward_claim: "Réclamation de récompense ou de remboursement",
+    social_engineering_opener: "Entame de conversation",
+    investment_fraud: "Placement ou opportunité financière",
+  },
+};
+
+const REQUESTED_ACTION_VALUE: Record<Lang, Record<string, string>> = {
+  en: {
+    click_link: "Click a link",
+    call_number: "Call a number",
+    submit_credentials: "Enter login details or a code",
+    pay_money: "Pay or transfer money",
+    reply_sms: "Reply to the message",
+    download_app: "Download an app",
+  },
+  fr: {
+    click_link: "Cliquer sur un lien",
+    call_number: "Composer un numéro",
+    submit_credentials: "Saisir des identifiants ou un code",
+    pay_money: "Payer ou virer de l’argent",
+    reply_sms: "Répondre au message",
+    download_app: "Télécharger une application",
+  },
+};
+
+const PAYMENT_INTENT_VALUE: Record<Lang, Record<string, string>> = {
+  en: {
+    credential_to_enable_payment: "Account or login details connected to payment",
+    direct_payment_request: "Direct payment request",
+    claim_reward_or_refund: "Reward or refund claim",
+    fee_or_debt_pressure: "Fee, debt, or balance pressure",
+    billing_or_account_resolution: "Billing or account issue",
+  },
+  fr: {
+    credential_to_enable_payment: "Identifiants ou connexion liés à un paiement",
+    direct_payment_request: "Demande de paiement direct",
+    claim_reward_or_refund: "Réclamation de récompense ou de remboursement",
+    fee_or_debt_pressure: "Frais, dette ou solde mis en avant",
+    billing_or_account_resolution: "Problème de facturation ou de compte",
+  },
+};
+
+const ESCALATION_VALUE: Record<Lang, Record<string, string>> = {
+  en: {
+    time_pressure: "Time pressure or urgency",
+    legal_threat: "Legal or enforcement pressure",
+    account_threat: "Account access or suspension threat",
+  },
+  fr: {
+    time_pressure: "Pression liée au temps ou à l’urgence",
+    legal_threat: "Pression juridique ou d’application de la loi",
+    account_threat: "Menace d’accès au compte ou de suspension",
+  },
+};
+
+const AUTHORITY_TYPE_VALUE: Record<Lang, Record<string, string>> = {
+  en: {
+    government: "Government-style wording",
+    financial_institution: "Bank or financial-institution style",
+    corporate: "Company or service-provider style",
+    tech_company: "Technology-platform style",
+  },
+  fr: {
+    government: "Formulation de style gouvernemental",
+    financial_institution: "Style banque ou institution financière",
+    corporate: "Style entreprise ou fournisseur de services",
+    tech_company: "Style plateforme technologique",
+  },
+};
+
+function lookupMessageMap(lang: Lang, table: Record<Lang, Record<string, string>>, slug: string): string {
+  const k = slug.trim().toLowerCase();
+  if (!k || MESSAGE_SLUG_HIDE.has(k)) return "";
+  const label = table[lang][k];
+  return label?.trim() ? label : "";
+}
+
+/** Human rows for “From the message”; omits unknown/none and unmapped slugs. */
+function buildMessageInterpretationRows(lang: Lang, tel: DecisionReportTelemetry): MsgInterpRow[] {
+  const t = copy[lang];
+  const rows: MsgInterpRow[] = [];
+  const nar = lookupMessageMap(lang, NARRATIVE_VALUE, tel.narrative_family);
+  if (nar) rows.push({ label: t.msgLabelPossiblePattern, value: nar });
+  const act = lookupMessageMap(lang, REQUESTED_ACTION_VALUE, tel.requested_action);
+  if (act) rows.push({ label: t.msgLabelActionRequested, value: act });
+  const pay = lookupMessageMap(lang, PAYMENT_INTENT_VALUE, tel.payment_intent);
+  if (pay) rows.push({ label: t.msgLabelPaymentWording, value: pay });
+  const esc = lookupMessageMap(lang, ESCALATION_VALUE, tel.escalation_pattern);
+  if (esc) rows.push({ label: t.msgLabelPressure, value: esc });
+  const auth = lookupMessageMap(lang, AUTHORITY_TYPE_VALUE, tel.authority_type);
+  if (auth) rows.push({ label: t.msgLabelAuthorityStyle, value: auth });
+  return rows;
+}
 
 function formatDomainAgePhrase(days: number, lang: Lang): string {
   if (lang === "fr") {
@@ -607,6 +740,7 @@ export function DecisionReport({
   }, [tokenForFeedback]);
 
   const signalRows = useMemo(() => buildSignalRows(lang, telemetry), [lang, telemetry]);
+  const messageInterpretRows = useMemo(() => buildMessageInterpretationRows(lang, telemetry), [lang, telemetry]);
 
   const riskBand = useMemo(() => effectiveRiskBand(telemetry), [telemetry]);
   const tierCopy = copy[lang].tier[riskBand];
@@ -833,17 +967,6 @@ export function DecisionReport({
         </section>
       ) : null}
 
-      <section className="mt-8" aria-labelledby="what-risky">
-        <h2 id="what-risky" className="text-base font-bold text-slate-900">
-          {tierCopy.riskTitle}
-        </h2>
-        {tierCopy.riskBody.map((para) => (
-          <p key={para} className="mt-2 text-sm leading-relaxed text-slate-700">
-            {para}
-          </p>
-        ))}
-      </section>
-
       <section className="mt-8" aria-labelledby="signals">
         <h2 id="signals" className="text-base font-bold text-slate-900">
           {t.signalsTitle}
@@ -869,6 +992,37 @@ export function DecisionReport({
         ) : (
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.signalsNone}</p>
         )}
+      </section>
+
+      {messageInterpretRows.length > 0 ? (
+        <section
+          className="mt-8 rounded-lg border border-slate-200 bg-white px-4 py-4"
+          aria-labelledby="message-from"
+        >
+          <h2 id="message-from" className="text-base font-bold text-slate-900">
+            {t.messageFromTitle}
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.messageFromHelper}</p>
+          <dl className="mt-3 space-y-2.5 text-sm text-slate-700">
+            {messageInterpretRows.map((row) => (
+              <div key={`${row.label}-${row.value}`}>
+                <dt className="font-semibold text-slate-800">{row.label}</dt>
+                <dd className="mt-0.5 leading-relaxed text-slate-700">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+
+      <section className="mt-8" aria-labelledby="what-risky">
+        <h2 id="what-risky" className="text-base font-bold text-slate-900">
+          {tierCopy.riskTitle}
+        </h2>
+        {tierCopy.riskBody.map((para) => (
+          <p key={para} className="mt-2 text-sm leading-relaxed text-slate-700">
+            {para}
+          </p>
+        ))}
       </section>
 
       {showWhyLimited && riskBand !== "low" ? (

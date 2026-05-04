@@ -163,6 +163,13 @@ function linkTypeTelemetrySlug(link: ParsedLinkArtifact | null): "shortened" | "
   return "standard";
 }
 
+function normalizedIntelSlug(intel: Record<string, unknown>, key: string): string {
+  const v = intel[key];
+  if (v == null) return "";
+  const s = String(v).trim().toLowerCase();
+  return s;
+}
+
 export type ReportTelemetryFromIntel = {
   risk_tier: string;
   input_type: string;
@@ -175,6 +182,12 @@ export type ReportTelemetryFromIntel = {
   domain_age_days: number | null;
   /** Whether link, domain, and web-risk rows apply (derived from parsed link artifact only). */
   has_usable_link: boolean;
+  /** Message-level taxonomy slugs from intel (lowercase); empty when absent — UI maps to human copy and hides unknown/none. */
+  narrative_family: string;
+  requested_action: string;
+  payment_intent: string;
+  escalation_pattern: string;
+  authority_type: string;
 };
 
 /** Build telemetry fields for DecisionReport from stored intel + risk tier. */
@@ -202,6 +215,11 @@ export function buildTelemetryFromIntel(
     domain_signal: bucket,
     domain_age_days: domainAgeDays,
     has_usable_link,
+    narrative_family: normalizedIntelSlug(i, "narrative_family"),
+    requested_action: normalizedIntelSlug(i, "requested_action"),
+    payment_intent: normalizedIntelSlug(i, "payment_intent"),
+    escalation_pattern: normalizedIntelSlug(i, "escalation_pattern"),
+    authority_type: normalizedIntelSlug(i, "authority_type"),
   };
 }
 
