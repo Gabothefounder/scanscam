@@ -27,20 +27,35 @@ const USER_SITUATION_VALUES = [
   "checking_for_someone_else",
 ] as const;
 
-const WILLINGNESS_VALUES = [
-  "free_only",
-  "five_report",
-  "ten_twenty_fuller",
-  "fifty_plus_evidence",
-  "hundred_plus_serious_help",
+/** Report usefulness (Q4). Posted as `willingness_to_pay` must match API enum — see map below. */
+const REPORT_USEFULNESS_VALUES = [
+  "self_only",
+  "family_friend",
+  "workplace_it",
+  "bank_support_provider",
+  "personal_records",
+  "other",
 ] as const;
+
+type ReportUsefulnessId = (typeof REPORT_USEFULNESS_VALUES)[number];
+
+/** API still validates legacy willingness tokens; temporarily map Q4 sharing/context IDs to legacy willingness_to_pay values. */
+const USEFULNESS_TO_API_WILLINGNESS: Record<ReportUsefulnessId, string> = {
+  self_only: "five_report",
+  family_friend: "ten_twenty_fuller",
+  workplace_it: "fifty_plus_evidence",
+  bank_support_provider: "fifty_plus_evidence",
+  personal_records: "ten_twenty_fuller",
+  other: "free_only",
+};
+
+const TOTAL_STEPS = 4;
 
 const copy: Record<
   Lang,
   {
     title: string;
-    intro1: string;
-    intro2: string;
+    introStep1: string;
     questionsBadge: string;
     privacyNote: string;
     q1: string;
@@ -50,25 +65,28 @@ const copy: Record<
     q3: string;
     q3o: Record<DesiredHelpId, string>;
     q4: string;
-    q4o: Record<(typeof WILLINGNESS_VALUES)[number], string>;
+    q4o: Record<ReportUsefulnessId, string>;
     q4optional: string;
     submit: string;
     back: string;
+    next: string;
+    wizardBack: string;
     errQ1: string;
     errQ4: string;
+    errRequired: string;
+    errSelectOne: string;
     errSubmit: string;
     loading: string;
   }
 > = {
   en: {
-    title: "Unlock your report",
-    intro1: "This report is currently in beta.",
-    intro2:
-      "Normally, this decision report costs $5. During beta, you can unlock it for free by answering four short questions.",
+    title: "Unlock your beta report",
+    introStep1:
+      "This report is currently in beta. For now, you can unlock it for free by answering a few short questions.",
     questionsBadge: "4 short questions — about 30 seconds",
     privacyNote:
       "Please do not include sensitive personal information such as passwords, banking details, verification codes, or government ID numbers.",
-    q1: "Where are you right now with this link or message?",
+    q1: "What happened with this link or message?",
     q1o: {
       pre_action: "I have not clicked or responded yet",
       clicked_no_info: "I clicked/opened it but did not enter anything",
@@ -89,31 +107,35 @@ const copy: Record<
       checklist_24_48: "A follow-up checklist for the next 24–48 hours",
       other: "Other",
     },
-    q4: "If this helped you avoid a mistake or know what to do next, what would feel fair to pay?",
+    q4: "Who would you want to use this report with?",
     q4o: {
-      free_only: "$0 — I would only use this if free",
-      five_report: "$5 for a quick decision report",
-      ten_twenty_fuller: "$10–$20 for a fuller report and checklist",
-      fifty_plus_evidence: "$50+ for help preparing something to send to a bank, workplace, or support team",
-      hundred_plus_serious_help: "$100+ if I already lost money or needed serious help",
+      self_only: "Just for myself",
+      family_friend: "A family member or friend",
+      workplace_it: "My workplace or IT team",
+      bank_support_provider: "A bank, support team, or service provider",
+      personal_records: "I just want to keep it for my records",
+      other: "Other",
     },
-    q4optional: "What would make it worth that price? (optional)",
+    q4optional: "Anything else about how you would use it? (optional)",
     submit: "Unlock beta report",
     back: "Back to report offer",
+    next: "Next",
+    wizardBack: "Back",
     errQ1: "Please choose an option for question 1.",
     errQ4: "Please choose an option for question 4.",
+    errRequired: "Please answer this question.",
+    errSelectOne: "Please select at least one option.",
     errSubmit: "Something went wrong. Please try again.",
     loading: "Loading…",
   },
   fr: {
-    title: "Déverrouiller votre rapport",
-    intro1: "Ce rapport est actuellement en version bêta.",
-    intro2:
-      "Normalement, ce rapport décisionnel coûte 5 $. Pendant la bêta, vous pouvez le déverrouiller gratuitement en répondant à quatre courtes questions.",
-    questionsBadge: "4 courtes questions — environ 30 secondes",
+    title: "Débloquer votre rapport bêta",
+    introStep1:
+      "Ce rapport est actuellement en bêta. Pour l’instant, vous pouvez le débloquer gratuitement en répondant à quelques questions rapides.",
+    questionsBadge: "4 questions courtes — environ 30 secondes",
     privacyNote:
       "Veuillez ne pas inclure d’informations personnelles sensibles telles que mots de passe, données bancaires, codes de vérification ou numéros d’identité gouvernementaux.",
-    q1: "Où en êtes-vous avec ce lien ou ce message?",
+    q1: "Que s’est-il passé avec ce lien ou ce message?",
     q1o: {
       pre_action: "Je n’ai pas encore cliqué ni répondu",
       clicked_no_info: "J’ai cliqué ou ouvert, mais je n’ai rien saisi",
@@ -134,19 +156,24 @@ const copy: Record<
       checklist_24_48: "Une liste de suivi pour les 24–48 prochaines heures",
       other: "Autre",
     },
-    q4: "Si cela vous a aidé à éviter une erreur ou à savoir quoi faire, quel prix vous semblerait équitable?",
+    q4: "Avec qui voudriez-vous utiliser ce rapport?",
     q4o: {
-      free_only: "0 $ — je n’utiliserais ceci que s’il est gratuit",
-      five_report: "5 $ pour un rapport décisionnel rapide",
-      ten_twenty_fuller: "10–20 $ pour un rapport plus complet et une liste de contrôle",
-      fifty_plus_evidence: "50 $ et plus pour préparer un message à la banque, au travail ou au soutien",
-      hundred_plus_serious_help: "100 $ et plus si j’ai déjà perdu de l’argent ou j’avais besoin d’aide sérieuse",
+      self_only: "Juste pour moi",
+      family_friend: "Un membre de la famille ou un ami",
+      workplace_it: "Mon travail ou mon équipe TI",
+      bank_support_provider: "Une banque, une équipe support ou un fournisseur de service",
+      personal_records: "Je veux surtout le garder dans mes dossiers",
+      other: "Autre",
     },
-    q4optional: "Qu’est-ce qui justifierait ce prix? (facultatif)",
+    q4optional: "Autre chose sur la façon dont vous l’utiliseriez? (optionnel)",
     submit: "Déverrouiller le rapport bêta",
     back: "Retour à l’offre de rapport",
+    next: "Suivant",
+    wizardBack: "Retour",
     errQ1: "Veuillez choisir une réponse à la question 1.",
     errQ4: "Veuillez choisir une réponse à la question 4.",
+    errRequired: "Veuillez répondre à cette question.",
+    errSelectOne: "Veuillez sélectionner au moins une option.",
     errSubmit: "Une erreur s’est produite. Veuillez réessayer.",
     loading: "Chargement…",
   },
@@ -167,6 +194,7 @@ function CheckoutInner() {
   const [priceReason, setPriceReason] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   useEffect(() => {
     const key = `ss_beta_unlock_started:${scanId || "anon"}`;
@@ -194,14 +222,45 @@ function CheckoutInner() {
     });
   };
 
+  const goWizardBack = () => {
+    setErr(null);
+    setCurrentStep((s) => Math.max(1, s - 1));
+  };
+
+  const goNext = () => {
+    if (currentStep === 1) {
+      if (!q1) {
+        setErr(t.errQ1);
+        return;
+      }
+    }
+    if (currentStep === 2) {
+      if (!q2.trim()) {
+        setErr(t.errRequired);
+        return;
+      }
+    }
+    if (currentStep === 3) {
+      if (!help.size) {
+        setErr(t.errSelectOne);
+        return;
+      }
+    }
+    setErr(null);
+    setCurrentStep((s) => Math.min(TOTAL_STEPS, s + 1));
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentStep !== TOTAL_STEPS) {
+      return;
+    }
     setErr(null);
     if (!q1) {
       setErr(t.errQ1);
       return;
     }
-    if (!q4) {
+    if (!q4 || !(REPORT_USEFULNESS_VALUES as readonly string[]).includes(q4)) {
       setErr(t.errQ4);
       return;
     }
@@ -212,6 +271,11 @@ function CheckoutInner() {
     setSubmitting(true);
     try {
       const desired_help = Array.from(help);
+      const usefulnessId = q4 as ReportUsefulnessId;
+      const followUp = priceReason.trim();
+      const price_reason_text = followUp
+        ? `usefulness:${usefulnessId}\n\n${followUp}`
+        : `usefulness:${usefulnessId}`;
       const body = {
         scan_id: scanId,
         beta_survey: {
@@ -219,8 +283,8 @@ function CheckoutInner() {
           worry_text: q2.trim() || undefined,
           desired_help: desired_help.length ? desired_help : undefined,
           desired_help_other: help.has("other") ? helpOther.trim() || undefined : undefined,
-          willingness_to_pay: q4,
-          price_reason_text: priceReason.trim() || undefined,
+          willingness_to_pay: USEFULNESS_TO_API_WILLINGNESS[usefulnessId],
+          price_reason_text,
         },
       };
       const res = await fetch("/api/pro-report/beta-unlock", {
@@ -246,113 +310,186 @@ function CheckoutInner() {
     }
   };
 
+  const progressLabel =
+    lang === "fr" ? `Question ${currentStep} sur ${TOTAL_STEPS}` : `Question ${currentStep} of ${TOTAL_STEPS}`;
+  const progressPct = (currentStep / TOTAL_STEPS) * 100;
+
   return (
-    <main className="mx-auto max-w-xl px-4 py-10 text-gray-900">
-      <h1 className="text-xl font-bold tracking-tight text-slate-900">{t.title}</h1>
-      <p className="mt-3 text-sm leading-relaxed text-slate-700">{t.intro1}</p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.intro2}</p>
-      <p className="mt-4 inline-block rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
-        {t.questionsBadge}
-      </p>
+    <main className="min-h-screen bg-slate-100/90 px-4 py-10 text-gray-900">
+      <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        {currentStep === 1 ? (
+          <header className="mb-6">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">{t.title}</h1>
+            <p className="mt-3 text-sm leading-relaxed text-slate-700">{t.introStep1}</p>
+            <p className="mt-4 inline-block rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
+              {t.questionsBadge}
+            </p>
+          </header>
+        ) : null}
 
-      <form className="mt-8 space-y-8" onSubmit={onSubmit}>
-        <fieldset>
-          <legend className="text-sm font-semibold text-slate-900">{t.q1}</legend>
-          <div className="mt-2 space-y-2">
-            {USER_SITUATION_VALUES.map((v) => (
-              <label key={v} className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
-                <input type="radio" name="q1" value={v} checked={q1 === v} onChange={() => setQ1(v)} className="mt-0.5" />
-                <span>{t.q1o[v]}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <div>
-          <label htmlFor="worry" className="text-sm font-semibold text-slate-900">
-            {t.q2}
-          </label>
-          <textarea
-            id="worry"
-            rows={3}
-            value={q2}
-            onChange={(e) => setQ2(e.target.value)}
-            placeholder={t.q2ph}
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
-          />
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.privacyNote}</p>
-        </div>
-
-        <fieldset>
-          <legend className="text-sm font-semibold text-slate-900">{t.q3}</legend>
-          <div className="mt-2 space-y-2">
-            {DESIRED_HELP_IDS.map((id) => (
-              <label key={id} className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
-                <input
-                  type="checkbox"
-                  checked={help.has(id)}
-                  onChange={() => toggleHelp(id)}
-                  className="mt-0.5"
-                />
-                <span>{t.q3o[id]}</span>
-              </label>
-            ))}
-          </div>
-          {help.has("other") ? (
-            <div className="mt-2">
-              <input
-                type="text"
-                value={helpOther}
-                onChange={(e) => setHelpOther(e.target.value)}
-                className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                maxLength={500}
+        <form onSubmit={onSubmit}>
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{progressLabel}</p>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-amber-700 transition-[width] duration-200 ease-out"
+                style={{ width: `${progressPct}%` }}
+                role="progressbar"
+                aria-valuenow={currentStep}
+                aria-valuemin={1}
+                aria-valuemax={TOTAL_STEPS}
+                aria-label={progressLabel}
               />
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.privacyNote}</p>
             </div>
-          ) : null}
-        </fieldset>
-
-        <fieldset>
-          <legend className="text-sm font-semibold text-slate-900">{t.q4}</legend>
-          <div className="mt-2 space-y-2">
-            {WILLINGNESS_VALUES.map((v) => (
-              <label key={v} className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
-                <input type="radio" name="q4" value={v} checked={q4 === v} onChange={() => setQ4(v)} className="mt-0.5" />
-                <span>{t.q4o[v]}</span>
-              </label>
-            ))}
           </div>
-        </fieldset>
 
-        <div>
-          <label htmlFor="priceReason" className="text-sm font-semibold text-slate-900">
-            {t.q4optional}
-          </label>
-          <textarea
-            id="priceReason"
-            rows={2}
-            value={priceReason}
-            onChange={(e) => setPriceReason(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800"
-          />
-          <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.privacyNote}</p>
-        </div>
+          <div className="min-h-[12rem]">
+            {currentStep === 1 ? (
+              <fieldset>
+                <legend className="text-sm font-semibold text-slate-900">{t.q1}</legend>
+                <div className="mt-2 space-y-2">
+                  {USER_SITUATION_VALUES.map((v) => (
+                    <label key={v} className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
+                      <input
+                        type="radio"
+                        name="q1"
+                        value={v}
+                        checked={q1 === v}
+                        onChange={() => setQ1(v)}
+                        className="mt-0.5"
+                      />
+                      <span>{t.q1o[v]}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
 
-        {err ? <p className="text-sm font-medium text-red-700">{err}</p> : null}
+            {currentStep === 2 ? (
+              <div>
+                <label htmlFor="worry" className="text-sm font-semibold text-slate-900">
+                  {t.q2}
+                </label>
+                <textarea
+                  id="worry"
+                  rows={3}
+                  value={q2}
+                  onChange={(e) => setQ2(e.target.value)}
+                  placeholder={t.q2ph}
+                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
+                />
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.privacyNote}</p>
+              </div>
+            ) : null}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-lg bg-amber-800 px-4 py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-amber-900 disabled:opacity-60"
-        >
-          {submitting ? "…" : t.submit}
-        </button>
-      </form>
+            {currentStep === 3 ? (
+              <fieldset>
+                <legend className="text-sm font-semibold text-slate-900">{t.q3}</legend>
+                <div className="mt-2 space-y-2">
+                  {DESIRED_HELP_IDS.map((id) => (
+                    <label key={id} className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={help.has(id)}
+                        onChange={() => toggleHelp(id)}
+                        className="mt-0.5"
+                      />
+                      <span>{t.q3o[id]}</span>
+                    </label>
+                  ))}
+                </div>
+                {help.has("other") ? (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={helpOther}
+                      onChange={(e) => setHelpOther(e.target.value)}
+                      className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800"
+                      maxLength={500}
+                    />
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.privacyNote}</p>
+                  </div>
+                ) : null}
+              </fieldset>
+            ) : null}
 
-      <p className="mt-10">
+            {currentStep === 4 ? (
+              <>
+                <fieldset>
+                  <legend className="text-sm font-semibold text-slate-900">{t.q4}</legend>
+                  <div className="mt-2 space-y-2">
+                    {REPORT_USEFULNESS_VALUES.map((v) => (
+                      <label key={v} className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
+                        <input
+                          type="radio"
+                          name="q4"
+                          value={v}
+                          checked={q4 === v}
+                          onChange={() => setQ4(v)}
+                          className="mt-0.5"
+                        />
+                        <span>{t.q4o[v]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <div className="mt-6">
+                  <label htmlFor="priceReason" className="text-sm font-semibold text-slate-900">
+                    {t.q4optional}
+                  </label>
+                  <textarea
+                    id="priceReason"
+                    rows={2}
+                    value={priceReason}
+                    onChange={(e) => setPriceReason(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800"
+                  />
+                  <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t.privacyNote}</p>
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          {err ? <p className="mt-4 text-sm font-medium text-red-700">{err}</p> : null}
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            {currentStep > 1 ? (
+              <button
+                type="button"
+                onClick={goWizardBack}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              >
+                {t.wizardBack}
+              </button>
+            ) : null}
+            <div className="min-w-[1rem] flex-1" aria-hidden />
+            {currentStep < TOTAL_STEPS ? (
+              <button
+                type="button"
+                onClick={goNext}
+                className="rounded-lg bg-amber-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-900"
+              >
+                {t.next}
+              </button>
+            ) : null}
+            {currentStep === TOTAL_STEPS ? (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-amber-800 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-900 disabled:opacity-60 sm:min-w-[12rem]"
+              >
+                {submitting ? "…" : t.submit}
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </div>
+
+      <p className="mx-auto mt-8 max-w-xl text-center">
         <Link
           href={backHref}
-          className="text-sm font-semibold text-slate-800 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
+          className="text-sm font-semibold text-slate-700 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
         >
           {t.back}
         </Link>
