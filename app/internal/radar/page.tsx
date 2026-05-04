@@ -1103,17 +1103,34 @@ function MetricWoWIndicator({
   );
 }
 
-const WILLINGNESS_LABELS: Record<string, string> = {
-  free_only: "Free only",
-  five_report: "$5 report",
-  ten_twenty_fuller: "$10–20 fuller",
-  fifty_plus_evidence: "$50+ evidence",
-  hundred_plus_serious_help: "$100+ serious help",
+const USE_CONTEXT_LABELS: Record<string, string> = {
+  self_only: "Just for myself",
+  family_friend: "Family / friend",
+  workplace_it: "Workplace / IT",
+  bank_support_provider: "Bank / support / provider",
+  personal_records: "Personal records",
+  other: "Other",
+  legacy: "Legacy (pre–use-context)",
+  unknown: "Unknown",
 };
 
-function willingnessDisplay(key: string | null | undefined): string {
-  if (!key) return "—";
-  return WILLINGNESS_LABELS[key] ?? formatLandscapeLabel(key);
+function useContextDisplay(key: string | null | undefined): string {
+  if (key == null || key === "") return "Unknown";
+  return USE_CONTEXT_LABELS[key] ?? formatLandscapeLabel(key);
+}
+
+function sortUseContextEntries(map: Record<string, number>): [string, number][] {
+  const order = (k: string) => {
+    if (k === "unknown") return 2;
+    if (k === "legacy") return 1;
+    return 0;
+  };
+  return Object.entries(map).sort((a, b) => {
+    const oa = order(a[0]);
+    const ob = order(b[0]);
+    if (oa !== ob) return oa - ob;
+    return b[1] - a[1] || a[0].localeCompare(b[0]);
+  });
 }
 
 function desiredHelpIdLabel(id: string): string {
@@ -1238,10 +1255,14 @@ function DecisionReportBetaSection({
                   <span style={styles.metricLabel}>With feedback</span>
                   <span style={styles.metricValue}>{agg.with_report_feedback.toLocaleString()}</span>
                 </div>
-                <div style={styles.metric} title="Explicit rating counts (legacy rows in Unknown).">
-                  <span style={styles.metricLabel}>Yes / Somewhat / No</span>
+                <div
+                  style={styles.metric}
+                  title="Rating counts; Unknown includes legacy useful-only rows and unrated feedback."
+                >
+                  <span style={styles.metricLabel}>Yes / Somewhat / No / Unknown</span>
                   <span style={styles.metricValue}>
-                    {agg.feedback_rating.yes} / {agg.feedback_rating.somewhat} / {agg.feedback_rating.no}
+                    {agg.feedback_rating.yes} / {agg.feedback_rating.somewhat} / {agg.feedback_rating.no} /{" "}
+                    {agg.feedback_rating.unknown}
                   </span>
                 </div>
                 <div style={styles.metric} title="Scans at medium or high risk at unlock time.">
@@ -1290,16 +1311,14 @@ function DecisionReportBetaSection({
                     </ul>
                   )}
 
-                  <h3 style={{ ...styles.trendChartTitle, marginTop: "16px" }}>
-                    Q4 / willingness to pay (stored field)
-                  </h3>
-                  {sortCountEntries(agg.beta_survey.willingness_to_pay).length === 0 ? (
-                    <p style={styles.signalsEmpty}>No willingness responses in window.</p>
+                  <h3 style={{ ...styles.trendChartTitle, marginTop: "16px" }}>Use context</h3>
+                  {sortUseContextEntries(agg.beta_survey.use_context).length === 0 ? (
+                    <p style={styles.signalsEmpty}>No use-context data in window.</p>
                   ) : (
                     <ul style={styles.mspList}>
-                      {sortCountEntries(agg.beta_survey.willingness_to_pay).map(([k, n]) => (
+                      {sortUseContextEntries(agg.beta_survey.use_context).map(([k, n]) => (
                         <li key={k} style={styles.mspListItem}>
-                          {willingnessDisplay(k)} · {n.toLocaleString()}
+                          {useContextDisplay(k)} · {n.toLocaleString()}
                         </li>
                       ))}
                     </ul>
@@ -1315,7 +1334,7 @@ function DecisionReportBetaSection({
                           <th style={styles.signalsTh}>Input</th>
                           <th style={styles.signalsTh}>Situation</th>
                           <th style={styles.signalsTh}>Desired help #</th>
-                          <th style={styles.signalsTh}>Q4 context</th>
+                          <th style={styles.signalsTh}>Use context</th>
                           <th style={styles.signalsTh}>Feedback</th>
                           <th style={styles.signalsTh}>Scan ID</th>
                         </tr>
@@ -1339,7 +1358,9 @@ function DecisionReportBetaSection({
                               {row.beta_survey_meta ? row.beta_survey_meta.desired_help_count : "—"}
                             </td>
                             <td style={styles.signalsTd}>
-                              {willingnessDisplay(row.beta_survey_meta?.willingness_to_pay ?? null)}
+                              {row.beta_survey_meta?.use_context != null
+                                ? useContextDisplay(row.beta_survey_meta.use_context)
+                                : "—"}
                             </td>
                             <td style={styles.signalsTd}>{feedbackCell(row.feedback_meta)}</td>
                             <td style={{ ...styles.signalsTd, fontFamily: "ui-monospace, monospace", fontSize: "11px" }}>

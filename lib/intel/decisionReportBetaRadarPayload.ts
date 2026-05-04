@@ -32,7 +32,8 @@ export type DecisionReportBetaRadarResponse = {
     };
     beta_survey: {
       user_situation: Record<string, number>;
-      willingness_to_pay: Record<string, number>;
+      /** Derived from first-line `usefulness:` slug in price_reason_text; never exposes raw text. */
+      use_context: Record<string, number>;
       desired_help_ids: Record<string, number>;
     };
   };
@@ -45,7 +46,8 @@ export type DecisionReportBetaRadarResponse = {
     has_beta_survey: boolean;
     beta_survey_meta?: {
       user_situation: string | null;
-      willingness_to_pay: string | null;
+      /** `self_only` | … | `legacy` | `unknown` — from usefulness slug or legacy willingness mapping. */
+      use_context: string;
       desired_help_count: number;
       has_worry_text: boolean;
       has_price_reason_text: boolean;
@@ -93,6 +95,33 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 function bump(map: Record<string, number>, key: string, by = 1) {
   if (!key) return;
   map[key] = (map[key] ?? 0) + by;
+}
+
+const USEFULNESS_PREFIX = "usefulness:";
+const USE_CONTEXT_SLUGS = new Set([
+  "self_only",
+  "family_friend",
+  "workplace_it",
+  "bank_support_provider",
+  "personal_records",
+  "other",
+]);
+
+/**
+ * Q4 use context from first line of `price_reason_text` only (`usefulness:<slug>`).
+ * Ignores any newline-separated free text. Never returns raw `price_reason_text`.
+ */
+function deriveUseContext(raw: Record<string, unknown>): string {
+  const prtFull = typeof raw.price_reason_text === "string" ? raw.price_reason_text : "";
+  const firstLine = prtFull.split(/\r?\n/)[0]?.trim() ?? "";
+  if (firstLine.startsWith(USEFULNESS_PREFIX)) {
+    const slug = firstLine.slice(USEFULNESS_PREFIX.length).trim();
+    if (USE_CONTEXT_SLUGS.has(slug)) return slug;
+    return "unknown";
+  }
+  const wtp = String(raw.willingness_to_pay ?? "").trim();
+  if (wtp) return "legacy";
+  return "unknown";
 }
 
 function normTier(t: string | null | undefined): "high" | "medium" | "low" | "unknown" {
@@ -160,7 +189,7 @@ function parseReportFeedback(raw: unknown): {
 
 function parseBetaSurvey(raw: unknown): {
   user_situation: string | null;
-  willingness_to_pay: string | null;
+  use_context: string;
   desired_help: string[];
   has_worry_text: boolean;
   has_price_reason_text: boolean;
@@ -180,9 +209,10 @@ function parseBetaSurvey(raw: unknown): {
   const price_reason_text = typeof raw.price_reason_text === "string" ? raw.price_reason_text.trim() : "";
   const desired_help_other = typeof raw.desired_help_other === "string" ? raw.desired_help_other.trim() : "";
   if (!user_situation && !willingness_to_pay && desired_help.length === 0) return null;
+  const use_context = deriveUseContext(raw);
   return {
     user_situation,
-    willingness_to_pay,
+    use_context,
     desired_help,
     has_worry_text: worry_text.length > 0,
     has_price_reason_text: price_reason_text.length > 0,
@@ -206,7 +236,7 @@ export function buildDecisionReportBetaRadarPayload(
   const betaRows = filterBetaUnlockRows(rows).slice(0, DECISION_REPORT_BETA_RADAR_ROW_LIMIT);
 
   const user_situation: Record<string, number> = {};
-  const willingness_to_pay: Record<string, number> = {};
+  const use_context: Record<string, number> = {};
   const desired_help_ids: Record<string, number> = {};
 
   const feedback_rating = { yes: 0, somewhat: 0, no: 0, unknown: 0 };
@@ -225,7 +255,7 @@ export function buildDecisionReportBetaRadarPayload(
     if (survey) {
       with_beta_survey += 1;
       if (survey.user_situation) bump(user_situation, survey.user_situation);
-      if (survey.willingness_to_pay) bump(willingness_to_pay, survey.willingness_to_pay);
+      bump(use_context, survey.use_context);
       for (const id of survey.desired_help) {
         bump(desired_help_ids, id);
       }
@@ -262,7 +292,7 @@ export function buildDecisionReportBetaRadarPayload(
     if (survey) {
       entry.beta_survey_meta = {
         user_situation: survey.user_situation,
-        willingness_to_pay: survey.willingness_to_pay,
+        use_context: survey.use_context,
         desired_help_count: survey.desired_help.length,
         has_worry_text: survey.has_worry_text,
         has_price_reason_text: survey.has_price_reason_text,
@@ -313,7 +343,7 @@ export function buildDecisionReportBetaRadarPayload(
       risk_tier,
       beta_survey: {
         user_situation,
-        willingness_to_pay,
+        use_context,
         desired_help_ids,
       },
     },
