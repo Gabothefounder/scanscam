@@ -6,6 +6,8 @@ export const runtime = "nodejs";
 
 const MAX_FEEDBACK_TEXT = 2000;
 const WORTH_FIVE = new Set(["yes", "not_yet", "maybe_more_detail"] as const);
+type ReportRating = "yes" | "somewhat" | "no";
+const RATINGS = new Set<ReportRating>(["yes", "somewhat", "no"]);
 
 type WorthFive = "yes" | "not_yet" | "maybe_more_detail";
 
@@ -31,6 +33,16 @@ export async function POST(req: NextRequest) {
 
   if (typeof o.useful !== "boolean") {
     return NextResponse.json({ ok: false, error: "useful must be a boolean" }, { status: 400 });
+  }
+
+  const ratingRaw = typeof o.rating === "string" ? o.rating.trim().toLowerCase() : "";
+  if (!RATINGS.has(ratingRaw as ReportRating)) {
+    return NextResponse.json({ ok: false, error: "invalid rating" }, { status: 400 });
+  }
+  const rating: ReportRating = ratingRaw as ReportRating;
+  const expectedUseful = rating === "yes" || rating === "somewhat";
+  if (o.useful !== expectedUseful) {
+    return NextResponse.json({ ok: false, error: "useful inconsistent with rating" }, { status: 400 });
   }
 
   let feedback_text = typeof o.feedback_text === "string" ? o.feedback_text.trim() : "";
@@ -67,6 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   const report_feedback = {
+    rating,
     useful: o.useful as boolean,
     feedback_text: feedback_text || undefined,
     worth_five: worth_five ?? undefined,

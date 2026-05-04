@@ -718,9 +718,30 @@ function riskBadgeText(lang: Lang, band: RiskBand): string {
 }
 
 function riskBadgeClass(band: RiskBand): string {
-  if (band === "low") return "bg-slate-200/90 text-slate-900 ring-1 ring-slate-300/60";
+  if (band === "low") return "bg-emerald-100/90 text-emerald-950 ring-1 ring-emerald-300/50";
   if (band === "medium") return "bg-amber-100 text-amber-950 ring-1 ring-amber-300/70";
   return "bg-rose-100 text-rose-950 ring-1 ring-rose-200/80";
+}
+
+/** Ensure shared report URLs carry ?lang= for consistent FR/EN when opened or copied. */
+function withReportLang(url: string, lang: Lang): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      const u = new URL(trimmed);
+      u.searchParams.set("lang", lang);
+      return u.toString();
+    }
+  } catch {
+    /* ignore */
+  }
+  const qIndex = trimmed.indexOf("?");
+  const path = qIndex >= 0 ? trimmed.slice(0, qIndex) : trimmed;
+  const search = qIndex >= 0 ? trimmed.slice(qIndex + 1) : "";
+  const params = new URLSearchParams(search);
+  params.set("lang", lang);
+  return `${path}?${params.toString()}`;
 }
 
 function shortenScanId(id: string): string {
@@ -774,14 +795,14 @@ export function DecisionReport({
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [resolvedReportUrl, setResolvedReportUrl] = useState<string | null>(() => {
     const fromServer = reportAbsoluteUrl?.trim();
-    if (fromServer) return fromServer;
+    if (fromServer) return withReportLang(fromServer, lang);
     const tok = shareToken?.trim() ?? "";
     if (!tok) return null;
     const pub =
       typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL
         ? process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/+$/, "")
         : "";
-    if (pub) return `${pub}/r/${encodeURIComponent(tok)}`;
+    if (pub) return withReportLang(`${pub}/r/${encodeURIComponent(tok)}`, lang);
     return null;
   });
 
@@ -793,7 +814,7 @@ export function DecisionReport({
     }
     const server = reportAbsoluteUrl?.trim();
     if (server) {
-      setResolvedReportUrl(server);
+      setResolvedReportUrl(withReportLang(server, lang));
       return;
     }
     const pub =
@@ -801,15 +822,17 @@ export function DecisionReport({
         ? process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/+$/, "")
         : "";
     if (pub) {
-      setResolvedReportUrl(`${pub}/r/${encodeURIComponent(tok)}`);
+      setResolvedReportUrl(withReportLang(`${pub}/r/${encodeURIComponent(tok)}`, lang));
       return;
     }
     if (typeof window !== "undefined") {
-      setResolvedReportUrl(`${window.location.origin}/r/${encodeURIComponent(tok)}`);
+      setResolvedReportUrl(
+        withReportLang(`${window.location.origin}/r/${encodeURIComponent(tok)}`, lang)
+      );
       return;
     }
-    setResolvedReportUrl(`/r/${encodeURIComponent(tok)}`);
-  }, [shareToken, reportAbsoluteUrl]);
+    setResolvedReportUrl(withReportLang(`/r/${encodeURIComponent(tok)}`, lang));
+  }, [shareToken, reportAbsoluteUrl, lang]);
 
   useEffect(() => {
     setMounted(true);
@@ -835,6 +858,16 @@ export function DecisionReport({
     () => buildGuidanceModifiers(telemetry, lang, riskBand),
     [telemetry, lang, riskBand]
   );
+
+  const relativeReportPath = useMemo(() => {
+    const tok = shareToken?.trim() ?? "";
+    return tok ? withReportLang(`/r/${encodeURIComponent(tok)}`, lang) : "";
+  }, [shareToken, lang]);
+
+  const displayReportUrl = useMemo(() => {
+    const base = (resolvedReportUrl?.trim() || relativeReportPath).trim();
+    return base ? withReportLang(base, lang) : "";
+  }, [resolvedReportUrl, relativeReportPath, lang]);
 
   useEffect(() => {
     if (!mounted || !logProPreviewViewed || !scanId) return;
@@ -911,6 +944,7 @@ export function DecisionReport({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: tokenForFeedback,
+          rating: reportUseful,
           useful: usefulBool,
           feedback_text: combinedFeedback || undefined,
         }),
@@ -932,6 +966,7 @@ export function DecisionReport({
         props: {
           flow: "shared_report",
           report_useful: reportUseful,
+          report_rating: reportUseful,
         },
       });
     } catch {
@@ -944,36 +979,36 @@ export function DecisionReport({
     "rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400";
 
   const token = tokenForFeedback;
-  const relativeReportPath = token ? `/r/${encodeURIComponent(token)}` : "";
-  const displayReportUrl = (resolvedReportUrl?.trim() || relativeReportPath).trim();
 
   return (
-    <article className="mx-auto max-w-xl px-4 py-10 text-slate-900">
-      <header className="border-b border-slate-200 pb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">ScanScam</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{t.reportTitle}</h1>
-        <p className="mt-2 text-sm font-medium text-slate-600">{t.reportSubtitle}</p>
-        <dl className="mt-4 space-y-1.5 text-sm text-slate-700">
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="font-semibold text-slate-800">{t.reportGeneratedLabel}</dt>
-            <dd>{generatedStr}</dd>
-          </div>
-          {scanId ? (
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="font-semibold text-slate-800">{t.scanIdLabel}</dt>
-              <dd className="font-mono text-xs text-slate-600 sm:text-sm">{shortenScanId(scanId)}</dd>
-            </div>
-          ) : null}
-        </dl>
-      </header>
+    <div className="min-h-screen bg-slate-100/95 py-8 sm:py-12">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm sm:p-8">
+          <header className="border-b border-slate-200/80 pb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">ScanScam</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">{t.reportTitle}</h1>
+            <p className="mt-2 text-sm font-medium text-slate-700">{t.reportSubtitle}</p>
+            <dl className="mt-4 space-y-1.5 text-sm text-slate-800">
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="font-semibold text-slate-800">{t.reportGeneratedLabel}</dt>
+                <dd className="text-slate-700">{generatedStr}</dd>
+              </div>
+              {scanId ? (
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="font-semibold text-slate-800">{t.scanIdLabel}</dt>
+                  <dd className="font-mono text-xs text-slate-600 sm:text-sm">{shortenScanId(scanId)}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </header>
 
       <section
         className={
           riskBand === "low"
-            ? "mt-8 rounded-xl border-2 border-slate-400/70 bg-white px-5 py-6 shadow-md"
+            ? "mt-8 rounded-xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/40 to-white px-5 py-6 shadow-md ring-1 ring-slate-900/[0.04]"
             : riskBand === "medium"
-              ? "mt-8 rounded-xl border-2 border-amber-500/75 bg-white px-5 py-6 shadow-md"
-              : "mt-8 rounded-xl border-2 border-rose-500/80 bg-white px-5 py-6 shadow-md"
+              ? "mt-8 rounded-xl border border-amber-300/90 bg-gradient-to-b from-amber-50/50 to-white px-5 py-6 shadow-md ring-1 ring-amber-900/[0.06]"
+              : "mt-8 rounded-xl border border-rose-300/90 bg-gradient-to-b from-rose-50/45 to-white px-5 py-6 shadow-md ring-1 ring-rose-900/[0.06]"
         }
         aria-labelledby="decision-summary"
       >
@@ -987,10 +1022,10 @@ export function DecisionReport({
             {riskBadgeText(lang, riskBand)}
           </span>
         </div>
-        <p className="mt-4 text-lg font-semibold leading-snug text-slate-900">{tierCopy.recPrimary}</p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700">{tierCopy.recSupporting}</p>
+        <p className="mt-4 text-lg font-semibold leading-snug text-slate-950">{tierCopy.recPrimary}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-800">{tierCopy.recSupporting}</p>
         {guidanceModifiers.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-slate-200/90 bg-slate-50/90 px-3 py-2.5">
+          <div className="mt-4 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-2.5">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t.guidanceModifiersTitle}</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-slate-600">
               {guidanceModifiers.map((line) => (
@@ -999,12 +1034,15 @@ export function DecisionReport({
             </ul>
           </div>
         ) : null}
-        <p className="mt-4 border-t border-slate-200/90 pt-3 text-sm text-slate-600">
+        <p className="mt-4 border-t border-slate-200/80 pt-3 text-sm text-slate-600">
           {confidenceDisplay(lang, confidenceTier)}
         </p>
       </section>
 
-      <section className="mt-8 rounded-lg border border-slate-200 bg-white px-4 py-3.5" aria-labelledby="scanned-item">
+      <section
+        className="mt-6 rounded-xl border border-slate-200/90 bg-slate-50/40 px-4 py-3 sm:px-4 sm:py-3.5"
+        aria-labelledby="scanned-item"
+      >
         <h2 id="scanned-item" className="text-xs font-bold uppercase tracking-wide text-slate-600">
           {t.scannedItemTitle}
         </h2>
@@ -1031,19 +1069,16 @@ export function DecisionReport({
         )}
       </section>
 
-      <section className="mt-10" aria-labelledby="what-checked">
-        <h2 id="what-checked" className="text-base font-bold text-slate-900">
+      <section className="mt-8 rounded-xl border border-slate-200/90 bg-slate-50/35 px-4 py-4" aria-labelledby="what-checked">
+        <h2 id="what-checked" className="text-base font-bold text-slate-950">
           {t.signalsTitle}
         </h2>
         {signalRows.length > 0 ? (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-slate-200/80 overflow-hidden rounded-lg border border-slate-200/70 bg-white">
             {signalRows.map((row) => (
-              <li
-                key={`${row.label}-${row.value}`}
-                className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5"
-              >
+              <li key={`${row.label}-${row.value}`} className="px-3 py-3 sm:px-4">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</div>
-                <div className="mt-1 text-sm font-medium text-slate-900">{row.value}</div>
+                <div className="mt-1 text-sm font-medium text-slate-950">{row.value}</div>
                 {row.details.map((line) => (
                   <p key={line} className="mt-1.5 text-xs leading-relaxed text-slate-600">
                     {line}
@@ -1059,14 +1094,14 @@ export function DecisionReport({
 
       {messageInterpretRows.length > 0 ? (
         <section
-          className="mt-10 rounded-lg border border-slate-200/90 bg-slate-50/50 px-4 py-3.5"
+          className="mt-8 rounded-xl border border-slate-200/90 bg-slate-50/35 px-4 py-4"
           aria-labelledby="message-from"
         >
-          <h2 id="message-from" className="text-base font-bold text-slate-900">
+          <h2 id="message-from" className="text-base font-bold text-slate-950">
             {t.messageFromTitle}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.messageFromHelper}</p>
-          <dl className="mt-3 space-y-2 text-sm text-slate-700">
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.messageFromHelper}</p>
+          <dl className="mt-3 space-y-2.5 border-t border-slate-200/60 pt-3 text-sm text-slate-800">
             {messageInterpretRows.map((row) => (
               <div key={`${row.label}-${row.value}`}>
                 <dt className="font-semibold text-slate-800">{row.label}</dt>
@@ -1077,22 +1112,26 @@ export function DecisionReport({
         </section>
       ) : null}
 
-      <section className="mt-10" aria-labelledby="what-risky">
-        <h2 id="what-risky" className="text-base font-bold text-slate-900">
+      <section className="mt-8 rounded-xl border border-slate-200/80 bg-slate-50/30 px-4 py-4" aria-labelledby="what-risky">
+        <h2 id="what-risky" className="text-base font-bold text-slate-950">
           {tierCopy.riskTitle}
         </h2>
         {tierCopy.riskBody.map((para) => (
-          <p key={para} className="mt-2 text-sm leading-relaxed text-slate-700">
+          <p key={para} className="mt-2 text-sm leading-relaxed text-slate-800">
             {para}
           </p>
         ))}
       </section>
 
       <section
-        className={riskBand === "low" ? "mt-8" : "mt-10"}
+        className={
+          riskBand === "low"
+            ? "mt-6 rounded-xl border border-slate-200/80 bg-slate-50/25 px-4 py-4"
+            : "mt-8 rounded-xl border border-slate-200/80 bg-slate-50/30 px-4 py-4"
+        }
         aria-labelledby="do-link"
       >
-        <h2 id="do-link" className="text-base font-bold text-slate-900">
+        <h2 id="do-link" className="text-base font-bold text-slate-950">
           {tierCopy.doTitle}
         </h2>
         {tierCopy.doIntro ? (
@@ -1132,10 +1171,10 @@ export function DecisionReport({
 
       {riskBand !== "low" ? (
         <section
-          className="mt-10 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-4"
+          className="mt-8 rounded-xl border border-amber-200/90 bg-amber-50/70 px-4 py-4"
           aria-labelledby="escalation-path"
         >
-          <h2 id="escalation-path" className="text-base font-bold text-slate-900">
+          <h2 id="escalation-path" className="text-base font-bold text-slate-950">
             {tierCopy.escTitle}
           </h2>
           {tierCopy.escIntro ? (
@@ -1150,20 +1189,20 @@ export function DecisionReport({
       ) : null}
 
       <section
-        className="mt-10 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm"
+        className="mt-8 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
         aria-labelledby="share-report"
       >
-        <h2 id="share-report" className="text-base font-bold text-slate-900">
+        <h2 id="share-report" className="text-base font-bold text-slate-950">
           {t.shareTitle}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.shareText}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-800">{t.shareText}</p>
         {token ? (
-          <div className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3">
+          <div className="mt-4 space-y-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-3">
             <p className="text-sm font-semibold text-slate-900">{t.secureReportLinkTitle}</p>
             <p className="text-sm leading-relaxed text-slate-600">{t.secureReportLinkBody}</p>
             <p className="text-sm leading-relaxed text-slate-600">{t.secureReportLinkInstruction}</p>
             {displayReportUrl ? (
-              <p className="break-all font-mono text-xs leading-relaxed text-slate-800 sm:text-sm">
+              <p className="max-w-full break-words font-mono text-xs leading-relaxed text-slate-800 sm:text-sm">
                 <a
                   href={displayReportUrl}
                   className="text-slate-900 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
@@ -1187,7 +1226,7 @@ export function DecisionReport({
       </section>
 
       <section
-        className="mt-10 rounded-lg border border-slate-100 bg-slate-50/40 px-4 py-3"
+        className="mt-8 rounded-lg border border-slate-100 bg-slate-50/50 px-4 py-3.5"
         aria-labelledby="limits"
       >
         <h2 id="limits" className="text-sm font-semibold text-slate-600">
@@ -1197,7 +1236,7 @@ export function DecisionReport({
       </section>
 
       {token ? (
-        <section className="mt-10 rounded-lg border border-slate-200 bg-white/80 px-4 py-4" aria-labelledby="feedback">
+        <section className="mt-8 rounded-xl border border-slate-200/90 bg-white px-4 py-4" aria-labelledby="feedback">
           <h2 id="feedback" className="text-sm font-semibold text-slate-800">
             {t.reportFeedbackTitle}
           </h2>
@@ -1282,7 +1321,7 @@ export function DecisionReport({
         </section>
       ) : null}
 
-      <footer className="mt-12 border-t border-slate-200 pt-8">
+      <footer className="mt-10 border-t border-slate-200/90 pt-8">
         <a
           href={backHref}
           className="text-sm font-semibold text-slate-800 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
@@ -1290,6 +1329,8 @@ export function DecisionReport({
           {scanId.length > 0 ? t.back : t.backScan}
         </a>
       </footer>
-    </article>
+        </article>
+      </div>
+    </div>
   );
 }
