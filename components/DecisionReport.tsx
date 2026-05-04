@@ -33,6 +33,13 @@ const copy = {
       "This report is generated from a specific scan and can be shared securely for review or verification.",
     reportGeneratedLabel: "Report generated",
     scanIdLabel: "Scan ID",
+    decisionSummaryTitle: "Decision summary",
+    riskBadgeLow: "Low risk",
+    riskBadgeMedium: "Medium risk",
+    riskBadgeHigh: "High risk",
+    scannedItemTitle: "Scanned item",
+    scannedMessageNoLinkLabel: "Scanned message",
+    scannedMessageNoLinkDetail: "No usable link was found in this scan.",
     secureReportLinkTitle: "Secure report link",
     secureReportLinkBody: "This report is hosted on a private, time-limited link.",
     secureReportLinkInstruction:
@@ -56,7 +63,7 @@ const copy = {
       "External threat database result when available",
       "Behavioral patterns observed in similar submissions",
     ],
-    signalsTitle: "Signals detected",
+    signalsTitle: "What ScanScam checked",
     signalsNone:
       "No signal summary was included in the link. The guidance below still applies when you need to decide how to respond.",
     labelRisk: "Risk level",
@@ -121,8 +128,7 @@ const copy = {
       "ScanScam helps you understand suspicious messages and choose a safer next step. It does not guarantee that a message is safe or fraudulent, and it is not legal, financial, or technical remediation advice. When in doubt, verify through the official source.",
     shareTitle: "Share or keep this report",
     shareText:
-      "Use this report as a clear, time-stamped summary you can keep or send to someone you trust, a family member, workplace support, a bank, or a service provider.",
-    shareUseLinkAbove: "Use the private link at the top of this page if you want to share this report.",
+      "Use this time-stamped report as a clear summary you can keep or send to someone you trust, IT, a bank, or a service provider.",
     reportFeedbackTitle: "Was this report useful?",
     feedbackYes: "Yes",
     feedbackSomewhat: "Somewhat",
@@ -218,6 +224,13 @@ const copy = {
       "Ce rapport est généré à partir d’une analyse précise et peut être partagé en toute sécurité pour examen ou vérification.",
     reportGeneratedLabel: "Rapport généré",
     scanIdLabel: "ID d’analyse",
+    decisionSummaryTitle: "Résumé décisionnel",
+    riskBadgeLow: "Risque faible",
+    riskBadgeMedium: "Risque moyen",
+    riskBadgeHigh: "Risque élevé",
+    scannedItemTitle: "Élément analysé",
+    scannedMessageNoLinkLabel: "Message scanné",
+    scannedMessageNoLinkDetail: "Aucun lien utilisable n’a été trouvé dans ce scan.",
     secureReportLinkTitle: "Lien de rapport sécurisé",
     secureReportLinkBody: "Ce rapport est disponible via un lien privé et d’une durée limitée.",
     secureReportLinkInstruction:
@@ -242,7 +255,7 @@ const copy = {
       "Résultat de la base de menaces externe lorsque disponible",
       "Schémas comportementaux observés dans des soumissions comparables",
     ],
-    signalsTitle: "Signaux détectés",
+    signalsTitle: "Ce que ScanScam a vérifié",
     signalsNone:
       "Aucun résumé de signaux n’a été transmis dans le lien. Les conseils ci-dessous restent utiles pour décider comment réagir.",
     labelRisk: "Niveau de risque",
@@ -307,9 +320,7 @@ const copy = {
       "ScanScam vous aide à comprendre les messages suspects et à choisir une prochaine étape plus sûre. Il ne garantit pas qu’un message est légitime ou frauduleux et ne constitue pas un avis juridique, financier ou technique. En cas de doute, vérifiez auprès de la source officielle.",
     shareTitle: "Partager ou conserver ce rapport",
     shareText:
-      "Utilisez ce rapport comme résumé clair et horodaté à conserver ou à envoyer à une personne de confiance, un proche, le soutien au travail, une banque ou un fournisseur de services.",
-    shareUseLinkAbove:
-      "Utilisez le lien privé en haut de cette page si vous souhaitez partager ce rapport.",
+      "Utilisez ce rapport horodaté comme un résumé clair que vous pouvez conserver ou envoyer à une personne de confiance, à l’équipe TI, à une banque ou à un fournisseur de service.",
     reportFeedbackTitle: "Ce rapport vous a-t-il été utile ?",
     feedbackYes: "Oui",
     feedbackSomewhat: "Un peu",
@@ -699,6 +710,19 @@ function buildGuidanceModifiers(
   return out;
 }
 
+function riskBadgeText(lang: Lang, band: RiskBand): string {
+  const x = copy[lang];
+  if (band === "low") return x.riskBadgeLow;
+  if (band === "medium") return x.riskBadgeMedium;
+  return x.riskBadgeHigh;
+}
+
+function riskBadgeClass(band: RiskBand): string {
+  if (band === "low") return "bg-slate-200/90 text-slate-900 ring-1 ring-slate-300/60";
+  if (band === "medium") return "bg-amber-100 text-amber-950 ring-1 ring-amber-300/70";
+  return "bg-rose-100 text-rose-950 ring-1 ring-rose-200/80";
+}
+
 function shortenScanId(id: string): string {
   if (!id) return "";
   if (id.length <= 14) return id;
@@ -726,13 +750,6 @@ function confidenceDisplay(lang: Lang, level: "limited" | "moderate"): string {
   const t = copy[lang];
   const word = level === "limited" ? t.confidenceLimited : t.confidenceModerate;
   return `${t.confidenceLabel}: ${word}`;
-}
-
-function showWhyConfidenceLimited(tel: DecisionReportTelemetry): boolean {
-  const intel = tel.intel_state.trim().toLowerCase();
-  const cq = tel.context_quality.trim().toLowerCase();
-  const input = tel.input_type.trim().toLowerCase();
-  return intel === "insufficient_context" || cq === "fragment" || input === "link_only";
 }
 
 export function DecisionReport({
@@ -818,8 +835,6 @@ export function DecisionReport({
     () => buildGuidanceModifiers(telemetry, lang, riskBand),
     [telemetry, lang, riskBand]
   );
-
-  const showWhyLimited = useMemo(() => showWhyConfidenceLimited(telemetry), [telemetry]);
 
   useEffect(() => {
     if (!mounted || !logProPreviewViewed || !scanId) return;
@@ -933,13 +948,12 @@ export function DecisionReport({
   const displayReportUrl = (resolvedReportUrl?.trim() || relativeReportPath).trim();
 
   return (
-    <article className="mx-auto max-w-xl px-4 py-10 text-gray-900">
-      <header className="border-b-2 border-slate-200 pb-8">
+    <article className="mx-auto max-w-xl px-4 py-10 text-slate-900">
+      <header className="border-b border-slate-200 pb-6">
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">ScanScam</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{t.reportTitle}</h1>
         <p className="mt-2 text-sm font-medium text-slate-600">{t.reportSubtitle}</p>
-        <p className="mt-3 max-w-prose text-sm leading-relaxed text-slate-600">{t.reportFramingLine}</p>
-        <dl className="mt-5 space-y-2 text-sm text-slate-700">
+        <dl className="mt-4 space-y-1.5 text-sm text-slate-700">
           <div className="flex flex-wrap gap-x-2">
             <dt className="font-semibold text-slate-800">{t.reportGeneratedLabel}</dt>
             <dd>{generatedStr}</dd>
@@ -953,79 +967,30 @@ export function DecisionReport({
         </dl>
       </header>
 
-      {token ? (
-        <section
-          className="mt-6 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3.5"
-          aria-labelledby="secure-report-link"
-        >
-          <h2 id="secure-report-link" className="text-sm font-semibold text-slate-900">
-            {t.secureReportLinkTitle}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.secureReportLinkBody}</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.secureReportLinkInstruction}</p>
-          {displayReportUrl ? (
-            <p className="mt-3 break-all font-mono text-xs leading-relaxed text-slate-800 sm:text-sm">
-              <a
-                href={displayReportUrl}
-                className="text-slate-900 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
-              >
-                {displayReportUrl}
-              </a>
-            </p>
-          ) : null}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {displayReportUrl ? <CopyReportLinkButton reportUrl={displayReportUrl} lang={lang} /> : null}
-          </div>
-          {expiresStr ? (
-            <p className="mt-3 text-xs text-slate-600">
-              {t.secureShareExpiresPrefix} {expiresStr}
-            </p>
-          ) : null}
-        </section>
-      ) : (
-        <section
-          className="mt-6 rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-600"
-          aria-label={t.secureShareAfterUnlock}
-        >
-          {t.secureShareAfterUnlock}
-        </section>
-      )}
-
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white px-4 py-3" aria-labelledby="analyzed-link">
-        <h2 id="analyzed-link" className="text-sm font-bold uppercase tracking-wide text-slate-900">
-          {t.analyzedLinkTitle}
-        </h2>
-        {analyzedDomain ? (
-          <dl className="mt-3 space-y-2 text-sm text-slate-700">
-            <div>
-              <dt className="inline font-semibold text-slate-800">{t.analyzedDomainLabel}: </dt>
-              <dd className="inline font-mono text-slate-900">{analyzedDomain}</dd>
-            </div>
-            <div>
-              <dt className="inline font-semibold text-slate-800">{t.analyzedSourceLabel}: </dt>
-              <dd className="inline text-slate-700">{t.analyzedSourceValue}</dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.analyzedUnavailable}</p>
-        )}
-      </section>
-
       <section
         className={
           riskBand === "low"
-            ? "mt-8 rounded-lg border-2 border-slate-300 bg-slate-50 px-4 py-4"
-            : "mt-8 rounded-lg border-2 border-slate-800 bg-slate-50 px-4 py-4"
+            ? "mt-8 rounded-xl border-2 border-slate-400/70 bg-white px-5 py-6 shadow-md"
+            : riskBand === "medium"
+              ? "mt-8 rounded-xl border-2 border-amber-500/75 bg-white px-5 py-6 shadow-md"
+              : "mt-8 rounded-xl border-2 border-rose-500/80 bg-white px-5 py-6 shadow-md"
         }
-        aria-labelledby="recommended-action"
+        aria-labelledby="decision-summary"
       >
-        <h2 id="recommended-action" className="text-sm font-bold uppercase tracking-wide text-slate-900">
-          {t.recommendedTitle}
-        </h2>
-        <p className="mt-3 text-base font-semibold leading-snug text-slate-900">{tierCopy.recPrimary}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="decision-summary" className="text-xs font-bold uppercase tracking-widest text-slate-500">
+            {t.decisionSummaryTitle}
+          </h2>
+          <span
+            className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold ${riskBadgeClass(riskBand)}`}
+          >
+            {riskBadgeText(lang, riskBand)}
+          </span>
+        </div>
+        <p className="mt-4 text-lg font-semibold leading-snug text-slate-900">{tierCopy.recPrimary}</p>
         <p className="mt-2 text-sm leading-relaxed text-slate-700">{tierCopy.recSupporting}</p>
         {guidanceModifiers.length > 0 ? (
-          <div className="mt-3 rounded-md border border-slate-200/90 bg-slate-50/80 px-3 py-2.5">
+          <div className="mt-4 rounded-lg border border-slate-200/90 bg-slate-50/90 px-3 py-2.5">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t.guidanceModifiersTitle}</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-slate-600">
               {guidanceModifiers.map((line) => (
@@ -1034,39 +999,53 @@ export function DecisionReport({
             </ul>
           </div>
         ) : null}
-        <p className="mt-3 text-sm text-slate-600">{confidenceDisplay(lang, confidenceTier)}</p>
+        <p className="mt-4 border-t border-slate-200/90 pt-3 text-sm text-slate-600">
+          {confidenceDisplay(lang, confidenceTier)}
+        </p>
       </section>
 
-      {riskBand !== "low" ? (
-        <section className="mt-8" aria-labelledby="how-analyzed">
-          <h2 id="how-analyzed" className="text-base font-bold text-slate-900">
-            {t.howAnalyzedTitle}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.howAnalyzedIntro}</p>
-          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
-            {t.howAnalyzedBullets.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <section className="mt-8 rounded-lg border border-slate-200 bg-white px-4 py-3.5" aria-labelledby="scanned-item">
+        <h2 id="scanned-item" className="text-xs font-bold uppercase tracking-wide text-slate-600">
+          {t.scannedItemTitle}
+        </h2>
+        {telemetry.has_usable_link ? (
+          analyzedDomain ? (
+            <dl className="mt-2 space-y-1.5 text-sm text-slate-700">
+              <div>
+                <dt className="inline font-semibold text-slate-800">{t.analyzedDomainLabel}: </dt>
+                <dd className="inline font-mono text-slate-900">{analyzedDomain}</dd>
+              </div>
+              <div>
+                <dt className="inline font-semibold text-slate-800">{t.analyzedSourceLabel}: </dt>
+                <dd className="inline text-slate-700">{t.analyzedSourceValue}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.analyzedUnavailable}</p>
+          )
+        ) : (
+          <div className="mt-2 text-sm text-slate-700">
+            <p className="font-semibold text-slate-800">{t.scannedMessageNoLinkLabel}</p>
+            <p className="mt-1 leading-relaxed text-slate-600">{t.scannedMessageNoLinkDetail}</p>
+          </div>
+        )}
+      </section>
 
-      <section className="mt-8" aria-labelledby="signals">
-        <h2 id="signals" className="text-base font-bold text-slate-900">
+      <section className="mt-10" aria-labelledby="what-checked">
+        <h2 id="what-checked" className="text-base font-bold text-slate-900">
           {t.signalsTitle}
         </h2>
         {signalRows.length > 0 ? (
-          <ul className="mt-3 list-none space-y-3 text-sm text-slate-700">
+          <ul className="mt-3 space-y-2">
             {signalRows.map((row) => (
-              <li key={`${row.label}-${row.value}`} className="space-y-1.5">
-                <div className="flex gap-2">
-                  <span className="text-slate-400">•</span>
-                  <span>
-                    <span className="font-semibold text-slate-800">{row.label}:</span> {row.value}
-                  </span>
-                </div>
+              <li
+                key={`${row.label}-${row.value}`}
+                className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5"
+              >
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</div>
+                <div className="mt-1 text-sm font-medium text-slate-900">{row.value}</div>
                 {row.details.map((line) => (
-                  <p key={line} className="pl-6 text-sm leading-relaxed text-slate-600">
+                  <p key={line} className="mt-1.5 text-xs leading-relaxed text-slate-600">
                     {line}
                   </p>
                 ))}
@@ -1080,14 +1059,14 @@ export function DecisionReport({
 
       {messageInterpretRows.length > 0 ? (
         <section
-          className="mt-8 rounded-lg border border-slate-200 bg-white px-4 py-4"
+          className="mt-10 rounded-lg border border-slate-200/90 bg-slate-50/50 px-4 py-3.5"
           aria-labelledby="message-from"
         >
           <h2 id="message-from" className="text-base font-bold text-slate-900">
             {t.messageFromTitle}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.messageFromHelper}</p>
-          <dl className="mt-3 space-y-2.5 text-sm text-slate-700">
+          <dl className="mt-3 space-y-2 text-sm text-slate-700">
             {messageInterpretRows.map((row) => (
               <div key={`${row.label}-${row.value}`}>
                 <dt className="font-semibold text-slate-800">{row.label}</dt>
@@ -1098,7 +1077,7 @@ export function DecisionReport({
         </section>
       ) : null}
 
-      <section className="mt-8" aria-labelledby="what-risky">
+      <section className="mt-10" aria-labelledby="what-risky">
         <h2 id="what-risky" className="text-base font-bold text-slate-900">
           {tierCopy.riskTitle}
         </h2>
@@ -1109,36 +1088,51 @@ export function DecisionReport({
         ))}
       </section>
 
-      {showWhyLimited && riskBand !== "low" ? (
-        <section className="mt-8 rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3" aria-labelledby="why-confidence">
-          <h2 id="why-confidence" className="text-base font-bold text-slate-900">
-            {t.whyConfidenceTitle}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.whyConfidenceBody1}</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.whyConfidenceBody2}</p>
-        </section>
-      ) : null}
-
-      <section className="mt-8" aria-labelledby="do-link">
+      <section
+        className={riskBand === "low" ? "mt-8" : "mt-10"}
+        aria-labelledby="do-link"
+      >
         <h2 id="do-link" className="text-base font-bold text-slate-900">
           {tierCopy.doTitle}
         </h2>
         {tierCopy.doIntro ? (
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{tierCopy.doIntro}</p>
+          <p
+            className={
+              riskBand === "low"
+                ? "mt-2 text-sm leading-snug text-slate-700"
+                : "mt-2 text-sm leading-relaxed text-slate-700"
+            }
+          >
+            {tierCopy.doIntro}
+          </p>
         ) : null}
-        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
+        <ul
+          className={
+            riskBand === "low"
+              ? "mt-2 list-disc space-y-1 pl-5 text-sm leading-snug text-slate-700"
+              : "mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700"
+          }
+        >
           {tierCopy.doBullets.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
         {tierCopy.doClosing ? (
-          <p className="mt-3 text-sm leading-relaxed text-slate-700">{tierCopy.doClosing}</p>
+          <p
+            className={
+              riskBand === "low"
+                ? "mt-2 text-sm leading-snug text-slate-700"
+                : "mt-3 text-sm leading-relaxed text-slate-700"
+            }
+          >
+            {tierCopy.doClosing}
+          </p>
         ) : null}
       </section>
 
       {riskBand !== "low" ? (
         <section
-          className="mt-8 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-4"
+          className="mt-10 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-4"
           aria-labelledby="escalation-path"
         >
           <h2 id="escalation-path" className="text-base font-bold text-slate-900">
@@ -1156,7 +1150,7 @@ export function DecisionReport({
       ) : null}
 
       <section
-        className="mt-8 rounded-lg border border-slate-200 bg-slate-50/90 px-4 py-4"
+        className="mt-10 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm"
         aria-labelledby="share-report"
       >
         <h2 id="share-report" className="text-base font-bold text-slate-900">
@@ -1164,21 +1158,46 @@ export function DecisionReport({
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.shareText}</p>
         {token ? (
-          <p className="mt-3 text-sm leading-relaxed text-slate-700">{t.shareUseLinkAbove}</p>
+          <div className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3">
+            <p className="text-sm font-semibold text-slate-900">{t.secureReportLinkTitle}</p>
+            <p className="text-sm leading-relaxed text-slate-600">{t.secureReportLinkBody}</p>
+            <p className="text-sm leading-relaxed text-slate-600">{t.secureReportLinkInstruction}</p>
+            {displayReportUrl ? (
+              <p className="break-all font-mono text-xs leading-relaxed text-slate-800 sm:text-sm">
+                <a
+                  href={displayReportUrl}
+                  className="text-slate-900 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
+                >
+                  {displayReportUrl}
+                </a>
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {displayReportUrl ? <CopyReportLinkButton reportUrl={displayReportUrl} lang={lang} /> : null}
+            </div>
+            {expiresStr ? (
+              <p className="text-xs text-slate-600">
+                {t.secureShareExpiresPrefix} {expiresStr}
+              </p>
+            ) : null}
+          </div>
         ) : (
-          <p className="mt-2 text-sm font-medium text-slate-600">{t.secureShareAfterUnlock}</p>
+          <p className="mt-3 text-sm text-slate-600">{t.secureShareAfterUnlock}</p>
         )}
       </section>
 
-      <section className="mt-8 rounded-lg border border-slate-200 bg-white px-4 py-4" aria-labelledby="limits">
-        <h2 id="limits" className="text-base font-bold text-slate-900">
+      <section
+        className="mt-10 rounded-lg border border-slate-100 bg-slate-50/40 px-4 py-3"
+        aria-labelledby="limits"
+      >
+        <h2 id="limits" className="text-sm font-semibold text-slate-600">
           {t.limitsTitle}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700">{t.limitsBody}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{t.limitsBody}</p>
       </section>
 
       {token ? (
-        <section className="mt-8 rounded-lg border border-slate-200 bg-white/60 px-4 py-4" aria-labelledby="feedback">
+        <section className="mt-10 rounded-lg border border-slate-200 bg-white/80 px-4 py-4" aria-labelledby="feedback">
           <h2 id="feedback" className="text-sm font-semibold text-slate-800">
             {t.reportFeedbackTitle}
           </h2>
@@ -1263,7 +1282,7 @@ export function DecisionReport({
         </section>
       ) : null}
 
-      <footer className="mt-10 border-t border-slate-200 pt-8">
+      <footer className="mt-12 border-t border-slate-200 pt-8">
         <a
           href={backHref}
           className="text-sm font-semibold text-slate-800 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
