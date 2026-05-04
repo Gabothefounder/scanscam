@@ -112,26 +112,42 @@ function hostnameMayMimicBrand(domain: string | null, root: string | null): bool
 
 type DomainSignalBucket = "recent" | "established" | "mid" | "unavailable";
 
+function domainRegistrationAgeDays(slice: { domain_registration?: Record<string, unknown> } | null): number | null {
+  const dr = slice?.domain_registration;
+  if (!dr || typeof dr !== "object") return null;
+  const status = String((dr as { status?: unknown }).status ?? "");
+  if (status !== "ok") return null;
+  const createdRaw = (dr as { created_at?: unknown }).created_at;
+  if (createdRaw == null || typeof createdRaw !== "string" || !createdRaw.trim()) {
+    return null;
+  }
+  const created = new Date(createdRaw.trim());
+  if (Number.isNaN(created.getTime())) return null;
+  const ageMs = Date.now() - created.getTime();
+  if (ageMs < 0) return null;
+  return Math.floor(ageMs / 86400000);
+}
+
 function getDomainSignalBucket(
   slice: { domain_registration?: Record<string, unknown> } | null
 ): DomainSignalBucket {
-  const dr = slice?.domain_registration;
-  if (!dr || typeof dr !== "object") return "unavailable";
-  const status = String((dr as { status?: unknown }).status ?? "");
-  if (status !== "ok") return "unavailable";
-  const createdRaw = (dr as { created_at?: unknown }).created_at;
-  if (createdRaw == null || typeof createdRaw !== "string" || !createdRaw.trim()) {
-    return "unavailable";
-  }
-  const created = new Date(createdRaw.trim());
-  if (Number.isNaN(created.getTime())) return "unavailable";
-  const ageMs = Date.now() - created.getTime();
-  if (ageMs < 0) return "unavailable";
-  const dayMs = 86400000;
-  const ageDays = ageMs / dayMs;
+  const ageDays = domainRegistrationAgeDays(slice);
+  if (ageDays == null) return "unavailable";
   if (ageDays < 30) return "recent";
   if (ageDays >= 365) return "established";
   return "mid";
+}
+
+/** True when intel includes a parsed link with a usable URL or host for link-based checks. */
+export function hasUsableLinkFromIntel(intel: Record<string, unknown> | null | undefined): boolean {
+  const i = intel && typeof intel === "object" ? intel : {};
+  const link = parseLinkArtifact(i);
+  if (!link) return false;
+  const url = (link.url ?? "").trim();
+  const domain = (link.domain ?? "").trim();
+  const root = (link.root_domain ?? "").trim();
+  const finalRoot = (link.final_root_domain ?? "").trim();
+  return Boolean(url || domain || root || finalRoot);
 }
 
 function linkTypeTelemetrySlug(link: ParsedLinkArtifact | null): "shortened" | "unusual" | "standard" {
@@ -155,6 +171,10 @@ export type ReportTelemetryFromIntel = {
   web_risk_status: string;
   link_type: string;
   domain_signal: string;
+  /** Whole days since domain registration when `link_intel.domain_registration` has status ok and created_at; else null. */
+  domain_age_days: number | null;
+  /** Whether link, domain, and web-risk rows apply (derived from parsed link artifact only). */
+  has_usable_link: boolean;
 };
 
 /** Build telemetry fields for DecisionReport from stored intel + risk tier. */
@@ -170,6 +190,8 @@ export function buildTelemetryFromIntel(
     wr && typeof wr === "object" ? String((wr as { status?: unknown }).status ?? "none") : "none";
   const bucket = getDomainSignalBucket(slice ?? null);
   const linkSlug = linkTypeTelemetrySlug(link);
+  const domainAgeDays = domainRegistrationAgeDays(slice ?? null);
+  const has_usable_link = hasUsableLinkFromIntel(i);
   return {
     risk_tier: String(riskTier ?? "low").toLowerCase(),
     input_type: String(i.input_type ?? "unknown"),
@@ -178,6 +200,8 @@ export function buildTelemetryFromIntel(
     web_risk_status: webRisk,
     link_type: linkSlug,
     domain_signal: bucket,
+    domain_age_days: domainAgeDays,
+    has_usable_link,
   };
 }
 
