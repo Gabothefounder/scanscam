@@ -278,6 +278,7 @@ function CheckoutInner() {
         : `usefulness:${usefulnessId}`;
       const body = {
         scan_id: scanId,
+        lang,
         beta_survey: {
           user_situation: q1,
           worry_text: q2.trim() || undefined,
@@ -302,7 +303,11 @@ function CheckoutInner() {
         scan_id: scanId,
         props: { flow: "beta" },
       });
-      const dest = data.url || (data.token ? `/r/${encodeURIComponent(data.token)}` : "/pro");
+      const dest =
+        data.url ||
+        (data.token
+          ? `/r/${encodeURIComponent(data.token)}?${new URLSearchParams({ lang }).toString()}`
+          : "/pro");
       router.replace(dest);
     } catch {
       setErr(t.errSubmit);

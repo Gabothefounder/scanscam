@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createProReportAccess } from "@/lib/proReports/createProReportAccess";
 import { getServiceSupabase } from "@/lib/proReports/serviceSupabase";
-import { buildReportAbsoluteUrl, resolveReportSiteOrigin } from "@/lib/proReports/resolveReportSiteOrigin";
+import { buildReportAbsoluteUrl } from "@/lib/proReports/resolveReportSiteOrigin";
 
 export const runtime = "nodejs";
 
@@ -115,6 +115,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "scan_id must be a UUID" }, { status: 400 });
   }
 
+  const langRaw = typeof o.lang === "string" ? o.lang.trim().toLowerCase() : "";
+  const lang: "en" | "fr" | undefined = langRaw === "fr" ? "fr" : langRaw === "en" ? "en" : undefined;
+
   const validated = validateSurvey(o.beta_survey);
   if (!validated.ok) {
     return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
@@ -142,8 +145,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const { token, expiresAt } = await createProReportAccess(scanId, { reportSnapshot: report_snapshot });
-    const origin = await resolveReportSiteOrigin();
-    const url = buildReportAbsoluteUrl(origin, token);
+    /** Root-relative path so the client stays on the current host (local, preview, prod). */
+    const url = buildReportAbsoluteUrl(null, token, lang);
     return NextResponse.json({
       ok: true,
       token,
