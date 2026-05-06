@@ -6,15 +6,21 @@ const CFG = {
     CTA: "ops_public_cta_segments_clean_v1",
   },
   TABS: {
-    FUNNEL: "Public Funnel",
-    CTA: "CTA Segments",
-    DAILY: "Daily Public Control",
-    META: "_Meta",
+    FUNNEL: "DATA_Public Funnel",
+    CTA: "DATA_CTA Segments",
+    DAILY: "Daily Pulse",
+    META: "DATA_Meta",
+    DEBUG: "DATA_Event Funnel Debug",
+    WEEKLY: "Weekly Control Panel",
+    GROWTH: "Growth Lab",
+    PRODUCT: "Product & Signal",
+    SALES: "Sales CRM",
   },
 };
 
 function refreshFounderControlPanel() {
   assertConfig_();
+  ensureFounderFacingTabs_();
 
   const funnelRows = fetchViewRows_(CFG.VIEWS.FUNNEL);
   const ctaRows = fetchViewRows_(CFG.VIEWS.CTA);
@@ -22,7 +28,7 @@ function refreshFounderControlPanel() {
   writeTab_(CFG.TABS.FUNNEL, funnelRows);
   writeTab_(CFG.TABS.CTA, ctaRows);
 
-  const dailyResult = buildDailyPublicControl_(funnelRows);
+  const dailyResult = buildDailyPulse_(funnelRows);
 
   stampRefresh_({
     sourceViews: [CFG.VIEWS.FUNNEL, CFG.VIEWS.CTA],
@@ -59,7 +65,9 @@ function fetchViewRows_(viewName) {
 function writeTab_(tabName, rows) {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(tabName) || ss.insertSheet(tabName);
-  sh.clearContents();
+  // Strong reset so legacy spreadsheet formatting does not leak into new data.
+  sh.clear();
+  sh.setFrozenRows(0);
 
   if (!rows || rows.length === 0) {
     sh.getRange(1, 1).setValue("No rows returned");
@@ -71,14 +79,21 @@ function writeTab_(tabName, rows) {
 
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   sh.getRange(2, 1, values.length, headers.length).setValues(values);
+  sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   sh.setFrozenRows(1);
+  applyColumnFormats_(sh, headers, values.length);
   sh.autoResizeColumns(1, headers.length);
 }
 
 function buildDailyPublicControl_(funnelRows) {
+  return buildDailyPulse_(funnelRows);
+}
+
+function buildDailyPulse_(funnelRows) {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(CFG.TABS.DAILY) || ss.insertSheet(CFG.TABS.DAILY);
-  sh.clearContents();
+  sh.clear();
+  sh.setFrozenRows(0);
 
   const headers = [
     "Date",
@@ -93,7 +108,13 @@ function buildDailyPublicControl_(funnelRows) {
     "Refinement Shown",
     "Refinement Submitted",
     "Errors / API Gap",
+    "Ad Spend",
+    "Clicks",
+    "Cost / Scan",
+    "Cost / CTA Shown",
+    "Cost / CTA Click",
     "Main Drop-Off",
+    "Instrumentation Status",
     "Auto Diagnosis",
     "Suggested Action",
     "Founder Approved?",
@@ -103,6 +124,7 @@ function buildDailyPublicControl_(funnelRows) {
   ];
 
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   sh.setFrozenRows(1);
 
   const picked = selectTargetDailyRow_(funnelRows);
@@ -129,6 +151,7 @@ function buildDailyPublicControl_(funnelRows) {
   const apiGap = Math.max(scans - apiSuccess, 0);
 
   const diagnosisCtx = {
+    selectedDayStatus: picked.status,
     scans,
     apiSuccess,
     results,
@@ -143,6 +166,7 @@ function buildDailyPublicControl_(funnelRows) {
   };
 
   const mainDrop = inferMainDropOff_(diagnosisCtx);
+  const instrumentationStatus = instrumentationStatus_(diagnosisCtx, mainDrop);
   const diagnosis = diagnose_(diagnosisCtx, mainDrop);
   const suggestedAction = suggestAction_(diagnosisCtx, mainDrop);
 
@@ -159,7 +183,13 @@ function buildDailyPublicControl_(funnelRows) {
     refinementShown,
     refinementSubmitted,
     apiGap,
+    "",
+    "",
+    "",
+    "",
+    "",
     mainDrop,
+    instrumentationStatus,
     diagnosis,
     suggestedAction,
     "",
@@ -169,6 +199,9 @@ function buildDailyPublicControl_(funnelRows) {
   ];
 
   sh.getRange(2, 1, 1, outputRow.length).setValues([outputRow]);
+  // Keep the founder-facing row readable and deterministic.
+  sh.getRange(2, 1, 1, outputRow.length).setNumberFormat("0");
+  sh.getRange(2, 1).setNumberFormat("yyyy-mm-dd");
   sh.autoResizeColumns(1, headers.length);
 
   const promptStart = 5;
@@ -176,7 +209,7 @@ function buildDailyPublicControl_(funnelRows) {
   sh
     .getRange(promptStart + 1, 1)
     .setValue(
-      "Using the latest Daily Public Control row and CTA Segments tab, identify the biggest public-funnel bottleneck. Distinguish tracking issues from product/UI/copy issues. Recommend one action only. Do not invent metrics. If the selected day is a partial day, say so and do not overread."
+      "Using the latest Daily Pulse row and DATA_CTA Segments tab, identify the biggest public-funnel bottleneck. Distinguish tracking issues from product/UI/copy issues. Recommend one action only. Do not invent metrics. If the selected day is a partial day, say so and do not overread."
     );
 
   return {
@@ -213,7 +246,7 @@ function selectTargetDailyRow_(funnelRows) {
     return {
       row: fallbackRow,
       date: fallbackDate,
-      status: "PARTIAL DAY - DO NOT OVERREAD",
+      status: "PARTIAL DAY — DO NOT OVERREAD",
       warnings,
     };
   }
@@ -251,6 +284,28 @@ function inferMainDropOff_(m) {
   }
 
   return "No clear bottleneck / needs more data";
+}
+
+function instrumentationStatus_(row, mainDrop) {
+  if (row.selectedDayStatus === "PARTIAL DAY — DO NOT OVERREAD") {
+    return "PARTIAL DAY — DO NOT OVERREAD";
+  }
+  if (row.scans > 0 && row.results === 0) {
+    return "RESULT TRACKING MISSING";
+  }
+  if (row.apiGap > 0 && row.scans > 0 && row.apiGap / row.scans > 0.1) {
+    return "API GAP";
+  }
+  if (row.scans > 0 && row.ctaShown === 0) {
+    return "CTA TRACKING MISSING";
+  }
+  if (row.ctaClicked > 0 && row.salesViews === 0) {
+    return "SALES PAGE TRACKING MISSING";
+  }
+  if (mainDrop === "No clear bottleneck / needs more data") {
+    return "NEEDS REVIEW";
+  }
+  return "OK";
 }
 
 function diagnose_(row, mainDrop) {
@@ -300,7 +355,8 @@ function suggestAction_(row, mainDrop) {
 function stampRefresh_(meta) {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(CFG.TABS.META) || ss.insertSheet(CFG.TABS.META);
-  sh.clearContents();
+  sh.clear();
+  sh.setFrozenRows(0);
 
   const now = new Date();
   const nowMtl = Utilities.formatDate(now, "America/Montreal", "yyyy-MM-dd HH:mm:ss");
@@ -315,8 +371,146 @@ function stampRefresh_(meta) {
   ];
 
   sh.getRange(1, 1, rows.length, 2).setValues(rows);
+  sh.getRange(1, 1, 1, 2).setFontWeight("bold");
   sh.setFrozenRows(1);
   sh.autoResizeColumns(1, 2);
+}
+
+function ensureFounderFacingTabs_() {
+  const ss = SpreadsheetApp.getActive();
+  ensureTabWithHeaders_(ss, CFG.TABS.WEEKLY, [
+    "Week Start",
+    "Primary Focus",
+    "Revenue",
+    "Ad Spend",
+    "Public Scans",
+    "CTA CTR",
+    "Sales Page Views",
+    "MSP Outreach",
+    "MSP Conversations",
+    "Pilots Active",
+    "Top Product Issue",
+    "Top Signal Issue",
+    "Decision Needed",
+    "Ignore This Week",
+    "Next Action",
+    "Notes",
+  ]);
+  ensureTabWithHeaders_(ss, CFG.TABS.DAILY, [
+    "Date",
+    "Day Status",
+    "Scans",
+    "Results",
+    "CTA Shown",
+    "CTA Clicked",
+    "Sales Page Views",
+    "Unlock Completed",
+    "Payment Completed",
+    "Refinement Shown",
+    "Refinement Submitted",
+    "Errors / API Gap",
+    "Ad Spend",
+    "Clicks",
+    "Cost / Scan",
+    "Cost / CTA Shown",
+    "Cost / CTA Click",
+    "Main Drop-Off",
+    "Instrumentation Status",
+    "Auto Diagnosis",
+    "Suggested Action",
+    "Founder Approved?",
+    "Decision Logged?",
+    "Experiment Logged?",
+    "Notes",
+  ]);
+  ensureTabWithHeaders_(ss, CFG.TABS.GROWTH, [
+    "Date",
+    "Area",
+    "Type",
+    "Hypothesis or Decision",
+    "Evidence",
+    "Metric",
+    "Result",
+    "Decision",
+    "Next Action",
+    "Promote to Master Context?",
+    "Notes",
+  ]);
+  ensureTabWithHeaders_(ss, CFG.TABS.PRODUCT, [
+    "Date",
+    "Scan Count",
+    "Valid Input %",
+    "Context Sufficient %",
+    "Link-only %",
+    "Fragment %",
+    "Medium/High %",
+    "Fallback %",
+    "Dominant Signal Gap",
+    "Dominant Gap %",
+    "Scan Error Count",
+    "API Gap",
+    "Top Product Issue",
+    "Severity",
+    "Next Product Action",
+    "Notes",
+  ]);
+  ensureTabWithHeaders_(ss, CFG.TABS.SALES, [
+    "Company",
+    "Contact",
+    "Status",
+    "Last Touch",
+    "Next Touch",
+    "Pain Hypothesis",
+    "Objection",
+    "Pilot Fit 1-5",
+    "Next Action",
+    "Notes",
+  ]);
+  ensureTabWithHeaders_(ss, CFG.TABS.FUNNEL, []);
+  ensureTabWithHeaders_(ss, CFG.TABS.CTA, []);
+  ensureTabWithHeaders_(ss, CFG.TABS.DEBUG, ["Date", "Event", "Count", "Notes"]);
+  ensureTabWithHeaders_(ss, CFG.TABS.META, []);
+}
+
+function ensureTabWithHeaders_(ss, tabName, headers) {
+  const sh = ss.getSheetByName(tabName) || ss.insertSheet(tabName);
+  if (!headers || headers.length === 0) return;
+  const lastCol = sh.getLastColumn();
+  const lastRow = sh.getLastRow();
+  if (lastRow === 0 || lastCol === 0) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    sh.setFrozenRows(1);
+    sh.autoResizeColumns(1, headers.length);
+  }
+}
+
+function applyColumnFormats_(sheet, headers, rowCount) {
+  if (!headers || headers.length === 0 || rowCount <= 0) return;
+
+  const startRow = 2;
+  const totalCols = headers.length;
+  const dataRange = sheet.getRange(startRow, 1, rowCount, totalCols);
+
+  // Baseline to plain number format across full data block to prevent
+  // old currency/percent formats from persisting.
+  dataRange.setNumberFormat("0");
+
+  headers.forEach((header, idx) => {
+    const h = String(header || "").toLowerCase();
+    const col = idx + 1;
+    const colRange = sheet.getRange(startRow, col, rowCount, 1);
+
+    const isRateCol =
+      h.includes("rate") || h.includes("pct") || h.includes("ctr");
+    const isDateCol = h === "day_montreal" || h === "date";
+
+    if (isRateCol) {
+      colRange.setNumberFormat("0.00%");
+    } else if (isDateCol) {
+      colRange.setNumberFormat("yyyy-mm-dd");
+    }
+  });
 }
 
 function getYesterdayMontrealDate_() {

@@ -1,27 +1,61 @@
-# Founder Control Panel - Public Funnel Automation
+# Founder Control Panel - Public Module Setup
 
-This module is the **public/user pipeline automation layer** for the existing Founder Control Panel workbook.
+This module is the **public/user pipeline automation layer** inside the existing
+`ScanScam - Founder Control Panel` workbook.
 
-It is intentionally scoped to:
-- read-only analytics
-- Supabase views
-- Google Sheet prefill
+Scope:
+- read-only Supabase view pulls
+- raw/debug data tab population
+- one founder-facing daily summary row
 
-It does **not**:
-- modify product logic
-- modify scan analysis logic
-- modify UI
-- automate strategy decisions
-- add MSP automation
+Out of scope:
+- production app logic changes
+- scan analysis changes
+- UI changes
+- Google Ads automation
+- MSP automation
+- Product & Signal automation
+- strategy automation
 
 ## Files
 
 - `founder-control/public_funnel_views.sql`
-  - Creates/updates:
+  - Uses existing views:
     - `public.ops_public_funnel_daily_clean_v1`
     - `public.ops_public_cta_segments_clean_v1`
 - `founder-control/founder_control_panel.gs`
-  - Google Apps Script for workbook refresh and daily control row.
+  - Working Apps Script (Supabase fetch + sheet writing)
+
+## Sheet structure used by script
+
+Founder-facing tabs:
+- `Weekly Control Panel`
+- `Daily Pulse`
+- `Growth Lab`
+- `Product & Signal`
+- `Sales CRM`
+
+Source/debug tabs:
+- `DATA_Public Funnel`
+- `DATA_CTA Segments`
+- `DATA_Event Funnel Debug`
+- `DATA_Meta`
+
+Important:
+- Old tabs are left untouched.
+- New tabs are created beside old tabs if missing.
+- Script only clears tabs it owns (`DATA_*`, `Daily Pulse`, `DATA_Meta`).
+
+## Daily usage
+
+1. Read `Daily Pulse` first (decision row).
+2. Use `DATA_Public Funnel` and `DATA_CTA Segments` for debugging/support.
+3. Keep Ad Spend/Clicks manual for now.
+4. Use `Weekly Control Panel` for weekly founder review.
+
+Gemini guidance:
+- Daily: read `Daily Pulse` + `DATA_CTA Segments`.
+- Weekly: read `Weekly Control Panel`.
 
 ## Setup
 
@@ -29,45 +63,45 @@ It does **not**:
    - Open `founder-control/public_funnel_views.sql`.
    - Execute.
 
-2. Open the target workbook
+2. Open workbook
    - `ScanScam - Founder Control Panel`
 
 3. Open Apps Script
-   - Google Sheet -> Extensions -> Apps Script
+   - Extensions -> Apps Script
 
-4. Paste script
-   - Copy `founder-control/founder_control_panel.gs` into the project.
+4. Paste/update script
+   - Copy `founder-control/founder_control_panel.gs`.
+   - Save.
 
-5. Add Script Properties
-   - `SUPABASE_URL` (example: `https://<project>.supabase.co`)
-   - `SUPABASE_KEY` (prefer anon key if view access allows it; else restricted service key)
+5. Set Script Properties
+   - `SUPABASE_URL` (e.g. `https://<project>.supabase.co`)
+   - `SUPABASE_KEY`
 
 6. Run once manually
-   - Run `refreshFounderControlPanel()`.
+   - `refreshFounderControlPanel()`
 
-7. Verify tabs
-   - `Public Funnel`
-   - `CTA Segments`
-   - `Daily Public Control`
-   - `_Meta`
+7. Refresh the Sheet and verify:
+   - `Daily Pulse`
+   - `DATA_Public Funnel`
+   - `DATA_CTA Segments`
+   - `DATA_Meta`
 
-8. Add trigger
-   - Apps Script -> Triggers -> Add Trigger
+8. Add daily trigger
    - Function: `refreshFounderControlPanel`
-   - Event source: Time-driven
-   - Frequency: Daily
+   - Type: time-driven
+   - Frequency: daily
    - Target: around 7:00 AM America/Montreal
 
-9. Check `_Meta`
-   - Last refresh timestamp (America/Montreal)
-   - Selected target day and status
-   - Warnings (fallback/partial-day flags)
+## Security notes
 
-## Assumptions / Warnings
+- Keep Supabase keys in Script Properties only.
+- Do not hardcode keys in script.
+- Prefer anon key for sanitized aggregate views when possible.
+- Be cautious with editor access if service-role-like keys are used.
 
-- Event route and context fields are best-effort; if route is missing, route-based exclusion cannot apply.
-- `payment_completed` may be absent for now; view handles zero counts.
-- Daily decision row defaults to **yesterday** (Montreal date). If missing:
-  - uses latest available day
-  - marks `FALLBACK`
-  - if latest is today, marks `PARTIAL DAY - DO NOT OVERREAD`
+## Limitations / warnings
+
+- `Daily Pulse` is generated each run and may overwrite manual notes in that tab.
+- Old tabs are intentionally untouched and must be manually archived/migrated later.
+- If the selected daily row is today, the row is marked:
+  `PARTIAL DAY - DO NOT OVERREAD`.
