@@ -5,10 +5,10 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
-import { getResultUpsellCopy } from "@/lib/result/getResultUpsellCopy";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
+import UserResearchGate from "@/app/result/UserResearchGate";
 import {
   parseAbuseInterpretationForSurface,
   type InterpretationSurfaceConcept,
@@ -1304,6 +1304,8 @@ export default function ResultView() {
   const [contextLoading, setContextLoading] = useState(false);
   const [initialSubmissionText, setInitialSubmissionText] = useState<string | null>(null);
   const [weakGateBypass, setWeakGateBypass] = useState(false);
+  /** Post-scan research-gate state. cta -> gate -> redirect to /r/{token}. Persisted per scan in sessionStorage. */
+  const [researchGateOpen, setResearchGateOpen] = useState(false);
   /** recovery = loaded from GET /api/scan/get (shareable URL, fresh browser); session = live flow or sessionStorage. */
   const [viewSource, setViewSource] = useState<"session" | "recovery" | null>(null);
   const conversionFiredForScanRef = useRef<string | null>(null);
@@ -1597,57 +1599,44 @@ export default function ResultView() {
     linkArtifact: linkArtifactForProCta,
   });
 
-  const rawRisk = String(result?.risk ?? result?.risk_tier ?? "low").toLowerCase();
-  const normalizedRisk =
-    rawRisk === "medium" || rawRisk === "high" ? (rawRisk as "medium" | "high") : "low";
-  const isLinkOnly = inputType === "link_only";
-  const isLimitedContext =
-    intelState === "insufficient_context" ||
-    submissionRoute === "insufficient_context" ||
-    contextQuality === "fragment" ||
-    contextQuality === "thin";
-  const upsell = getResultUpsellCopy({
-    lang: lang === "fr" ? "fr" : "en",
-    riskTier: normalizedRisk,
-    isLimitedContext,
-    isLinkOnly,
-  });
+  /** Hydrate post-result research-gate state per scan from sessionStorage (survives reloads). */
+  useEffect(() => {
+    if (!scanIdForContext) return;
+    try {
+      if (sessionStorage.getItem(`ss_user_research_gate_open:${scanIdForContext}`)) {
+        setResearchGateOpen(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [scanIdForContext]);
 
   useEffect(() => {
     if (weakInputGateActive || !proCtaIntent.show || !scanIdForContext) return;
-    const key = `ss_pro_cta_shown:${scanIdForContext}`;
+    if (researchGateOpen) return;
+    const key = `ss_user_research_cta_viewed:${scanIdForContext}`;
     try {
       if (sessionStorage.getItem(key)) return;
       sessionStorage.setItem(key, "1");
     } catch {
       return;
     }
-    logScanEvent("cta_shown", {
+    const props: Record<string, string> = {
+      source: "post_scan_result",
+      lang,
+    };
+    if (risk) props.risk_tier = risk;
+    logScanEvent("user_research_cta_viewed", {
       scan_id: scanIdForContext,
-      props: {
-        risk_tier: risk,
-        input_type: inputType,
-        intel_state: intelState,
-        context_quality: contextQuality,
-        cta_reason: proCtaIntent.cta_reason,
-        variant: "A",
-        web_risk_status: proCtaIntent.web_risk_status,
-        link_type: proCtaIntent.link_type,
-        domain_signal: proCtaIntent.domain_signal,
-      },
+      props,
     });
   }, [
     weakInputGateActive,
     proCtaIntent.show,
-    proCtaIntent.cta_reason,
     scanIdForContext,
+    researchGateOpen,
+    lang,
     risk,
-    inputType,
-    intelState,
-    contextQuality,
-    proCtaIntent.web_risk_status,
-    proCtaIntent.link_type,
-    proCtaIntent.domain_signal,
   ]);
 
   const openPartnerEscalationForm = useCallback(() => {
@@ -2237,54 +2226,100 @@ export default function ResultView() {
 
             {proCtaIntent.show ? (
               <div style={styles.sectionDivider}>
-                <div className="rounded-lg border border-amber-200/90 bg-gradient-to-b from-amber-50/95 to-orange-50/40 px-3.5 py-3.5 text-sm text-gray-900 shadow-sm">
-                  <p className="text-[15px] font-semibold leading-snug text-gray-900">
-                    {upsell.headline}
-                  </p>
-                  <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-900">{upsell.lead}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-700">{upsell.body}</p>
-                  {upsell.note ? (
-                    <p className="mt-2 text-[11px] leading-relaxed text-gray-500">{upsell.note}</p>
-                  ) : null}
-                  <a
-                    href={(() => {
-                      const u = new URLSearchParams();
-                      u.set("scan_id", scanIdForContext);
-                      u.set("lang", lang);
-                      u.set("reason", proCtaIntent.cta_reason);
-                      u.set("risk_tier", risk);
-                      u.set("input_type", inputType);
-                      u.set("intel_state", intelState);
-                      u.set("context_quality", contextQuality);
-                      u.set("web_risk_status", proCtaIntent.web_risk_status);
-                      u.set("link_type", proCtaIntent.link_type);
-                      u.set("domain_signal", proCtaIntent.domain_signal);
-                      const ad = (linkDisplayDomain ?? "").trim();
-                      if (ad) u.set("analyzed_domain", ad);
-                      if (partner) u.set("partner", partner.slug);
-                      return `/pro?${u.toString()}`;
-                    })()}
-                    className="mt-3 inline-flex items-center justify-center rounded-md bg-amber-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
-                    onClick={() => {
-                      logScanEvent("cta_clicked", {
+                {researchGateOpen ? (
+                  <UserResearchGate
+                    scanId={scanIdForContext}
+                    lang={lang}
+                    riskTier={risk}
+                    onUnlock={(reportUrl) => {
+                      try {
+                        sessionStorage.removeItem(`ss_user_research_gate_open:${scanIdForContext}`);
+                      } catch {
+                        /* ignore */
+                      }
+                      const unlockProps: Record<string, string> = {
+                        source: "post_scan_result",
+                        lang,
+                      };
+                      if (risk) unlockProps.risk_tier = risk;
+                      logScanEvent("user_research_full_report_unlocked", {
                         scan_id: scanIdForContext,
-                        props: {
-                          risk_tier: risk,
-                          input_type: inputType,
-                          intel_state: intelState,
-                          context_quality: contextQuality,
-                          cta_reason: proCtaIntent.cta_reason,
-                          variant: "A",
-                          web_risk_status: proCtaIntent.web_risk_status,
-                          link_type: proCtaIntent.link_type,
-                          domain_signal: proCtaIntent.domain_signal,
-                        },
+                        props: unlockProps,
                       });
+                      router.push(reportUrl);
                     }}
-                  >
-                    {upsell.ctaLabel}
-                  </a>
-                </div>
+                  />
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-amber-300/80 bg-gradient-to-b from-amber-50 to-orange-50/60 p-5 text-gray-900 shadow-md sm:p-6">
+                    <span className="inline-flex items-center rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                      {lang === "fr" ? "Rapport gratuit" : "Free report unlock"}
+                    </span>
+                    <h3 className="mt-3 text-lg font-bold leading-tight tracking-tight text-gray-950 sm:text-xl">
+                      {lang === "fr"
+                        ? "Débloquez votre rapport complet"
+                        : "Unlock your full decision report"}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                      {lang === "fr"
+                        ? "Répondez à 4 questions rapides pour aider ScanScam à comprendre votre situation et préparer un rapport plus clair pour ce scan."
+                        : "Answer 4 quick questions so ScanScam can understand your situation and prepare a clearer report for this scan."}
+                    </p>
+                    <ul className="mt-4 space-y-1.5 text-sm leading-snug text-gray-800">
+                      {(lang === "fr"
+                        ? [
+                            "Une recommandation plus claire",
+                            "Ce qui semble louche",
+                            "Quoi faire ensuite",
+                            "Un rapport à sauvegarder ou partager",
+                          ]
+                        : [
+                            "A clearer recommendation",
+                            "What looks suspicious",
+                            "What to do next",
+                            "A report you can save or share",
+                          ]
+                      ).map((item) => (
+                        <li key={item} className="flex items-start gap-2">
+                          <span aria-hidden className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-700 text-[10px] font-bold leading-none text-white">
+                            ✓
+                          </span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-amber-800 px-5 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 sm:w-auto"
+                      onClick={() => {
+                        try {
+                          sessionStorage.setItem(
+                            `ss_user_research_gate_open:${scanIdForContext}`,
+                            "1"
+                          );
+                        } catch {
+                          /* ignore */
+                        }
+                        const clickProps: Record<string, string> = {
+                          source: "post_scan_result",
+                          lang,
+                        };
+                        if (risk) clickProps.risk_tier = risk;
+                        logScanEvent("user_research_cta_clicked", {
+                          scan_id: scanIdForContext,
+                          props: clickProps,
+                        });
+                        setResearchGateOpen(true);
+                      }}
+                    >
+                      {lang === "fr" ? "Débloquer mon rapport complet" : "Unlock my full report"}
+                    </button>
+                    <p className="mt-2.5 text-center text-[11px] leading-relaxed text-gray-600 sm:text-left">
+                      {lang === "fr"
+                        ? "Gratuit aujourd’hui. Aucun compte. Environ 30 secondes."
+                        : "Free today. No account. Takes about 30 seconds."}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -2300,7 +2335,7 @@ export default function ResultView() {
               </>
             ) : null}
 
-            {contextMode === "suggested" && (
+            {contextMode === "suggested" && !proCtaIntent.show && (
               <div style={{ ...styles.optionalBlock, ...styles.optionalRefinementAccent }}>
                 <ContextRefinementCard
                   mode="suggested"
@@ -2323,7 +2358,7 @@ export default function ResultView() {
           </>
         )}
 
-        {showLightFollowUp && (
+        {showLightFollowUp && !proCtaIntent.show && (
           <div style={styles.optionalBlock}>
             <ContextRefinementCard
               mode="suggested"

@@ -26,7 +26,12 @@ export function logScanEvent(
     | "report_feedback_submitted"
     | "user_state_selected"
     | "pro_useful_yes"
-    | "pro_useful_no",
+    | "pro_useful_no"
+    | "user_research_cta_viewed"
+    | "user_research_cta_clicked"
+    | "user_research_started"
+    | "user_research_completed"
+    | "user_research_full_report_unlocked",
   data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;

@@ -48,6 +48,11 @@ const ALLOWED_EVENTS = [
   "user_state_selected",
   "pro_useful_yes",
   "pro_useful_no",
+  "user_research_cta_viewed",
+  "user_research_cta_clicked",
+  "user_research_started",
+  "user_research_completed",
+  "user_research_full_report_unlocked",
 ] as const;
 
 const ALLOWED_PROPS = [
@@ -81,6 +86,8 @@ const ALLOWED_PROPS = [
   "price",
   "report_useful",
   "worth_five",
+  "source",
+  "lang",
 ] as const;
 
 const BANNED_KEYS = [
