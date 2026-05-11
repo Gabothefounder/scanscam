@@ -336,3 +336,45 @@ select
 from scoped
 group by 1,2,3,4,5,6,7,8
 order by day_montreal desc, risk_tier, input_type, intel_state, context_quality, cta_reason, link_type, domain_signal;
+
+
+-- public.ops_user_research_export_v1
+-- Per-row export of post-scan PMF research for the Founder Control Panel.
+-- Joined to public.scans (risk_tier) and to the latest non-expired
+-- public.pro_report_access token (already user-shareable as /r/{token}).
+--
+-- PRIVACY: user_words (q2_problem_text) is explicit user research input and may
+-- contain sensitive details. Internal founder analysis only. The workbook that
+-- consumes this view must remain restricted to founder access.
+-- This view intentionally does NOT include raw scan message text, OCR text, or
+-- signed URLs.
+
+create or replace view public.ops_user_research_export_v1 as
+select
+  r.created_at        as submitted_at,
+  r.scan_id           as scan_id,
+  case
+    when t.access_token is null then null
+    else '/r/' || t.access_token
+  end                 as report_url,
+  r.lang              as language,
+  r.q1_situation      as situation,
+  r.q2_problem_text   as user_words,
+  array_to_string(r.q3_help_options, ', ') as desired_help,
+  r.q3_help_other     as other_help,
+  r.q4_price_range    as price_range,
+  s.risk_tier         as risk_tier,
+  r.source            as source,
+  r.referrer          as referrer
+from public.user_research_responses r
+left join public.scans s
+  on s.id = r.scan_id
+left join lateral (
+  select pa.access_token
+  from public.pro_report_access pa
+  where pa.scan_id = r.scan_id
+    and pa.expires_at > now()
+  order by pa.created_at desc
+  limit 1
+) t on true
+order by r.created_at desc;

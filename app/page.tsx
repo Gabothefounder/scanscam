@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { captureAttribution } from "@/lib/attribution";
 
 /* ---------------- Copy ---------------- */
 
@@ -38,6 +39,7 @@ export default function Home() {
   const [scanHref, setScanHref] = useState("/scan");
 
   useEffect(() => {
+    captureAttribution();
     const params = new URLSearchParams(window.location.search);
     const currentLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(currentLang);

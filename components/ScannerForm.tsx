@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { scanApiUserMessage } from "@/lib/scan/scanApiUserMessage";
 import { passesScanTextAdmission, scanTextAdmissionErrorMessage } from "@/lib/scan/scanTextAdmission";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
+import { captureAttribution, getAttribution } from "@/lib/attribution";
 import type { PartnerConfig } from "@/lib/partners";
 
 const copy = {
@@ -40,7 +41,6 @@ type Props = {
 
 export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [attribution, setAttribution] = useState<Record<string, string | null>>({});
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,14 +49,7 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
   const [admissionError, setAdmissionError] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const attr = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"];
-    const out: Record<string, string | null> = {};
-    attr.forEach((k) => {
-      const v = params.get(k);
-      out[k] = v ? v.trim() || null : null;
-    });
-    setAttribution(out);
+    captureAttribution();
     setMounted(true);
   }, []);
 
@@ -84,13 +77,14 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
     const attempt_id = crypto.randomUUID();
     sessionStorage.setItem("scan_attempt_id", attempt_id);
 
+    const attr = getAttribution();
     const attrProps: Record<string, string> = {};
-    if (attribution.utm_source) attrProps.utm_source = attribution.utm_source;
-    if (attribution.utm_campaign) attrProps.utm_campaign = attribution.utm_campaign;
-    if (attribution.utm_term) attrProps.utm_term = attribution.utm_term;
-    if (attribution.utm_medium) attrProps.utm_medium = attribution.utm_medium;
-    if (attribution.utm_content) attrProps.utm_content = attribution.utm_content;
-    if (attribution.gclid) attrProps.gclid = attribution.gclid;
+    if (attr.utm_source) attrProps.utm_source = attr.utm_source;
+    if (attr.utm_campaign) attrProps.utm_campaign = attr.utm_campaign;
+    if (attr.utm_term) attrProps.utm_term = attr.utm_term;
+    if (attr.utm_medium) attrProps.utm_medium = attr.utm_medium;
+    if (attr.utm_content) attrProps.utm_content = attr.utm_content;
+    if (attr.gclid) attrProps.gclid = attr.gclid;
 
     logScanEvent("scan_attempt", {
       props: { input_length: text.length, attempt_id, ...attrProps },
@@ -110,9 +104,8 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
       const payload: Record<string, unknown> = {
         lang,
         raw_opt_in: true,
-        referrer: typeof document !== "undefined" ? (document.referrer || null) : null,
-        landing_path:
-          typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
+        referrer: attr.referrer || null,
+        landing_path: attr.landing_path || null,
       };
       Object.assign(payload, attrProps);
 
