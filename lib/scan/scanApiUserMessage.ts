@@ -12,17 +12,21 @@ const MESSAGES: Record<
   en: {
     errorGeneric: "Could not process right now. Please try again.",
     errorHighDemand:
-      "High demand right now. Processing may take a few seconds.",
+      "Scanning your message. This may take a few seconds.",
   },
   fr: {
     errorGeneric: "Impossible de traiter pour le moment. Veuillez réessayer.",
     errorHighDemand:
-      "Forte demande en ce moment. Le traitement peut prendre quelques secondes.",
+      "Analyse du message en cours. Cela peut prendre quelques secondes.",
   },
 };
 
 /** Throttling / capacity-style responses — never show API `message`. */
 const HIGH_DEMAND_CODES = new Set(["rate_limited", "duplicate_scan", "ocr_blocked"]);
+
+export function isSoftThrottleCode(code: string | undefined): boolean {
+  return Boolean(code && HIGH_DEMAND_CODES.has(code));
+}
 
 /** API returns localized, actionable validation text — pass through. */
 const USER_ACTIONABLE_CODES = new Set([

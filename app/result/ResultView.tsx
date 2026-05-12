@@ -1501,8 +1501,11 @@ export default function ResultView() {
     (weakInputShape || urlOnlyFlag || weakMetadataGate);
 
   const isRecoveryView = viewSource === "recovery";
+  // Partner/MSP flows keep the required context gate because context quality
+  // matters for escalation to the IT provider. Direct ScanScam users see the
+  // result immediately and can refine optionally via the suggested card below.
   const weakInputGateActive =
-    !isRecoveryView && weakInputGateEligible && !weakGateBypass;
+    !isRecoveryView && weakInputGateEligible && !weakGateBypass && Boolean(partner);
 
   const scanIdForBypassReset = result?.scan_id != null ? String(result.scan_id) : "";
 
@@ -2252,12 +2255,12 @@ export default function ResultView() {
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-amber-300/80 bg-gradient-to-b from-amber-50 to-orange-50/60 p-5 text-gray-900 shadow-md sm:p-6">
                     <span className="inline-flex items-center rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900">
-                      {lang === "fr" ? "Rapport gratuit" : "Free report unlock"}
+                      {lang === "fr" ? "Plan d\u2019action gratuit" : "Free action plan"}
                     </span>
                     <h3 className="mt-3 text-lg font-bold leading-tight tracking-tight text-gray-950 sm:text-xl">
                       {lang === "fr"
-                        ? "Débloquez votre rapport complet"
-                        : "Unlock your full decision report"}
+                        ? "Obtenez votre plan d\u2019action personnalis\u00e9"
+                        : "Get your personalized action plan"}
                     </h3>
                     <p className="mt-2 text-sm leading-relaxed text-gray-700">
                       {lang === "fr"
@@ -2289,7 +2292,7 @@ export default function ResultView() {
                     </ul>
                     <button
                       type="button"
-                      className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-amber-800 px-5 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 sm:w-auto"
+                      className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4 text-lg font-bold text-white shadow-lg transition-all duration-150 hover:from-amber-700 hover:to-orange-700 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 active:scale-[0.98] motion-safe:transition-transform sm:w-auto"
                       onClick={() => {
                         try {
                           sessionStorage.setItem(
@@ -2311,7 +2314,7 @@ export default function ResultView() {
                         setResearchGateOpen(true);
                       }}
                     >
-                      {lang === "fr" ? "Débloquer mon rapport complet" : "Unlock my full report"}
+                      {lang === "fr" ? "Obtenir mon plan d\u2019action" : "Get My Action Plan Now"}
                     </button>
                     <p className="mt-2.5 text-center text-[11px] leading-relaxed text-gray-600 sm:text-left">
                       {lang === "fr"

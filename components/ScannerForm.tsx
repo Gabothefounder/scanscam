@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { scanApiUserMessage } from "@/lib/scan/scanApiUserMessage";
+import { scanApiUserMessage, isSoftThrottleCode } from "@/lib/scan/scanApiUserMessage";
 import { passesScanTextAdmission, scanTextAdmissionErrorMessage } from "@/lib/scan/scanTextAdmission";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { captureAttribution, getAttribution } from "@/lib/attribution";
@@ -47,6 +47,7 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
   const [loading, setLoading] = useState(false);
   const [textareaFocused, setTextareaFocused] = useState(false);
   const [admissionError, setAdmissionError] = useState(false);
+  const [softError, setSoftError] = useState(false);
 
   useEffect(() => {
     captureAttribution();
@@ -74,6 +75,7 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
   const handleScan = async () => {
     setError(null);
     setAdmissionError(false);
+    setSoftError(false);
     const attempt_id = crypto.randomUUID();
     sessionStorage.setItem("scan_attempt_id", attempt_id);
 
@@ -141,9 +143,11 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
       const data = await res.json();
 
       if (!data.ok) {
+        const code = (data?.code as string) ?? "api_error";
         logScanEvent("scan_error", {
-          props: { error_code: (data?.code as string) ?? "api_error" },
+          props: { error_code: code },
         });
+        setSoftError(isSoftThrottleCode(code));
         setError(
           scanApiUserMessage(
             lang,
@@ -231,7 +235,7 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
       </div>
 
       {(admissionError || error) && (
-        <p style={styles.error} role="alert">
+        <p style={!admissionError && softError ? styles.infoNotice : styles.error} role="alert">
           {admissionError ? t.errorTextAdmission : error}
         </p>
       )}
@@ -322,6 +326,17 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
     padding: "14px 16px",
     backgroundColor: "#FEF2F2",
+    borderRadius: 10,
+    fontWeight: 500,
+  },
+  infoNotice: {
+    color: "#334155",
+    fontSize: 15,
+    textAlign: "center",
+    margin: 0,
+    padding: "12px 16px",
+    backgroundColor: "#F1F5F9",
+    border: "1px solid #CBD5E1",
     borderRadius: 10,
     fontWeight: 500,
   },

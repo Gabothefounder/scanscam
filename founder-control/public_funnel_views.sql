@@ -1,6 +1,12 @@
 -- ScanScam Founder Control Panel (public funnel only)
--- Additive analytics views; no production app logic changes.
+-- Analytics views only (create/replace view). No production app logic, no DDL on tables.
 -- Timezone baseline: America/Montreal
+-- v1.1.1: 3-view architecture (decision / diagnostic / legacy).
+--   - ops_research_funnel_daily_v1   = decision-safe (standalone, no event telemetry)
+--   - ops_event_health_daily_v1      = diagnostic counts only (no rates)
+--   - ops_public_funnel_daily_clean_v1 = legacy (unchanged, synced to DATA_Public Funnel)
+-- Unit-consistency rule: every rate uses same-unit numerator/denominator (scan/scan).
+--   No session-unit rates. No mixed-unit rates.
 
 create or replace view public.ops_public_funnel_daily_clean_v1 as
 with allowed_events as (
@@ -336,6 +342,193 @@ select
 from scoped
 group by 1,2,3,4,5,6,7,8
 order by day_montreal desc, risk_tier, input_type, intel_state, context_quality, cta_reason, link_type, domain_signal;
+
+
+-- public.ops_research_funnel_daily_v1  (DECISION view — v1.1.1)
+-- Standalone. Does NOT reference ops_public_funnel_daily_clean_v1.
+-- One row per Montreal day with only decision-safe columns.
+-- All rates use scan-row / scan-row denominators and are bounded [0, 1].
+-- Depends on public.intel_v2_clean_scans for is_valid_input.
+--
+-- DROP required: v1.1 had ~30+ inherited columns from the legacy funnel view.
+-- Postgres CREATE OR REPLACE VIEW cannot remove columns (ERROR 42P16).
+-- CASCADE is safe here: this view has no known dependents.
+-- If you added a dependent view outside this repo, recreate it after this block.
+
+drop view if exists public.ops_research_funnel_daily_v1 cascade;
+
+create view public.ops_research_funnel_daily_v1 as
+with scan_daily as (
+  select
+    timezone('America/Montreal', s.created_at)::date as day_montreal,
+    count(*)::bigint as scans_table_scan_count,
+    count(*) filter (
+      where coalesce(v.is_valid_input, false)
+    )::bigint as valid_scan_count,
+    count(*) filter (
+      where s.risk_tier in ('medium', 'high')
+    )::bigint as medium_high_scan_count
+  from public.scans s
+  left join public.intel_v2_clean_scans v on v.id = s.id
+  where not (
+    coalesce(s.landing_path, '') ilike '/internal%'
+    or coalesce(s.landing_path, '') ilike '/msp/%'
+    or coalesce(s.landing_path, '') ilike '/partner/%'
+  )
+  group by 1
+),
+ur_daily as (
+  select
+    timezone('America/Montreal', r.created_at)::date as day_montreal,
+    count(*)::bigint as user_research_responses
+  from public.user_research_responses r
+  join public.scans s on s.id = r.scan_id
+  where not (
+    coalesce(s.landing_path, '') ilike '/internal%'
+    or coalesce(s.landing_path, '') ilike '/msp/%'
+    or coalesce(s.landing_path, '') ilike '/partner/%'
+  )
+  group by 1
+)
+select
+  sd.day_montreal,
+  sd.scans_table_scan_count,
+  sd.valid_scan_count,
+  round(
+    sd.valid_scan_count::numeric / nullif(sd.scans_table_scan_count, 0), 4
+  ) as valid_scan_rate,
+  sd.medium_high_scan_count,
+  round(
+    sd.medium_high_scan_count::numeric / nullif(sd.scans_table_scan_count, 0), 4
+  ) as medium_high_scan_rate,
+  coalesce(ur.user_research_responses, 0)::bigint as user_research_responses,
+  round(
+    coalesce(ur.user_research_responses, 0)::numeric / nullif(sd.scans_table_scan_count, 0), 4
+  ) as research_response_per_scan_rate
+from scan_daily sd
+left join ur_daily ur using (day_montreal)
+order by sd.day_montreal desc;
+
+
+-- public.ops_event_health_daily_v1  (DIAGNOSTIC view — v1.1.1)
+-- Counts-only projection of the legacy funnel view. No computed rates.
+-- Column suffixes (_sessions / _scans) make the unit explicit.
+-- Used by Daily Pulse diagnostic zone and auto-analysis engine.
+
+drop view if exists public.ops_event_health_daily_v1 cascade;
+
+create view public.ops_event_health_daily_v1 as
+select
+  day_montreal,
+  scan_submit_clicked_sessions,
+  scan_api_success_sessions,
+  scan_result_rendered_sessions,
+  cta_shown_scans,
+  cta_clicked_scans,
+  pro_sales_viewed_scans,
+  pro_unlock_clicked_scans,
+  beta_unlock_started_scans,
+  beta_unlock_completed_scans,
+  payment_completed_scans,
+  context_refinement_shown_scans,
+  context_refinement_submitted_scans,
+  report_feedback_submitted_scans
+from public.ops_public_funnel_daily_clean_v1;
+
+
+-- public.ops_acquisition_signal_quality_daily_v1
+-- Acquisition signal quality by scan attribution (UTM) and Montreal day.
+-- Grouping includes utm_term and utm_content for creative/keyword-level signal.
+-- valid_scan_* uses intel_v2_clean_scans.is_valid_input (same definition as internal radar).
+-- Naming: supersedes the earlier "ops_ads_quality_daily_v1" label; do not drop legacy
+-- views in Supabase if you still rely on them — this file only creates/replaces the v1 names below.
+
+create or replace view public.ops_acquisition_signal_quality_daily_v1 as
+with scan_rows as (
+  select
+    timezone('America/Montreal', s.created_at)::date as day_montreal,
+    coalesce(nullif(trim(s.utm_source), ''), '') as utm_source,
+    coalesce(nullif(trim(s.utm_medium), ''), '') as utm_medium,
+    coalesce(nullif(trim(s.utm_campaign), ''), '') as utm_campaign,
+    coalesce(nullif(trim(s.utm_term), ''), '') as utm_term,
+    coalesce(nullif(trim(s.utm_content), ''), '') as utm_content,
+    s.id as scan_id,
+    coalesce(v.is_valid_input, false) as is_valid_input,
+    (
+      coalesce(s.landing_path, '') ilike '/internal%'
+      or coalesce(s.landing_path, '') ilike '/msp/%'
+      or coalesce(s.landing_path, '') ilike '/partner/%'
+    ) as is_internal_or_test
+  from public.scans s
+  left join public.intel_v2_clean_scans v on v.id = s.id
+),
+scan_agg as (
+  select
+    day_montreal,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_term,
+    utm_content,
+    count(*) filter (where not is_internal_or_test)::bigint as scan_count,
+    count(*) filter (where not is_internal_or_test and is_valid_input)::bigint as valid_scan_count,
+    round(
+      (count(*) filter (where not is_internal_or_test and is_valid_input))::numeric
+        / nullif(count(*) filter (where not is_internal_or_test), 0),
+      4
+    ) as valid_scan_rate
+  from scan_rows
+  group by 1, 2, 3, 4, 5, 6
+),
+ur_agg as (
+  select
+    timezone('America/Montreal', r.created_at)::date as day_montreal,
+    coalesce(nullif(trim(s.utm_source), ''), '') as utm_source,
+    coalesce(nullif(trim(s.utm_medium), ''), '') as utm_medium,
+    coalesce(nullif(trim(s.utm_campaign), ''), '') as utm_campaign,
+    coalesce(nullif(trim(s.utm_term), ''), '') as utm_term,
+    coalesce(nullif(trim(s.utm_content), ''), '') as utm_content,
+    count(*)::bigint as user_research_responses
+  from public.user_research_responses r
+  join public.scans s on s.id = r.scan_id
+  where not (
+    coalesce(s.landing_path, '') ilike '/internal%'
+    or coalesce(s.landing_path, '') ilike '/msp/%'
+    or coalesce(s.landing_path, '') ilike '/partner/%'
+  )
+  group by 1, 2, 3, 4, 5, 6
+)
+select
+  s.day_montreal,
+  s.utm_source,
+  s.utm_medium,
+  s.utm_campaign,
+  s.utm_term,
+  s.utm_content,
+  s.scan_count,
+  s.valid_scan_count,
+  s.valid_scan_rate,
+  coalesce(u.user_research_responses, 0)::bigint as user_research_responses,
+  round(
+    coalesce(u.user_research_responses, 0)::numeric / nullif(s.scan_count, 0),
+    4
+  ) as user_research_per_scan_rate
+from scan_agg s
+left join ur_agg u
+  on u.day_montreal = s.day_montreal
+  and u.utm_source is not distinct from s.utm_source
+  and u.utm_medium is not distinct from s.utm_medium
+  and u.utm_campaign is not distinct from s.utm_campaign
+  and u.utm_term is not distinct from s.utm_term
+  and u.utm_content is not distinct from s.utm_content
+order by
+  s.day_montreal desc,
+  s.scan_count desc,
+  s.utm_source,
+  s.utm_medium,
+  s.utm_campaign,
+  s.utm_term,
+  s.utm_content;
 
 
 -- public.ops_user_research_export_v1

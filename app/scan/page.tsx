@@ -48,6 +48,7 @@ export default function ScanPage() {
 
   const handleScanSuccess = (result: Record<string, unknown>) => {
     sessionStorage.setItem("scanResult", JSON.stringify(result));
+    try { sessionStorage.removeItem("scan_partner"); } catch { /* ignore */ }
     const attr = getAttribution();
     const attrProps: Record<string, string> = {};
     if (attr.utm_source) attrProps.utm_source = attr.utm_source;

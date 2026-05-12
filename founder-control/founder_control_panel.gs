@@ -2,8 +2,14 @@ const CFG = {
   SUPABASE_URL: PropertiesService.getScriptProperties().getProperty("SUPABASE_URL"),
   SUPABASE_KEY: PropertiesService.getScriptProperties().getProperty("SUPABASE_KEY"),
   VIEWS: {
+    /** Legacy event-telemetry view — synced to DATA_Public Funnel for archival. */
     FUNNEL: "ops_public_funnel_daily_clean_v1",
+    /** Decision-safe view (v1.1.1) — standalone, no event telemetry. */
+    RESEARCH_FUNNEL: "ops_research_funnel_daily_v1",
+    /** Diagnostic counts-only view (v1.1.1) — no rates, unit-labeled columns. */
+    EVENT_HEALTH: "ops_event_health_daily_v1",
     CTA: "ops_public_cta_segments_clean_v1",
+    ACQUISITION_SIGNAL: "ops_acquisition_signal_quality_daily_v1",
     // PRIVACY: ops_user_research_export_v1.user_words is explicit user research
     // input and may contain sensitive details. Internal founder analysis only.
     USER_RESEARCH: "ops_user_research_export_v1",
@@ -11,6 +17,8 @@ const CFG = {
   TABS: {
     FUNNEL: "DATA_Public Funnel",
     CTA: "DATA_CTA Segments",
+    /** Former paid-report / ads-quality tab name; sync target for ACQUISITION_SIGNAL view only. */
+    ACQUISITION_SIGNAL_QUALITY: "DATA_Acquisition Signal Quality",
     DAILY: "Daily Pulse",
     META: "DATA_Meta",
     DEBUG: "DATA_Event Funnel Debug",
@@ -21,6 +29,7 @@ const CFG = {
     USER_RESEARCH: "DATA_User Research",
     USER_RESEARCH_SUMMARY: "User Research Summary",
     LLM_PROMPTS: "LLM Prompts",
+    OPERATING_MAP: "Operating Map",
   },
 };
 
@@ -29,7 +38,10 @@ function refreshFounderControlPanel() {
   ensureFounderFacingTabs_();
 
   const funnelRows = fetchViewRows_(CFG.VIEWS.FUNNEL);
+  const researchFunnelRows = fetchViewRows_(CFG.VIEWS.RESEARCH_FUNNEL);
+  const eventHealthRows = fetchViewRows_(CFG.VIEWS.EVENT_HEALTH);
   const ctaRows = fetchViewRows_(CFG.VIEWS.CTA);
+  const acquisitionRows = fetchViewRows_(CFG.VIEWS.ACQUISITION_SIGNAL);
   const userResearchRows = fetchViewRows_(
     CFG.VIEWS.USER_RESEARCH,
     "submitted_at.desc"
@@ -37,12 +49,21 @@ function refreshFounderControlPanel() {
 
   writeTab_(CFG.TABS.FUNNEL, funnelRows);
   writeTab_(CFG.TABS.CTA, ctaRows);
+  writeTab_(CFG.TABS.ACQUISITION_SIGNAL_QUALITY, acquisitionRows);
   writeTab_(CFG.TABS.USER_RESEARCH, userResearchRows);
 
-  const dailyResult = buildDailyPulse_(funnelRows);
+  const dailyResult = buildDailyPulse_(researchFunnelRows, eventHealthRows);
+  buildWeeklyControlPanel_(researchFunnelRows, acquisitionRows, userResearchRows);
 
   stampRefresh_({
-    sourceViews: [CFG.VIEWS.FUNNEL, CFG.VIEWS.CTA, CFG.VIEWS.USER_RESEARCH],
+    sourceViews: [
+      CFG.VIEWS.FUNNEL,
+      CFG.VIEWS.RESEARCH_FUNNEL,
+      CFG.VIEWS.EVENT_HEALTH,
+      CFG.VIEWS.CTA,
+      CFG.VIEWS.ACQUISITION_SIGNAL,
+      CFG.VIEWS.USER_RESEARCH,
+    ],
     selectedDate: dailyResult.selectedDate,
     dayStatus: dailyResult.dayStatus,
     warnings: dailyResult.warnings,
@@ -97,38 +118,47 @@ function writeTab_(tabName, rows) {
   sh.autoResizeColumns(1, headers.length);
 }
 
-function buildDailyPublicControl_(funnelRows) {
-  return buildDailyPulse_(funnelRows);
+function buildDailyPublicControl_(researchFunnelRows, eventHealthRows) {
+  return buildDailyPulse_(researchFunnelRows, eventHealthRows);
 }
 
-function buildDailyPulse_(funnelRows) {
+function buildDailyPulse_(researchFunnelRows, eventHealthRows) {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(CFG.TABS.DAILY) || ss.insertSheet(CFG.TABS.DAILY);
   sh.clear();
   sh.setFrozenRows(0);
 
   const headers = [
+    // Decision zone (from ops_research_funnel_daily_v1)
     "Date",
     "Day Status",
-    "Scans",
-    "Results",
-    "CTA Shown",
-    "CTA Clicked",
-    "Sales Page Views",
-    "Unlock Completed",
-    "Payment Completed",
-    "Refinement Shown",
-    "Refinement Submitted",
-    "Errors / API Gap",
-    "Ad Spend",
-    "Clicks",
-    "Cost / Scan",
-    "Cost / CTA Shown",
-    "Cost / CTA Click",
+    "User Research Responses",
+    "Total Scans",
+    "Valid Scans",
+    "Valid Scan Rate",
+    "Medium/High Scans",
+    "Medium/High Scan Rate",
+    "Research / Scan Rate",
+    // Diagnostic zone (from ops_event_health_daily_v1)
+    "Scan Submits [sessions]",
+    "API Success [sessions]",
+    "Results [sessions]",
+    "CTA Shown [scans]",
+    "CTA Clicked [scans]",
+    "Sales Views [scans]",
+    "Unlock [scans]",
+    "Payment [scans]",
+    "Refinement Shown [scans]",
+    "Refinement Submitted [scans]",
+    "API Gap [sessions]",
+    // Auto-analysis (driven by diagnostic counts)
     "Main Drop-Off",
     "Instrumentation Status",
     "Auto Diagnosis",
     "Suggested Action",
+    // Manual
+    "Ad Spend",
+    "Clicks",
     "Founder Approved?",
     "Decision Logged?",
     "Experiment Logged?",
@@ -139,39 +169,56 @@ function buildDailyPulse_(funnelRows) {
   sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   sh.setFrozenRows(1);
 
-  const picked = selectTargetDailyRow_(funnelRows);
+  const picked = selectTargetDailyRow_(researchFunnelRows);
   if (!picked.row) {
     sh.getRange(2, 1).setValue("No daily funnel rows available");
     return {
       selectedDate: "",
       dayStatus: "NO DATA",
-      warnings: ["No funnel rows returned from Supabase."],
+      warnings: ["No rows returned from ops_research_funnel_daily_v1."],
     };
   }
 
-  const row = picked.row;
-  const scans = num_(row.scan_submit_clicked_sessions);
-  const apiSuccess = num_(row.scan_api_success_sessions);
-  const results = num_(row.scan_result_rendered_sessions);
-  const ctaShown = num_(row.cta_shown_scans);
-  const ctaClicked = num_(row.cta_clicked_scans);
-  const salesViews = num_(row.pro_sales_viewed_scans);
-  const unlockCompleted = num_(row.beta_unlock_completed_scans);
-  const paymentCompleted = num_(row.payment_completed_scans);
-  const refinementShown = num_(row.context_refinement_shown_scans);
-  const refinementSubmitted = num_(row.context_refinement_submitted_scans);
+  // Decision metrics from research funnel view.
+  const d = picked.row;
+  const userResearch = num_(d.user_research_responses);
+  const totalScans = num_(d.scans_table_scan_count);
+  const validScans = num_(d.valid_scan_count);
+  const validScanRate = num_(d.valid_scan_rate);
+  const medHighScans = num_(d.medium_high_scan_count);
+  const medHighRate = num_(d.medium_high_scan_rate);
+  const researchPerScan = num_(d.research_response_per_scan_rate);
+
+  // Diagnostic counts from event health view (matched by day_montreal).
+  const ehByDate = new Map();
+  (eventHealthRows || []).forEach(function (r) {
+    if (r && r.day_montreal) ehByDate.set(String(r.day_montreal), r);
+  });
+  const eh = ehByDate.get(picked.date) || {};
+
+  const scans = num_(eh.scan_submit_clicked_sessions);
+  const apiSuccess = num_(eh.scan_api_success_sessions);
+  const results = num_(eh.scan_result_rendered_sessions);
+  const ctaShown = num_(eh.cta_shown_scans);
+  const ctaClicked = num_(eh.cta_clicked_scans);
+  const salesViews = num_(eh.pro_sales_viewed_scans);
+  const unlockCompleted = num_(eh.beta_unlock_completed_scans);
+  const paymentCompleted = num_(eh.payment_completed_scans);
+  const refinementShown = num_(eh.context_refinement_shown_scans);
+  const refinementSubmitted = num_(eh.context_refinement_submitted_scans);
   const apiGap = Math.max(scans - apiSuccess, 0);
 
   const diagnosisCtx = {
     selectedDayStatus: picked.status,
+    // Decision metrics (ops_research_funnel_daily_v1).
+    totalScans,
+    validScanRate,
+    medHighRate,
+    researchPerScan,
+    // Diagnostic telemetry (ops_event_health_daily_v1).
     scans,
     apiSuccess,
     results,
-    ctaShown,
-    ctaClicked,
-    salesViews,
-    unlockCompleted,
-    paymentCompleted,
     refinementShown,
     refinementSubmitted,
     apiGap,
@@ -183,9 +230,19 @@ function buildDailyPulse_(funnelRows) {
   const suggestedAction = suggestAction_(diagnosisCtx, mainDrop);
 
   const outputRow = [
+    // Decision
     picked.date,
     picked.status,
+    userResearch,
+    totalScans,
+    validScans,
+    validScanRate,
+    medHighScans,
+    medHighRate,
+    researchPerScan,
+    // Diagnostic
     scans,
+    apiSuccess,
     results,
     ctaShown,
     ctaClicked,
@@ -195,15 +252,14 @@ function buildDailyPulse_(funnelRows) {
     refinementShown,
     refinementSubmitted,
     apiGap,
-    "",
-    "",
-    "",
-    "",
-    "",
+    // Auto-analysis
     mainDrop,
     instrumentationStatus,
     diagnosis,
     suggestedAction,
+    // Manual
+    "",
+    "",
     "",
     "",
     "",
@@ -211,9 +267,12 @@ function buildDailyPulse_(funnelRows) {
   ];
 
   sh.getRange(2, 1, 1, outputRow.length).setValues([outputRow]);
-  // Keep the founder-facing row readable and deterministic.
   sh.getRange(2, 1, 1, outputRow.length).setNumberFormat("0");
   sh.getRange(2, 1).setNumberFormat("yyyy-mm-dd");
+  // Rate columns: Valid Scan Rate (col 6), Medium/High Scan Rate (col 8), Research / Scan Rate (col 9).
+  sh.getRange(2, 6).setNumberFormat("0.00%");
+  sh.getRange(2, 8).setNumberFormat("0.00%");
+  sh.getRange(2, 9).setNumberFormat("0.00%");
   sh.autoResizeColumns(1, headers.length);
 
   const promptStart = 5;
@@ -221,7 +280,7 @@ function buildDailyPulse_(funnelRows) {
   sh
     .getRange(promptStart + 1, 1)
     .setValue(
-      "Using the latest Daily Pulse row and DATA_CTA Segments tab, identify the biggest public-funnel bottleneck. Distinguish tracking issues from product/UI/copy issues. Recommend one action only. Do not invent metrics. If the selected day is a partial day, say so and do not overread."
+      "Using the latest Daily Pulse row, DATA_CTA Segments, and DATA_Acquisition Signal Quality, identify the biggest bottleneck. Decision metrics (cols 1-9) are scans-table based. Diagnostic metrics (cols 10-20) are event-telemetry based; use them to explain instrumentation gaps, not for product decisions. Recommend one action only. Do not invent metrics. If the selected day is a partial day, say so and do not overread."
     );
 
   return {
@@ -231,17 +290,22 @@ function buildDailyPulse_(funnelRows) {
   };
 }
 
-function selectTargetDailyRow_(funnelRows) {
+function selectTargetDailyRow_(dailyRows) {
   const today = getTodayMontrealDate_();
   const yesterday = getYesterdayMontrealDate_();
   const warnings = [];
 
-  if (!Array.isArray(funnelRows) || funnelRows.length === 0) {
-    return { row: null, date: "", status: "NO DATA", warnings: ["No rows returned from view."] };
+  if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
+    return {
+      row: null,
+      date: "",
+      status: "NO DATA",
+      warnings: ["No rows returned from ops_research_funnel_daily_v1."],
+    };
   }
 
   const byDate = new Map();
-  funnelRows.forEach((r) => {
+  dailyRows.forEach((r) => {
     if (r && r.day_montreal) byDate.set(String(r.day_montreal), r);
   });
 
@@ -273,24 +337,36 @@ function selectTargetDailyRow_(funnelRows) {
 }
 
 function inferMainDropOff_(m) {
+  // A. Instrumentation: API gap (event-health, session/session).
   if (m.scans > 0 && m.apiGap / m.scans > 0.1) {
     return "Submit -> API Success";
   }
 
-  const ctaCtr = m.ctaShown > 0 ? m.ctaClicked / m.ctaShown : null;
-  if (m.ctaShown > 0 && ctaCtr != null && ctaCtr < 0.2) {
-    return "CTA Shown -> CTA Clicked";
+  // B. Instrumentation: result rendering gap (event-health).
+  if (m.scans > 0 && m.results === 0) {
+    return "Result Rendering Gap";
   }
 
-  if (m.ctaClicked > 0 && m.salesViews < m.ctaClicked) {
-    return "CTA Clicked -> Sales Page";
+  // C-E use decision metrics; require minimum sample from scans table.
+  if (m.totalScans >= 20) {
+    // C. Decision: input quality.
+    if (m.validScanRate < 0.3) {
+      return "Low Valid Scan Rate";
+    }
+
+    // D. Decision: risk classification quality.
+    if (m.medHighRate < 0.1) {
+      return "Low Medium/High Rate";
+    }
+
+    // E. Decision: research funnel conversion.
+    if (m.researchPerScan < 0.03) {
+      return "Low Research Response Rate";
+    }
   }
 
-  if (m.salesViews > 0 && Math.max(m.unlockCompleted, m.paymentCompleted) < m.salesViews) {
-    return "Sales Page -> Unlock/Payment";
-  }
-
-  const refinementRate = m.refinementShown > 0 ? m.refinementSubmitted / m.refinementShown : null;
+  // F. Refinement activity (event-health, scan/scan).
+  var refinementRate = m.refinementShown > 0 ? m.refinementSubmitted / m.refinementShown : null;
   if (m.refinementShown >= 10 && refinementRate != null && refinementRate < 0.25) {
     return "Refinement Shown -> Refinement Submitted";
   }
@@ -308,11 +384,8 @@ function instrumentationStatus_(row, mainDrop) {
   if (row.apiGap > 0 && row.scans > 0 && row.apiGap / row.scans > 0.1) {
     return "API GAP";
   }
-  if (row.scans > 0 && row.ctaShown === 0) {
-    return "CTA TRACKING MISSING";
-  }
-  if (row.ctaClicked > 0 && row.salesViews === 0) {
-    return "SALES PAGE TRACKING MISSING";
+  if (row.totalScans > 0 && row.totalScans < 20) {
+    return "SAMPLE TOO SMALL";
   }
   if (mainDrop === "No clear bottleneck / needs more data") {
     return "NEEDS REVIEW";
@@ -321,20 +394,23 @@ function instrumentationStatus_(row, mainDrop) {
 }
 
 function diagnose_(row, mainDrop) {
-  if (row.scans < 20) {
+  if (row.totalScans < 20) {
     return "Sample too small. Continue collecting data.";
   }
   if (mainDrop === "Submit -> API Success") {
     return "Likely API/tracking continuity issue in top funnel.";
   }
-  if (mainDrop === "CTA Shown -> CTA Clicked") {
-    return "CTA is visible but users are not clicking. Likely CTA relevance/messaging friction.";
+  if (mainDrop === "Result Rendering Gap") {
+    return "Scans succeed but results are not rendering.";
   }
-  if (mainDrop === "CTA Clicked -> Sales Page") {
-    return "Users click CTA but do not reach sales page. Likely routing or tracking issue.";
+  if (mainDrop === "Low Valid Scan Rate") {
+    return "Most scans lack sufficient context for valid analysis.";
   }
-  if (mainDrop === "Sales Page -> Unlock/Payment") {
-    return "Users reach sales page but do not unlock/pay. Likely offer/checkout friction.";
+  if (mainDrop === "Low Medium/High Rate") {
+    return "Few scans reach medium or high risk tier.";
+  }
+  if (mainDrop === "Low Research Response Rate") {
+    return "Users complete scans but rarely fill the research form.";
   }
   if (mainDrop === "Refinement Shown -> Refinement Submitted") {
     return "Refinement is shown often but rarely submitted. Likely refinement UX friction or low intent.";
@@ -343,25 +419,338 @@ function diagnose_(row, mainDrop) {
 }
 
 function suggestAction_(row, mainDrop) {
-  if (row.scans < 20) {
+  if (row.totalScans < 20) {
     return "Collect more data before changing the funnel.";
   }
   if (mainDrop === "Submit -> API Success") {
     return "Validate scan_api_success and scan_result_rendered telemetry continuity.";
   }
-  if (mainDrop === "CTA Shown -> CTA Clicked") {
-    return "A/B test CTA copy/placement for the highest-volume CTA segment.";
+  if (mainDrop === "Result Rendering Gap") {
+    return "Check scan_result_rendered telemetry and result rendering pipeline.";
   }
-  if (mainDrop === "CTA Clicked -> Sales Page") {
-    return "Check CTA click routing into pro sales page.";
+  if (mainDrop === "Low Valid Scan Rate") {
+    return "Review input quality: fragment/link-only inputs may dominate.";
   }
-  if (mainDrop === "Sales Page -> Unlock/Payment") {
-    return "Review sales page / unlock copy and friction.";
+  if (mainDrop === "Low Medium/High Rate") {
+    return "Check whether acquisition quality or analysis calibration is suppressing meaningful classifications.";
+  }
+  if (mainDrop === "Low Research Response Rate") {
+    return "Review research form visibility, timing, and perceived value.";
   }
   if (mainDrop === "Refinement Shown -> Refinement Submitted") {
     return "Simplify or demote refinement prompt and test whether CTA clarity improves.";
   }
   return "Collect another day before intervention.";
+}
+
+// ---------------------------------------------------------------------------
+// Weekly Control Panel (v1.3) — hybrid: automated summary + manual decision log
+// ---------------------------------------------------------------------------
+
+function buildWeeklyControlPanel_(researchFunnelRows, acquisitionRows, userResearchRows) {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(CFG.TABS.WEEKLY) || ss.insertSheet(CFG.TABS.WEEKLY);
+
+  var weekEnd = getYesterdayMontrealDate_();
+  var endDate = parseYmd_(weekEnd);
+  var startDate = new Date(endDate.getTime());
+  startDate.setUTCDate(startDate.getUTCDate() - 6);
+  var weekStart = formatYmd_(startDate);
+
+  var metrics = aggregateWeeklyResearchFunnel_(researchFunnelRows, weekStart, weekEnd);
+  var acq = aggregateWeeklyAcquisition_(acquisitionRows, weekStart, weekEnd);
+  var ur = aggregateWeeklyUserResearch_(userResearchRows, weekStart, weekEnd);
+
+  // --- Automated section: rows 1–14. Only clear this zone. ---
+  var autoRows = 14;
+  var maxCol = Math.max(sh.getLastColumn(), 11);
+  if (maxCol > 0 && autoRows > 0) {
+    sh.getRange(1, 1, autoRows, maxCol).clear();
+    sh.getRange(1, 1, autoRows, maxCol).setNumberFormat("@");
+  }
+
+  // Block 1 — Weekly Metrics (rows 1–3)
+  var metricsHeaders = [
+    "Week Start", "Week End", "Total Scans", "Valid Scans",
+    "Avg Valid Scan Rate", "Medium/High Scans", "Avg Medium/High Scan Rate",
+    "User Research Responses", "Avg Research / Scan Rate",
+    "Main Weekly Bottleneck", "Suggested Weekly Focus",
+  ];
+  sh.getRange(1, 1, 1, metricsHeaders.length).setValues([metricsHeaders]);
+  sh.getRange(1, 1, 1, metricsHeaders.length).setFontWeight("bold");
+
+  var mainDrop = inferWeeklyBottleneck_(metrics);
+  var weeklyFocus = suggestWeeklyFocus_(mainDrop);
+
+  var metricsRow = [
+    weekStart, weekEnd, metrics.totalScans, metrics.validScans,
+    metrics.avgValidRate, metrics.medHighScans, metrics.avgMedHighRate,
+    metrics.userResearchResponses, metrics.avgResearchRate,
+    mainDrop, weeklyFocus,
+  ];
+  sh.getRange(2, 1, 1, metricsRow.length).setValues([metricsRow]);
+  sh.getRange(2, 1).setNumberFormat("yyyy-mm-dd");  // Week Start
+  sh.getRange(2, 2).setNumberFormat("yyyy-mm-dd");  // Week End
+  sh.getRange(2, 3).setNumberFormat("0");            // Total Scans
+  sh.getRange(2, 4).setNumberFormat("0");            // Valid Scans
+  sh.getRange(2, 5).setNumberFormat("0.00%");        // Avg Valid Scan Rate
+  sh.getRange(2, 6).setNumberFormat("0");            // Medium/High Scans
+  sh.getRange(2, 7).setNumberFormat("0.00%");        // Avg Medium/High Scan Rate
+  sh.getRange(2, 8).setNumberFormat("0");            // User Research Responses
+  sh.getRange(2, 9).setNumberFormat("0.00%");        // Avg Research / Scan Rate
+  sh.getRange(2, 10).setNumberFormat("@");           // Main Weekly Bottleneck
+  sh.getRange(2, 11).setNumberFormat("@");           // Suggested Weekly Focus
+
+  // Block 2 — Acquisition (rows 4–6, row 4 = header, row 5 = sub-header, row 6 = data)
+  var acqHeaders = [
+    "Top UTM Source", "Top Campaign", "Best Valid Scan Rate Source",
+    "Worst Valid Scan Rate Source", "Paid Scan Count", "Organic Scan Count",
+    "UTM Coverage Warning",
+  ];
+  sh.getRange(4, 1).setValue("ACQUISITION").setFontWeight("bold");
+  sh.getRange(5, 1, 1, acqHeaders.length).setValues([acqHeaders]);
+  sh.getRange(5, 1, 1, acqHeaders.length).setFontWeight("bold");
+
+  var acqRow = [
+    acq.topSource, acq.topCampaign, acq.bestValidRateSource,
+    acq.worstValidRateSource, acq.paidScanCount, acq.organicScanCount,
+    acq.utmWarning,
+  ];
+  sh.getRange(6, 1, 1, acqRow.length).setValues([acqRow]);
+  sh.getRange(6, 1).setNumberFormat("@");            // Top UTM Source
+  sh.getRange(6, 2).setNumberFormat("@");            // Top Campaign
+  sh.getRange(6, 3).setNumberFormat("@");            // Best Valid Scan Rate Source
+  sh.getRange(6, 4).setNumberFormat("@");            // Worst Valid Scan Rate Source
+  sh.getRange(6, 5).setNumberFormat("0");            // Paid Scan Count
+  sh.getRange(6, 6).setNumberFormat("0");            // Organic Scan Count
+  sh.getRange(6, 7).setNumberFormat("@");            // UTM Coverage Warning
+
+  // Block 3 — User Research (rows 8–10)
+  var urHeaders = [
+    "Research Response Count", "Dominant User Need", "Pricing Signal",
+    "Product Signal", "Quote / Note", "Needs LLM Review?",
+  ];
+  sh.getRange(8, 1).setValue("USER RESEARCH").setFontWeight("bold");
+  sh.getRange(9, 1, 1, urHeaders.length).setValues([urHeaders]);
+  sh.getRange(9, 1, 1, urHeaders.length).setFontWeight("bold");
+
+  var urRow = [
+    ur.responseCount, ur.dominantNeed, ur.pricingSignal,
+    ur.productSignal, "", ur.needsLlmReview,
+  ];
+  sh.getRange(10, 1, 1, urRow.length).setValues([urRow]);
+  sh.getRange(10, 1).setNumberFormat("0");           // Research Response Count
+  sh.getRange(10, 2).setNumberFormat("@");           // Dominant User Need
+  sh.getRange(10, 3).setNumberFormat("@");           // Pricing Signal
+  sh.getRange(10, 4).setNumberFormat("@");           // Product Signal
+  sh.getRange(10, 5).setNumberFormat("@");           // Quote / Note
+  sh.getRange(10, 6).setNumberFormat("@");           // Needs LLM Review?
+
+  // Block 4 — LLM Prompt (rows 12–13)
+  sh.getRange(12, 1).setValue("LLM Prompt (copy/paste):").setFontWeight("bold");
+  sh.getRange(13, 1).setValue(
+    "Using Weekly Control Panel, Daily Pulse, DATA_Acquisition Signal Quality, " +
+    "and DATA_User Research, recommend one weekly priority only."
+  );
+
+  // --- Manual section: row 16+ — seed once, never overwrite. ---
+  var manualHeaderRow = 16;
+  var manualDataRow = manualHeaderRow + 1;
+  var existingManual = "";
+  try {
+    existingManual = sh.getRange(manualDataRow, 1).getValue();
+  } catch (_) { /* empty sheet edge case */ }
+
+  if (!existingManual) {
+    var decisionHeaders = [
+      "Week Start", "Founder Decision", "Next Experiment",
+      "Review Date", "Notes",
+    ];
+    sh.getRange(manualHeaderRow, 1)
+      .setValue("WEEKLY DECISION LOG")
+      .setFontWeight("bold");
+    sh.getRange(manualDataRow, 1, 1, decisionHeaders.length)
+      .setValues([decisionHeaders]);
+    sh.getRange(manualDataRow, 1, 1, decisionHeaders.length)
+      .setFontWeight("bold");
+  }
+
+  sh.setFrozenRows(1);
+  sh.autoResizeColumns(1, metricsHeaders.length);
+}
+
+function aggregateWeeklyResearchFunnel_(rows, weekStart, weekEnd) {
+  var totalScans = 0, validScans = 0, medHighScans = 0, urResponses = 0;
+
+  (rows || []).forEach(function (r) {
+    var d = String(r.day_montreal || "");
+    if (d >= weekStart && d <= weekEnd) {
+      totalScans += num_(r.scans_table_scan_count);
+      validScans += num_(r.valid_scan_count);
+      medHighScans += num_(r.medium_high_scan_count);
+      urResponses += num_(r.user_research_responses);
+    }
+  });
+
+  return {
+    totalScans: totalScans,
+    validScans: validScans,
+    avgValidRate: totalScans > 0 ? validScans / totalScans : 0,
+    medHighScans: medHighScans,
+    avgMedHighRate: totalScans > 0 ? medHighScans / totalScans : 0,
+    userResearchResponses: urResponses,
+    avgResearchRate: totalScans > 0 ? urResponses / totalScans : 0,
+  };
+}
+
+function aggregateWeeklyAcquisition_(rows, weekStart, weekEnd) {
+  var sourceMap = {};   // utm_source -> { scans, valid }
+  var campaignMap = {}; // utm_campaign -> { scans }
+  var paidScans = 0;
+  var organicScans = 0;
+  var totalScans = 0;
+  var emptySourceScans = 0;
+
+  (rows || []).forEach(function (r) {
+    var d = String(r.day_montreal || "");
+    if (d < weekStart || d > weekEnd) return;
+
+    var src = String(r.utm_source || "").toLowerCase();
+    var med = String(r.utm_medium || "").toLowerCase();
+    var camp = String(r.utm_campaign || "");
+    var sc = num_(r.scan_count);
+    var vc = num_(r.valid_scan_count);
+    var vr = num_(r.valid_scan_rate);
+
+    totalScans += sc;
+
+    var srcKey = r.utm_source || "(none)";
+    if (!sourceMap[srcKey]) sourceMap[srcKey] = { scans: 0, valid: 0 };
+    sourceMap[srcKey].scans += sc;
+    sourceMap[srcKey].valid += vc;
+
+    var campKey = camp || "(none)";
+    if (!campaignMap[campKey]) campaignMap[campKey] = { scans: 0 };
+    campaignMap[campKey].scans += sc;
+
+    if (med.indexOf("cpc") >= 0 || med.indexOf("paid") >= 0) {
+      paidScans += sc;
+    }
+    if (!med || med === "(none)" || med === "organic" || med === "none") {
+      organicScans += sc;
+    }
+    if (!src || src === "(none)" || src === "none") {
+      emptySourceScans += sc;
+    }
+  });
+
+  var topSource = "(none)";
+  var topCampaign = "(none)";
+  var bestValidRateSource = "Not enough data";
+  var worstValidRateSource = "Not enough source-level volume";
+  var bestRate = -1;
+  var worstRate = 2;
+
+  var sources = Object.keys(sourceMap);
+  sources.forEach(function (s) {
+    var info = sourceMap[s];
+    if (info.scans > (sourceMap[topSource] || { scans: 0 }).scans) topSource = s;
+    var rate = info.scans > 0 ? info.valid / info.scans : 0;
+    if (info.scans >= 5 && rate > bestRate) {
+      bestRate = rate;
+      bestValidRateSource = s;
+    }
+    if (info.scans >= 20 && rate < worstRate) {
+      worstRate = rate;
+      worstValidRateSource = s;
+    }
+  });
+
+  var campaigns = Object.keys(campaignMap);
+  campaigns.forEach(function (c) {
+    if (campaignMap[c].scans > (campaignMap[topCampaign] || { scans: 0 }).scans) {
+      topCampaign = c;
+    }
+  });
+
+  var utmWarning = "";
+  if (totalScans > 0 && emptySourceScans / totalScans > 0.5) {
+    utmWarning = "UTM attribution incomplete \u2014 keyword-level optimization unavailable.";
+  }
+
+  return {
+    topSource: topSource,
+    topCampaign: topCampaign,
+    bestValidRateSource: bestValidRateSource,
+    worstValidRateSource: worstValidRateSource,
+    paidScanCount: paidScans,
+    organicScanCount: organicScans,
+    utmWarning: utmWarning,
+  };
+}
+
+function aggregateWeeklyUserResearch_(rows, weekStart, weekEnd) {
+  var count = 0;
+  var needCounts = {};
+  var priceCounts = {};
+  var helpCounts = {};
+
+  (rows || []).forEach(function (r) {
+    var ts = String(r.submitted_at || "").substring(0, 10);
+    if (ts < weekStart || ts > weekEnd) return;
+    count++;
+
+    var need = String(r.situation || "").trim();
+    if (need) needCounts[need] = (needCounts[need] || 0) + 1;
+
+    var price = String(r.price_range || "").trim();
+    if (price) priceCounts[price] = (priceCounts[price] || 0) + 1;
+
+    var help = String(r.desired_help || "").trim();
+    if (help) helpCounts[help] = (helpCounts[help] || 0) + 1;
+  });
+
+  return {
+    responseCount: count,
+    dominantNeed: topKey_(needCounts),
+    pricingSignal: topKey_(priceCounts),
+    productSignal: topKey_(helpCounts),
+    needsLlmReview: count >= 5 ? "Yes" : "Not enough data",
+  };
+}
+
+function topKey_(counts) {
+  var best = "";
+  var max = 0;
+  var keys = Object.keys(counts);
+  for (var i = 0; i < keys.length; i++) {
+    if (counts[keys[i]] > max) {
+      max = counts[keys[i]];
+      best = keys[i];
+    }
+  }
+  return best || "(none)";
+}
+
+function inferWeeklyBottleneck_(m) {
+  if (m.totalScans < 20) return "No clear bottleneck / needs more data";
+  if (m.avgValidRate < 0.3) return "Low Valid Scan Rate";
+  if (m.avgMedHighRate < 0.1) return "Low Medium/High Rate";
+  if (m.avgResearchRate < 0.03) return "Low Research Response Rate";
+  return "No clear bottleneck / needs more data";
+}
+
+function suggestWeeklyFocus_(mainDrop) {
+  if (mainDrop === "Low Valid Scan Rate") {
+    return "Focus on input quality: review acquisition sources producing invalid scans.";
+  }
+  if (mainDrop === "Low Medium/High Rate") {
+    return "Focus on risk classification: check analysis calibration and acquisition quality.";
+  }
+  if (mainDrop === "Low Research Response Rate") {
+    return "Focus on research form: review visibility, timing, and perceived value.";
+  }
+  return "No single bottleneck dominates. Review Daily Pulse trends for emerging patterns.";
 }
 
 function stampRefresh_(meta) {
@@ -390,46 +779,34 @@ function stampRefresh_(meta) {
 
 function ensureFounderFacingTabs_() {
   const ss = SpreadsheetApp.getActive();
-  ensureTabWithHeaders_(ss, CFG.TABS.WEEKLY, [
-    "Week Start",
-    "Primary Focus",
-    "Revenue",
-    "Ad Spend",
-    "Public Scans",
-    "CTA CTR",
-    "Sales Page Views",
-    "MSP Outreach",
-    "MSP Conversations",
-    "Pilots Active",
-    "Top Product Issue",
-    "Top Signal Issue",
-    "Decision Needed",
-    "Ignore This Week",
-    "Next Action",
-    "Notes",
-  ]);
+  ensureTabWithHeaders_(ss, CFG.TABS.WEEKLY, []);
   ensureTabWithHeaders_(ss, CFG.TABS.DAILY, [
     "Date",
     "Day Status",
-    "Scans",
-    "Results",
-    "CTA Shown",
-    "CTA Clicked",
-    "Sales Page Views",
-    "Unlock Completed",
-    "Payment Completed",
-    "Refinement Shown",
-    "Refinement Submitted",
-    "Errors / API Gap",
-    "Ad Spend",
-    "Clicks",
-    "Cost / Scan",
-    "Cost / CTA Shown",
-    "Cost / CTA Click",
+    "User Research Responses",
+    "Total Scans",
+    "Valid Scans",
+    "Valid Scan Rate",
+    "Medium/High Scans",
+    "Medium/High Scan Rate",
+    "Research / Scan Rate",
+    "Scan Submits [sessions]",
+    "API Success [sessions]",
+    "Results [sessions]",
+    "CTA Shown [scans]",
+    "CTA Clicked [scans]",
+    "Sales Views [scans]",
+    "Unlock [scans]",
+    "Payment [scans]",
+    "Refinement Shown [scans]",
+    "Refinement Submitted [scans]",
+    "API Gap [sessions]",
     "Main Drop-Off",
     "Instrumentation Status",
     "Auto Diagnosis",
     "Suggested Action",
+    "Ad Spend",
+    "Clicks",
     "Founder Approved?",
     "Decision Logged?",
     "Experiment Logged?",
@@ -480,11 +857,13 @@ function ensureFounderFacingTabs_() {
   ]);
   ensureTabWithHeaders_(ss, CFG.TABS.FUNNEL, []);
   ensureTabWithHeaders_(ss, CFG.TABS.CTA, []);
+  ensureTabWithHeaders_(ss, CFG.TABS.ACQUISITION_SIGNAL_QUALITY, []);
   ensureTabWithHeaders_(ss, CFG.TABS.DEBUG, ["Date", "Event", "Count", "Notes"]);
   ensureTabWithHeaders_(ss, CFG.TABS.META, []);
   ensureTabWithHeaders_(ss, CFG.TABS.USER_RESEARCH, []);
   ensureUserResearchSummaryTab_(ss);
   ensureLlmPromptsTab_(ss);
+  ensureOperatingMapTab_(ss);
 }
 
 /**
@@ -718,6 +1097,233 @@ function ensureLlmPromptsTab_(ss) {
   sh.getRange(2, 1, rows.length, headers.length).setVerticalAlignment("top");
   sh.getRange(2, 2, rows.length, 1).setWrap(true);
   sh.getRange(2, 4, rows.length, 1).setWrap(true);
+}
+
+/**
+ * Operating Map (v1.2)
+ *
+ * System-of-record for the entire Founder Control Panel workbook.
+ * Lists every tab with its layer, purpose, data flow, and status.
+ *
+ * Seed-once: only populates when the tab is empty so the founder
+ * can annotate freely without losing edits on daily refresh.
+ */
+function ensureOperatingMapTab_(ss) {
+  var sh = ss.getSheetByName(CFG.TABS.OPERATING_MAP)
+    || ss.insertSheet(CFG.TABS.OPERATING_MAP);
+  if (sh.getLastRow() > 0 || sh.getLastColumn() > 0) return;
+
+  var headers = [
+    "Tab Name",
+    "Layer",
+    "Primary Question",
+    "Input Source",
+    "Output Destination",
+    "Manual / Automated",
+    "Update Frequency",
+    "Decision Supported",
+    "Status",
+    "v1.2 Notes",
+  ];
+
+  // Each row: [Tab Name, Layer, Primary Question, Input Source, Output Destination,
+  //            Manual/Automated, Update Frequency, Decision Supported, Status, v1.2 Notes]
+  var rows = [
+    [
+      "Daily Pulse",
+      "PULSE",
+      "What happened yesterday and is anything broken?",
+      "ops_research_funnel_daily_v1 + ops_event_health_daily_v1",
+      "Weekly Control Panel, Growth Lab, founder decisions",
+      "Automated (decision + diagnostic zones); manual (Ad Spend, Clicks, approval cols)",
+      "Daily (7 AM trigger)",
+      "Daily go/no-go; experiment approval",
+      "Active",
+      "v1.1.2 diagnosis engine uses decision metrics first.",
+    ],
+    [
+      "DATA_Public Funnel",
+      "DATA / ARCHIVE",
+      "What did the legacy event-telemetry funnel look like?",
+      "ops_public_funnel_daily_clean_v1",
+      "Historical reference only",
+      "Automated",
+      "Daily",
+      "None (archive)",
+      "Archive",
+      "Contains rates that can exceed 1.0. Do not use for decisions.",
+    ],
+    [
+      "DATA_CTA Segments",
+      "DATA",
+      "How do CTA events break down by risk tier, input type, and context quality?",
+      "ops_public_cta_segments_clean_v1",
+      "LLM Prompt drill-down, manual analysis",
+      "Automated",
+      "Daily",
+      "CTA copy/placement experiments",
+      "Active / legacy-derived",
+      "Relies on legacy CTA event telemetry. Useful for segment analysis but not for primary product decisions.",
+    ],
+    [
+      "DATA_Acquisition Signal Quality",
+      "DATA",
+      "Which UTM sources produce valid, high-signal scans?",
+      "ops_acquisition_signal_quality_daily_v1",
+      "Ad spend decisions, Growth Lab",
+      "Automated",
+      "Daily",
+      "Acquisition budget allocation; campaign kill/scale",
+      "Active",
+      "",
+    ],
+    [
+      "DATA_User Research",
+      "DATA",
+      "What are users saying in post-scan research responses?",
+      "ops_user_research_export_v1",
+      "User Research Summary, LLM Prompts",
+      "Automated",
+      "Daily",
+      "PMF signal; pricing; concierge demand",
+      "Active",
+      "PRIVACY: User Words may contain sensitive details. Founder-only access.",
+    ],
+    [
+      "DATA_Event Funnel Debug",
+      "DATA",
+      "(Debug) Raw event counts for instrumentation troubleshooting",
+      "None (headers seeded, no data feed)",
+      "None",
+      "Manual",
+      "As needed",
+      "Instrumentation debugging",
+      "Stale / orphaned",
+      "No Supabase view feeds this tab. Consider wiring to ops_event_health_daily_v1 or archiving.",
+    ],
+    [
+      "DATA_Meta",
+      "DATA",
+      "When was the last refresh and which views were synced?",
+      "Script stampRefresh_",
+      "Troubleshooting",
+      "Automated",
+      "Daily",
+      "Operational health",
+      "Active",
+      "",
+    ],
+    [
+      "Weekly Control Panel",
+      "DECISION",
+      "What is the weekly founder-level read across all channels?",
+      "ops_research_funnel_daily_v1 + ops_acquisition_signal_quality_daily_v1 + ops_user_research_export_v1 (automated) + manual decision log",
+      "Growth Lab, Sales CRM, experiment decisions",
+      "Hybrid (automated summary + manual decision log)",
+      "Weekly (daily refresh updates summary)",
+      "Weekly strategy; resource allocation; experiment approval",
+      "Active (v1.3)",
+      "v1.3: Automated summary from decision-safe views. Manual decision log preserved below row 16.",
+    ],
+    [
+      "User Research Summary",
+      "INTERPRETATION",
+      "What does the aggregate user research signal say about PMF?",
+      "Manual (paste from LLM analysis of DATA_User Research)",
+      "Weekly Control Panel, Growth Lab",
+      "Manual (LLM-assisted)",
+      "Weekly or as volume warrants",
+      "PMF direction; pricing; feature priority",
+      "Active",
+      "Seeded once, never overwritten by script.",
+    ],
+    [
+      "LLM Prompts",
+      "PROMPT",
+      "What prompts should I use to analyze DATA_User Research?",
+      "Script seed (4 prompts)",
+      "User Research Summary",
+      "Manual reference (no LLM API calls)",
+      "As needed",
+      "Analysis quality",
+      "Active",
+      "Seeded once, never overwritten by script.",
+    ],
+    [
+      "Growth Lab",
+      "EXPERIMENT",
+      "What experiments are running, what results came back, what did we decide?",
+      "Manual (founder logs from Daily Pulse, Weekly Control Panel)",
+      "Weekly Control Panel, Product & Signal",
+      "Manual",
+      "As experiments run",
+      "Experiment lifecycle; promote-to-master-context",
+      "Active",
+      "",
+    ],
+    [
+      "Product & Signal",
+      "DECISION",
+      "What is the product health and signal quality trend?",
+      "Manual (founder fills)",
+      "Growth Lab, Weekly Control Panel",
+      "Manual",
+      "Weekly",
+      "Product roadmap; signal gap prioritization",
+      "Needs wiring",
+      "Headers overlap with decision-view metrics (Valid Input %, Medium/High %). Could pull from ops_research_funnel_daily_v1.",
+    ],
+    [
+      "Sales CRM",
+      "SALES",
+      "Where does each MSP prospect stand?",
+      "Manual (founder fills)",
+      "Weekly Control Panel",
+      "Manual",
+      "As conversations happen",
+      "MSP pipeline; pilot decisions",
+      "Active",
+      "",
+    ],
+    [
+      "Operating Map",
+      "META",
+      "How does the whole workbook fit together?",
+      "Script seed (this tab)",
+      "Founder orientation; cleanup planning",
+      "Seed once, then manual",
+      "As architecture changes",
+      "Workbook governance",
+      "Active (v1.2)",
+      "You are here.",
+    ],
+  ];
+
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+  sh.setFrozenRows(1);
+
+  sh.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  sh.getRange(2, 1, rows.length, headers.length).setVerticalAlignment("top");
+
+  // Wrap columns that contain long text.
+  sh.getRange(2, 3, rows.length, 1).setWrap(true);  // Primary Question
+  sh.getRange(2, 4, rows.length, 1).setWrap(true);  // Input Source
+  sh.getRange(2, 5, rows.length, 1).setWrap(true);  // Output Destination
+  sh.getRange(2, 6, rows.length, 1).setWrap(true);  // Manual / Automated
+  sh.getRange(2, 8, rows.length, 1).setWrap(true);  // Decision Supported
+  sh.getRange(2, 10, rows.length, 1).setWrap(true); // v1.2 Notes
+
+  sh.setColumnWidth(1, 200);
+  sh.setColumnWidth(2, 130);
+  sh.setColumnWidth(3, 280);
+  sh.setColumnWidth(4, 260);
+  sh.setColumnWidth(5, 220);
+  sh.setColumnWidth(6, 200);
+  sh.setColumnWidth(7, 120);
+  sh.setColumnWidth(8, 240);
+  sh.setColumnWidth(9, 180);
+  sh.setColumnWidth(10, 320);
 }
 
 function ensureTabWithHeaders_(ss, tabName, headers) {
