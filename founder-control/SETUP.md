@@ -423,3 +423,15 @@ If v1.1.1 views produce unexpected results:
 - `Daily Pulse` is generated each run and may overwrite manual notes in that tab.
 - Old tabs are intentionally untouched and must be manually archived/migrated later.
 - If the selected daily row is today, the row is marked: `PARTIAL DAY - DO NOT OVERREAD`.
+
+## Survey experiments (Supabase → Founder Control Panel)
+
+Landing-page surveys (e.g. `/parking-ticket-text`) write to **`public.survey_experiment_responses`** via Next.js (`POST /api/parking-text/sheet`) using **`SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** on Vercel/local.
+
+1. Run migration `supabase/migrations/20260515120000_survey_experiment_responses.sql` in the Supabase SQL Editor (or your migration workflow).
+2. Confirm view **`ops_survey_experiment_export_v1`** exists.
+3. Update **`founder_control_panel.gs`** in the bound Apps Script project (includes pull to **`DATA_Survey_Experiments`**).
+4. Run **`refreshFounderControlPanel()`** once after a test completion.
+5. Verify rows in Supabase Table Editor and in sheet tab **`DATA_Survey_Experiments`**.
+
+**Retired:** `parking_text_survey_webapp.gs` (Apps Script Web App ingestion). Do not use `PARKING_TEXT_SHEET_WEBHOOK_URL` / `PARKING_TEXT_SHEET_WEBHOOK_SECRET`.

@@ -13,6 +13,7 @@ const CFG = {
     // PRIVACY: ops_user_research_export_v1.user_words is explicit user research
     // input and may contain sensitive details. Internal founder analysis only.
     USER_RESEARCH: "ops_user_research_export_v1",
+    SURVEY_EXPERIMENTS: "ops_survey_experiment_export_v1",
   },
   TABS: {
     FUNNEL: "DATA_Public Funnel",
@@ -27,6 +28,7 @@ const CFG = {
     PRODUCT: "Product & Signal",
     SALES: "Sales CRM",
     USER_RESEARCH: "DATA_User Research",
+    SURVEY_EXPERIMENTS: "DATA_Survey_Experiments",
     USER_RESEARCH_SUMMARY: "User Research Summary",
     LLM_PROMPTS: "LLM Prompts",
     OPERATING_MAP: "Operating Map",
@@ -46,11 +48,16 @@ function refreshFounderControlPanel() {
     CFG.VIEWS.USER_RESEARCH,
     "submitted_at.desc"
   );
+  const surveyExperimentRows = fetchViewRows_(
+    CFG.VIEWS.SURVEY_EXPERIMENTS,
+    "created_at.desc"
+  );
 
   writeTab_(CFG.TABS.FUNNEL, funnelRows);
   writeTab_(CFG.TABS.CTA, ctaRows);
   writeTab_(CFG.TABS.ACQUISITION_SIGNAL_QUALITY, acquisitionRows);
   writeTab_(CFG.TABS.USER_RESEARCH, userResearchRows);
+  writeTab_(CFG.TABS.SURVEY_EXPERIMENTS, surveyExperimentRows);
 
   const dailyResult = buildDailyPulse_(researchFunnelRows, eventHealthRows);
   buildWeeklyControlPanel_(researchFunnelRows, acquisitionRows, userResearchRows);
@@ -63,6 +70,7 @@ function refreshFounderControlPanel() {
       CFG.VIEWS.CTA,
       CFG.VIEWS.ACQUISITION_SIGNAL,
       CFG.VIEWS.USER_RESEARCH,
+      CFG.VIEWS.SURVEY_EXPERIMENTS,
     ],
     selectedDate: dailyResult.selectedDate,
     dayStatus: dailyResult.dayStatus,
@@ -861,6 +869,7 @@ function ensureFounderFacingTabs_() {
   ensureTabWithHeaders_(ss, CFG.TABS.DEBUG, ["Date", "Event", "Count", "Notes"]);
   ensureTabWithHeaders_(ss, CFG.TABS.META, []);
   ensureTabWithHeaders_(ss, CFG.TABS.USER_RESEARCH, []);
+  ensureTabWithHeaders_(ss, CFG.TABS.SURVEY_EXPERIMENTS, []);
   ensureUserResearchSummaryTab_(ss);
   ensureLlmPromptsTab_(ss);
   ensureOperatingMapTab_(ss);
@@ -1188,6 +1197,18 @@ function ensureOperatingMapTab_(ss) {
       "PMF signal; pricing; concierge demand",
       "Active",
       "PRIVACY: User Words may contain sensitive details. Founder-only access.",
+    ],
+    [
+      "DATA_Survey_Experiments",
+      "DATA",
+      "Landing-page survey experiments (parking ticket text, future variants)",
+      "ops_survey_experiment_export_v1",
+      "Growth Lab, experiment review",
+      "Automated",
+      "Daily",
+      "Micro-test completions; Q3/Q4 discovery; checklist usefulness",
+      "Active",
+      "PRIVACY: open-text fields may contain sensitive details. No IP or email. Founder-only.",
     ],
     [
       "DATA_Event Funnel Debug",

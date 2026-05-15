@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
+  const pathname = usePathname();
+  const hideLangToggle = pathname === "/parking-ticket-text";
+
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
@@ -39,9 +43,11 @@ export default function Header() {
         <span style={styles.brandText}>ScanScam</span>
       </a>
 
-      <button onClick={switchLang} style={styles.langSwitch}>
-        {lang === "fr" ? "EN" : "FR"}
-      </button>
+      {!hideLangToggle ? (
+        <button type="button" onClick={switchLang} style={styles.langSwitch}>
+          {lang === "fr" ? "EN" : "FR"}
+        </button>
+      ) : null}
     </header>
   );
 }

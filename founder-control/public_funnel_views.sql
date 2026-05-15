@@ -571,3 +571,43 @@ left join lateral (
   limit 1
 ) t on true
 order by r.created_at desc;
+
+
+-- public.ops_survey_experiment_export_v1
+-- Landing-page survey experiments for Founder Control Panel (DATA_Survey_Experiments).
+-- PRIVACY: q1_other, q2_other, q4_open_text, checklist_missing_feedback may contain
+-- sensitive details. No IP, email, or raw suspicious message. Founder-only access.
+
+create or replace view public.ops_survey_experiment_export_v1 as
+select
+  created_at,
+  page_version,
+  checklist_version,
+  privacy_note_version,
+  concern_note_id,
+  session_id::text as session_id,
+  utm_source,
+  utm_medium,
+  utm_campaign,
+  utm_content,
+  utm_term,
+  referrer,
+  page_url,
+  language,
+  q1_status,
+  q1_other,
+  q2_main_concern,
+  q2_other,
+  q3_product_discovery,
+  q4_open_text,
+  checklist_branch,
+  copied_checklist,
+  copied_checklist_at,
+  checklist_useful,
+  checklist_missing_feedback,
+  checklist_feedback_at,
+  user_agent,
+  experiment_id,
+  updated_at
+from public.survey_experiment_responses
+order by created_at desc;
