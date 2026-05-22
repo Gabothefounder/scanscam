@@ -31,7 +31,9 @@ export function logScanEvent(
     | "user_research_cta_clicked"
     | "user_research_started"
     | "user_research_completed"
-    | "user_research_full_report_unlocked",
+    | "user_research_full_report_unlocked"
+    | "human_review_cta_viewed"
+    | "human_review_cta_clicked",
   data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;

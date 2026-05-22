@@ -53,6 +53,8 @@ const ALLOWED_EVENTS = [
   "user_research_started",
   "user_research_completed",
   "user_research_full_report_unlocked",
+  "human_review_cta_viewed",
+  "human_review_cta_clicked",
 ] as const;
 
 const ALLOWED_PROPS = [
@@ -88,6 +90,8 @@ const ALLOWED_PROPS = [
   "worth_five",
   "source",
   "lang",
+  "analysis_mode",
+  "cta_variant",
 ] as const;
 
 const BANNED_KEYS = [

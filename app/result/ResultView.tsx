@@ -8,7 +8,7 @@ import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
-import UserResearchGate from "@/app/result/UserResearchGate";
+import { HumanReviewCallCTA } from "@/components/HumanReviewCallCTA";
 import {
   parseAbuseInterpretationForSurface,
   type InterpretationSurfaceConcept,
@@ -840,6 +840,38 @@ function buildInterpretationUiLines(
   return { riskCard, whyFlagged, nextStep };
 }
 
+type GuidanceItem = { action: string; explanation: string | null };
+
+function getWhatToDoNextItems(
+  lang: "en" | "fr",
+  intel: Record<string, unknown>,
+  interpretationUi: AbuseInterpretationUi
+): GuidanceItem[] {
+  const pack = copy[lang];
+  const nf = String(intel.narrative_family ?? intel.narrative_category ?? "").trim();
+  const narrative = (
+    pack.narrativeNextSteps as Record<string, { action: string; explanation: string }[]>
+  )[nf];
+  if (narrative?.length) {
+    return narrative.map((item) => ({
+      action: item.action,
+      explanation: item.explanation || null,
+    }));
+  }
+
+  if (interpretationUi.nextStep.length > 0) {
+    return interpretationUi.nextStep.map((line) => ({
+      action: line.text,
+      explanation: null,
+    }));
+  }
+
+  return pack.guidance.map((item) => ({
+    action: item.action,
+    explanation: item.explanation || null,
+  }));
+}
+
 function linkSurfaceLines(
   link: ParsedLinkArtifact,
   lang: "en" | "fr"
@@ -1304,8 +1336,6 @@ export default function ResultView() {
   const [contextLoading, setContextLoading] = useState(false);
   const [initialSubmissionText, setInitialSubmissionText] = useState<string | null>(null);
   const [weakGateBypass, setWeakGateBypass] = useState(false);
-  /** Post-scan research-gate state. cta -> gate -> redirect to /r/{token}. Persisted per scan in sessionStorage. */
-  const [researchGateOpen, setResearchGateOpen] = useState(false);
   /** recovery = loaded from GET /api/scan/get (shareable URL, fresh browser); session = live flow or sessionStorage. */
   const [viewSource, setViewSource] = useState<"session" | "recovery" | null>(null);
   const conversionFiredForScanRef = useRef<string | null>(null);
@@ -1602,46 +1632,6 @@ export default function ResultView() {
     linkArtifact: linkArtifactForProCta,
   });
 
-  /** Hydrate post-result research-gate state per scan from sessionStorage (survives reloads). */
-  useEffect(() => {
-    if (!scanIdForContext) return;
-    try {
-      if (sessionStorage.getItem(`ss_user_research_gate_open:${scanIdForContext}`)) {
-        setResearchGateOpen(true);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [scanIdForContext]);
-
-  useEffect(() => {
-    if (weakInputGateActive || !proCtaIntent.show || !scanIdForContext) return;
-    if (researchGateOpen) return;
-    const key = `ss_user_research_cta_viewed:${scanIdForContext}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch {
-      return;
-    }
-    const props: Record<string, string> = {
-      source: "post_scan_result",
-      lang,
-    };
-    if (risk) props.risk_tier = risk;
-    logScanEvent("user_research_cta_viewed", {
-      scan_id: scanIdForContext,
-      props,
-    });
-  }, [
-    weakInputGateActive,
-    proCtaIntent.show,
-    scanIdForContext,
-    researchGateOpen,
-    lang,
-    risk,
-  ]);
-
   const openPartnerEscalationForm = useCallback(() => {
     const ctx =
       typeof intel.user_context_text === "string" && intel.user_context_text.trim().length > 0
@@ -1797,6 +1787,10 @@ export default function ResultView() {
     return out;
   };
   const riskCardInterpretationLines = consumeInterpretation(interpretationUi.riskCard, 2);
+  const whatToDoNextItems = getWhatToDoNextItems(lang, intel as Record<string, unknown>, interpretationUi);
+  const analysisModeForTelemetry =
+    String((intel as Record<string, unknown>).analysis_mode ?? "").trim() ||
+    (wasRefined ? "refined" : "initial");
 
   const summaryRaw = result.summary_sentence || t.defaultSummary[risk];
   const apiSummary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
@@ -2227,102 +2221,31 @@ export default function ResultView() {
               <p className="text-center text-xs leading-relaxed text-gray-600">{t.freeVerifyHint}</p>
             </div>
 
-            {proCtaIntent.show ? (
+            {!weakInputGateActive && whatToDoNextItems.length > 0 ? (
               <div style={styles.sectionDivider}>
-                {researchGateOpen ? (
-                  <UserResearchGate
-                    scanId={scanIdForContext}
-                    lang={lang}
-                    riskTier={risk}
-                    onUnlock={(reportUrl) => {
-                      try {
-                        sessionStorage.removeItem(`ss_user_research_gate_open:${scanIdForContext}`);
-                      } catch {
-                        /* ignore */
-                      }
-                      const unlockProps: Record<string, string> = {
-                        source: "post_scan_result",
-                        lang,
-                      };
-                      if (risk) unlockProps.risk_tier = risk;
-                      logScanEvent("user_research_full_report_unlocked", {
-                        scan_id: scanIdForContext,
-                        props: unlockProps,
-                      });
-                      router.push(reportUrl);
-                    }}
-                  />
-                ) : (
-                  <div className="overflow-hidden rounded-xl border border-amber-300/80 bg-gradient-to-b from-amber-50 to-orange-50/60 p-5 text-gray-900 shadow-md sm:p-6">
-                    <span className="inline-flex items-center rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900">
-                      {lang === "fr" ? "Plan d\u2019action gratuit" : "Free action plan"}
-                    </span>
-                    <h3 className="mt-3 text-lg font-bold leading-tight tracking-tight text-gray-950 sm:text-xl">
-                      {lang === "fr"
-                        ? "Obtenez votre plan d\u2019action personnalis\u00e9"
-                        : "Get your personalized action plan"}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                      {lang === "fr"
-                        ? "Répondez à 4 questions rapides pour aider ScanScam à comprendre votre situation et préparer un rapport plus clair pour ce scan."
-                        : "Answer 4 quick questions so ScanScam can understand your situation and prepare a clearer report for this scan."}
-                    </p>
-                    <ul className="mt-4 space-y-1.5 text-sm leading-snug text-gray-800">
-                      {(lang === "fr"
-                        ? [
-                            "Une recommandation plus claire",
-                            "Ce qui semble louche",
-                            "Quoi faire ensuite",
-                            "Un rapport à sauvegarder ou partager",
-                          ]
-                        : [
-                            "A clearer recommendation",
-                            "What looks suspicious",
-                            "What to do next",
-                            "A report you can save or share",
-                          ]
-                      ).map((item) => (
-                        <li key={item} className="flex items-start gap-2">
-                          <span aria-hidden className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-700 text-[10px] font-bold leading-none text-white">
-                            ✓
-                          </span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4 text-lg font-bold text-white shadow-lg transition-all duration-150 hover:from-amber-700 hover:to-orange-700 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 active:scale-[0.98] motion-safe:transition-transform sm:w-auto"
-                      onClick={() => {
-                        try {
-                          sessionStorage.setItem(
-                            `ss_user_research_gate_open:${scanIdForContext}`,
-                            "1"
-                          );
-                        } catch {
-                          /* ignore */
-                        }
-                        const clickProps: Record<string, string> = {
-                          source: "post_scan_result",
-                          lang,
-                        };
-                        if (risk) clickProps.risk_tier = risk;
-                        logScanEvent("user_research_cta_clicked", {
-                          scan_id: scanIdForContext,
-                          props: clickProps,
-                        });
-                        setResearchGateOpen(true);
-                      }}
-                    >
-                      {lang === "fr" ? "Obtenir mon plan d\u2019action" : "Get My Action Plan Now"}
-                    </button>
-                    <p className="mt-2.5 text-center text-[11px] leading-relaxed text-gray-600 sm:text-left">
-                      {lang === "fr"
-                        ? "Gratuit aujourd’hui. Aucun compte. Environ 30 secondes."
-                        : "Free today. No account. Takes about 30 seconds."}
-                    </p>
-                  </div>
-                )}
+                <h3 className="text-base font-semibold text-gray-950">{t.actionTitle}</h3>
+                <ul className="mt-3 list-disc space-y-2.5 pl-5 text-sm leading-relaxed text-gray-800">
+                  {whatToDoNextItems.map((item) => (
+                    <li key={item.action}>
+                      <span className="font-medium text-gray-900">{item.action}</span>
+                      {item.explanation ? (
+                        <p className="mt-0.5 text-gray-600">{item.explanation}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {!partner && !weakInputGateActive ? (
+              <div style={styles.sectionDivider}>
+                <HumanReviewCallCTA
+                  lang={lang}
+                  riskTier={risk}
+                  scanId={scanIdForContext}
+                  source="post_scan_result"
+                  analysisMode={analysisModeForTelemetry}
+                />
               </div>
             ) : null}
 
@@ -2338,7 +2261,7 @@ export default function ResultView() {
               </>
             ) : null}
 
-            {contextMode === "suggested" && !proCtaIntent.show && (
+            {contextMode === "suggested" && (!partner || !proCtaIntent.show) && (
               <div style={{ ...styles.optionalBlock, ...styles.optionalRefinementAccent }}>
                 <ContextRefinementCard
                   mode="suggested"
@@ -2361,7 +2284,7 @@ export default function ResultView() {
           </>
         )}
 
-        {showLightFollowUp && !proCtaIntent.show && (
+        {showLightFollowUp && (!partner || !proCtaIntent.show) && (
           <div style={styles.optionalBlock}>
             <ContextRefinementCard
               mode="suggested"
