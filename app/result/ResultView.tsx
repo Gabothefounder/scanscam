@@ -8,7 +8,7 @@ import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
-import { HumanReviewCallCTA } from "@/components/HumanReviewCallCTA";
+import { PostResultReportCTA } from "@/components/PostResultReportCTA";
 import {
   parseAbuseInterpretationForSurface,
   type InterpretationSurfaceConcept,
@@ -2239,7 +2239,7 @@ export default function ResultView() {
 
             {!partner && !weakInputGateActive ? (
               <div style={styles.sectionDivider}>
-                <HumanReviewCallCTA
+                <PostResultReportCTA
                   lang={lang}
                   riskTier={risk}
                   scanId={scanIdForContext}

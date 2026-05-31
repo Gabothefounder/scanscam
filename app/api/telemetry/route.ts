@@ -55,6 +55,10 @@ const ALLOWED_EVENTS = [
   "user_research_full_report_unlocked",
   "human_review_cta_viewed",
   "human_review_cta_clicked",
+  "guide_report_cta_viewed",
+  "guide_report_cta_clicked",
+  "guide_report_optin_submitted",
+  "guide_report_unlocked",
 ] as const;
 
 const ALLOWED_PROPS = [
