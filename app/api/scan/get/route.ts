@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
   const { data: row, error } = await supabase
     .from("scans")
-    .select("id, risk_tier, summary_sentence, signals, intel_features, language, source, data_quality")
+    .select("id, risk_tier, summary_sentence, signals, intel_features, language, source, data_quality, used_fallback")
     .eq("id", scanIdRaw)
     .maybeSingle();
 
@@ -54,6 +54,13 @@ export async function GET(req: Request) {
   const r = row as Record<string, unknown>;
   const riskTier = String(r.risk_tier ?? "low") as "low" | "medium" | "high";
   const signals = Array.isArray(r.signals) ? r.signals : [];
+  const intel =
+    r.intel_features && typeof r.intel_features === "object"
+      ? (r.intel_features as Record<string, unknown>)
+      : {};
+  const analysisStatus =
+    intel.analysis_status === "unavailable" ? "unavailable" : "ok";
+  const usedFallback = r.used_fallback === true || analysisStatus === "unavailable";
 
   /** Mirrors POST /api/scan `result` shape fields the result page reads (no extra columns). */
   const result = {
@@ -63,9 +70,11 @@ export async function GET(req: Request) {
     language: r.language === "fr" ? "fr" : "en",
     source: r.source ?? "user_text",
     data_quality: r.data_quality && typeof r.data_quality === "object" ? r.data_quality : {},
-    intel_features: r.intel_features && typeof r.intel_features === "object" ? r.intel_features : {},
+    intel_features: intel,
     risk: riskTier,
     scan_id: String(r.id),
+    used_fallback: usedFallback,
+    analysis_status: analysisStatus,
   };
 
   return NextResponse.json({ ok: true, result });

@@ -160,7 +160,8 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
       }
 
       const scanId = data.result?.scan_id;
-      if (scanId) {
+      const persisted = data.result?.persisted === true;
+      if (persisted && scanId) {
         logScanEvent("scan_created", {
           scan_id: scanId,
           props: { attempt_id, input_length: text.length, ...attrProps },

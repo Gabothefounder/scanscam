@@ -49,6 +49,17 @@ const copy = {
       medium: "This message looks suspicious. Take a moment before you act.",
       high: "This message looks very similar to common scams. Be careful.",
     },
+    analysisUnavailable: {
+      title: "Analysis unavailable",
+      banner:
+        "We could not complete a full AI analysis of this message. Do not treat this as a clean bill of health.",
+      bannerWithCaution:
+        "Full AI analysis was unavailable. The caution below is based on automated pattern checks only.",
+      confidenceLabel: "Analysis status",
+      confidenceValue: "Unavailable",
+      confidenceHelper: "A failed analysis is not evidence that a message is safe.",
+      levelText: "Unable to complete analysis",
+    },
     linkIntel: {
       detectedLabel: "Link detected:",
       linkBeforeClick:
@@ -321,6 +332,17 @@ const copy = {
       low: "D’après ce qu’on voit, ce message ne ressemble pas à une arnaque typique.",
       medium: "Ce message semble suspect. Prenez un moment avant d’agir.",
       high: "Ce message ressemble beaucoup à des arnaques courantes. Soyez prudent.",
+    },
+    analysisUnavailable: {
+      title: "Analyse indisponible",
+      banner:
+        "Nous n’avons pas pu terminer une analyse IA complète de ce message. Ne considérez pas cela comme un feu vert.",
+      bannerWithCaution:
+        "Analyse IA complète indisponible. L’alerte ci-dessous repose uniquement sur des contrôles automatiques.",
+      confidenceLabel: "État de l’analyse",
+      confidenceValue: "Indisponible",
+      confidenceHelper: "Une analyse échouée n’est pas une preuve que le message est sans danger.",
+      levelText: "Impossible de terminer l’analyse",
     },
     linkIntel: {
       detectedLabel: "Lien détecté :",
@@ -1267,8 +1289,25 @@ const RISK_CONFIG = {
   high: { percent: 90, color: "#DC2626", bgColor: "#FBEAEA" },
 };
 
-function RiskMeter({ risk, label, levelText }: { risk: "low" | "medium" | "high"; label: string; levelText: string }) {
-  const config = RISK_CONFIG[risk];
+const UNAVAILABLE_CONFIG = {
+  percent: 50,
+  color: "#78716C",
+  bgColor: "#F5F5F4",
+};
+
+function RiskMeter({
+  risk,
+  label,
+  levelText,
+  unavailable,
+}: {
+  risk: "low" | "medium" | "high";
+  label: string;
+  levelText: string;
+  unavailable?: boolean;
+}) {
+  const config =
+    unavailable && risk === "low" ? UNAVAILABLE_CONFIG : RISK_CONFIG[risk];
 
   return (
     <div
@@ -1503,6 +1542,13 @@ export default function ResultView() {
   const t = copy[lang];
   const risk: "low" | "medium" | "high" = result?.risk ?? result?.risk_tier ?? "low";
   const intel = result?.intel_features ?? {};
+  const analysisUnavailable =
+    result?.analysis_status === "unavailable" ||
+    result?.used_fallback === true ||
+    (intel as Record<string, unknown>).analysis_status === "unavailable";
+  const unavailableWithoutElevatedCaution = analysisUnavailable && risk === "low";
+  const unavailableWithCaution =
+    analysisUnavailable && (risk === "medium" || risk === "high");
   const scanIdForContext = result?.scan_id ? String(result.scan_id) : "";
   const inputType = String(intel.input_type ?? "unknown");
   const contextQuality = String(intel.context_quality ?? "unknown");
@@ -1792,9 +1838,13 @@ export default function ResultView() {
     String((intel as Record<string, unknown>).analysis_mode ?? "").trim() ||
     (wasRefined ? "refined" : "initial");
 
-  const summaryRaw = result.summary_sentence || t.defaultSummary[risk];
+  const summaryRaw = analysisUnavailable
+    ? result.summary_sentence || t.analysisUnavailable.banner
+    : result.summary_sentence || t.defaultSummary[risk];
   const apiSummary = linkArtifact ? stripLinkOnlyActionFromSummary(summaryRaw, lang) : summaryRaw;
-  const plainSummary = buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
+  const plainSummary = analysisUnavailable
+    ? null
+    : buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
   let summary = plainSummary ?? apiSummary;
   const hasMediumLinkInterpretation =
     risk === "medium" &&
@@ -1803,8 +1853,9 @@ export default function ResultView() {
       abuseInterpretation?.concepts.includes("freeHosting") ||
       abuseInterpretation?.concepts.includes("suspiciousTld"));
   if (
-    abuseInterpretation?.concepts.includes("behaviorInfraCombo") ||
-    hasMediumLinkInterpretation
+    !analysisUnavailable &&
+    (abuseInterpretation?.concepts.includes("behaviorInfraCombo") ||
+      hasMediumLinkInterpretation)
   ) {
     const clickLikeEn = /^This message prompts you to click a link\.?$/i;
     const clickLikeFr = /^Ce message incite à cliquer sur un lien\.?$/i;
@@ -1829,12 +1880,41 @@ export default function ResultView() {
 
   const riskBlockStyle = {
     ...styles.riskBlock,
-    backgroundColor: RISK_CONFIG[risk].bgColor,
+    backgroundColor: unavailableWithoutElevatedCaution
+      ? UNAVAILABLE_CONFIG.bgColor
+      : RISK_CONFIG[risk].bgColor,
     border: "1px solid #D1D5DB",
   };
 
-  const tierColor =
-    risk === "low" ? "#15803D" : risk === "medium" ? "#B45309" : "#B91C1C";
+  const tierColor = unavailableWithoutElevatedCaution
+    ? UNAVAILABLE_CONFIG.color
+    : risk === "low"
+      ? "#15803D"
+      : risk === "medium"
+        ? "#B45309"
+        : "#B91C1C";
+
+  const riskTitle = unavailableWithoutElevatedCaution
+    ? t.analysisUnavailable.title
+    : t.tier[risk];
+  const riskConfidenceLabel = analysisUnavailable
+    ? t.analysisUnavailable.confidenceLabel
+    : t.confidenceLabel;
+  const riskConfidenceText = analysisUnavailable
+    ? t.analysisUnavailable.confidenceValue
+    : confidenceText;
+  const riskConfidenceHelper = analysisUnavailable
+    ? t.analysisUnavailable.confidenceHelper
+    : confidenceHelperText;
+  const riskMeterLabel = unavailableWithoutElevatedCaution
+    ? t.analysisUnavailable.title
+    : t.tier[risk];
+  const riskMeterLevelText = unavailableWithoutElevatedCaution
+    ? t.analysisUnavailable.levelText
+    : `${t.riskLevelLabel} ${t.riskLevel[risk]}`;
+  const unavailableBannerText = unavailableWithCaution
+    ? t.analysisUnavailable.bannerWithCaution
+    : t.analysisUnavailable.banner;
 
   const ri = t.refinementIncomplete;
   const wg = t.weakInputGate;
@@ -2148,19 +2228,29 @@ export default function ResultView() {
           <>
             {/* ---------- A) Risk Block ---------- */}
             <div style={riskBlockStyle} className="gap-2">
+              {analysisUnavailable && (
+                <p
+                  className="text-center text-xs font-medium text-stone-700"
+                  style={{ margin: "0 0 4px", lineHeight: 1.4 }}
+                  role="status"
+                >
+                  {unavailableBannerText}
+                </p>
+              )}
               <div className="text-center text-xl font-semibold" style={{ color: tierColor }}>
-                {t.tier[risk]}
+                {riskTitle}
               </div>
               <p className="text-center text-sm font-medium text-gray-700" style={styles.systemConfidenceLine}>
-                {t.confidenceLabel} {confidenceText}
+                {riskConfidenceLabel} {riskConfidenceText}
               </p>
               <p className="text-center text-xs text-gray-500" style={styles.systemConfidenceHelper}>
-                {confidenceHelperText}
+                {riskConfidenceHelper}
               </p>
               <RiskMeter
                 risk={risk}
-                label={t.tier[risk]}
-                levelText={`${t.riskLevelLabel} ${t.riskLevel[risk]}`}
+                label={riskMeterLabel}
+                levelText={riskMeterLevelText}
+                unavailable={unavailableWithoutElevatedCaution}
               />
               {hasRefinementParent && (
                 <p

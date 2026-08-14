@@ -70,14 +70,23 @@ export function safeParseModelJson(raw: string): {
 }
 
 /**
- * Conservative fallback that always renders safely.
+ * Schema-valid placeholder when the model output cannot be parsed.
+ *
+ * AnalysisSchema requires risk_tier ∈ {low,medium,high}. We keep "low" only as an
+ * internal placeholder — it is NOT a low-risk classification. Downstream code must
+ * set analysis_status="unavailable" when usedFallback and must never present this
+ * as green Low Risk / "safe" / defaultSummary.low (see applyHardFallbackPresentation).
  */
 function fallbackResult(): AnalysisResult {
   return {
     version: "1.0",
     language_detected: "unknown",
+    // Placeholder for Zod only — gated by analysis_status=unavailable on hard fallback.
     risk_tier: "low",
     confidence: 0,
+
+    summary_sentence:
+      "We could not analyze this message reliably. If unsure, do not click links and verify through an official channel.",
 
     summary: {
       headline: "Unable to analyze reliably",
@@ -97,7 +106,7 @@ function fallbackResult(): AnalysisResult {
     data_quality: {
       is_message_like: false,
       ocr_suspected_errors: false,
-      notes: "Fallback result generated due to parsing or validation failure.",
+      notes: "Fallback result generated due to parsing or validation failure. Not a low-risk label.",
     },
 
     safety: {

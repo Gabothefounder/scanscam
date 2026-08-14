@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { ocrImage } from "@/lib/ocr";
 import { analyzeScan } from "@/lib/ai/analyzeScan";
+import { applyHardFallbackPresentation } from "@/lib/ai/hardFallbackPresentation";
+import { buildScanPersistOutcome } from "@/lib/scan/scanPersistOutcome";
 import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
 import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
@@ -2203,8 +2205,17 @@ export async function POST(req: Request) {
       intel_features as Record<string, unknown>
     );
 
-    const userVerdict =
-      finalRiskTier === "high" ? "scam" : finalRiskTier === "medium" ? "suspicious" : "safe";
+    /* ---------- Hard AI fallback: analysis_status ≠ risk_tier (never fake "medium") ---------- */
+    const hardFallback = applyHardFallbackPresentation({
+      usedFallback,
+      riskTier: finalRiskTier,
+      summarySentence: finalSummary,
+      language,
+    });
+    finalRiskTier = hardFallback.risk_tier;
+    finalSummary = hardFallback.summary_sentence;
+    (intel_features as Record<string, unknown>).analysis_status = hardFallback.analysis_status;
+    const userVerdict = hardFallback.user_verdict;
 
     /* ---------- Insert into scans (ALWAYS) ---------- */
     const scanRow: Record<string, any> = {
@@ -2246,15 +2257,28 @@ export async function POST(req: Request) {
     const lp = sanitize(landing_path);
     if (lp != null) scanRow.landing_path = lp;
 
-    /** Refined analysis always inserts a new row so shared canonical URLs stay stable. */
+    /**
+     * Persistence (Phase 0 Priority 2):
+     * - `persisted` = canonical `scans` row exists (SoT for ThreatRecord later).
+     * - `raw_persisted` = temporary `raw_messages` row when requested.
+     * Raw failure must NOT delete or invalidate a successful scans row.
+     */
     const { data: scanData, error: scanError } = await supabase
       .from("scans")
       .insert(scanRow)
       .select("id")
       .single();
 
-    const persisted = !scanError;
-    let scanId = persisted ? (scanData?.id ?? null) : null;
+    const scanInsertOk = !scanError;
+    let scanId =
+      scanInsertOk && scanData?.id != null ? String(scanData.id) : null;
+
+    if (!scanInsertOk) {
+      console.error("[scan_persist] scans insert failed");
+      void logEvent("scan_persist_failed", "critical", "scan_api", {
+        error_code: "insert_failed",
+      });
+    }
 
     if (thinLowGuardMeta.applied && scanId) {
       const guardPayload = {
@@ -2267,9 +2291,10 @@ export async function POST(req: Request) {
       void logEvent("thin_low_confidence_guardrail", "info", "scan_api", guardPayload);
     }
 
-    /* ---------- Insert raw_messages if opted in (atomic: rollback scan on failure) ---------- */
-    let rawMessageError: string | null = null;
-    if (!isRefinedAnalysis && rawOptIn && scanId) {
+    const rawWriteRequested = !isRefinedAnalysis && rawOptIn;
+    let rawInsertOk: boolean | null = null;
+
+    if (rawWriteRequested && scanId) {
       const { error: rawError } = await supabase.from("raw_messages").insert({
         scan_id: scanId,
         message_text: contentText,
@@ -2277,25 +2302,39 @@ export async function POST(req: Request) {
         delete_after: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       });
       if (rawError) {
-        rawMessageError = rawError.message;
-        const { error: delErr } = await supabase.from("scans").delete().eq("id", scanId);
-        if (!delErr) {
-          scanId = null;
-          logEvent("scan_rollback_raw_failed", "warning", "scan_api", { reason: rawError.message });
-        }
-      } else if (source === "ocr" && image && typeof image === "string" && image.startsWith("data:")) {
-        const ok = await persistOcrSubmissionImage(scanId, image);
-        if (!ok) {
-          logEvent("scan_image_upload_skipped", "info", "scan_api", { scan_id: scanId });
+        rawInsertOk = false;
+        console.error("[scan_persist] raw_messages insert failed");
+        void logEvent("raw_persist_failed", "warning", "scan_api", {
+          error_code: "insert_failed",
+          scan_id: scanId,
+        });
+      } else {
+        rawInsertOk = true;
+        if (source === "ocr" && image && typeof image === "string" && image.startsWith("data:")) {
+          const ok = await persistOcrSubmissionImage(scanId, image);
+          if (!ok) {
+            logEvent("scan_image_upload_skipped", "info", "scan_api", { scan_id: scanId });
+          }
         }
       }
     }
+
+    const persistOutcome = buildScanPersistOutcome({
+      scanInsertOk,
+      scanId,
+      rawWriteRequested,
+      rawInsertOk,
+    });
+    scanId = persistOutcome.scan_id;
+    const persisted = persistOutcome.persisted;
+    const raw_persisted = persistOutcome.raw_persisted;
 
     /**
      * 🔑 CANONICAL RESPONSE
      * - Server owns: language, source, data_quality
      * - AI owns: risk_tier, signals, summary_sentence
      * - vNext: scan_id, user_verdict, intel_features
+     * - persisted = canonical scans SoT write; raw_persisted = optional temporary raw
      */
 
     const { data_quality: _aiDataQuality, ...restResult } = result;
@@ -2324,8 +2363,13 @@ export async function POST(req: Request) {
 
         /* vNext fields */
         scan_id: scanId,
+        /** Canonical `scans` observation persisted (SoT). */
         persisted,
+        /** Temporary `raw_messages` retention when requested; independent of `persisted`. */
+        raw_persisted,
         user_verdict: userVerdict,
+        used_fallback: hardFallback.used_fallback,
+        analysis_status: hardFallback.analysis_status,
         intel_features,
       },
     });
