@@ -40,7 +40,10 @@ export function logScanEvent(
     | "guide_report_unlocked"
     | "conversation_page_view"
     | "conversation_booking_click"
-    | "conversation_email_click",
+    | "conversation_email_click"
+    | "family_protect_page_view"
+    | "family_protect_cta_click"
+    | "family_protect_signup",
   data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;

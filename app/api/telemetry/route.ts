@@ -62,6 +62,9 @@ const ALLOWED_EVENTS = [
   "conversation_page_view",
   "conversation_booking_click",
   "conversation_email_click",
+  "family_protect_page_view",
+  "family_protect_cta_click",
+  "family_protect_signup",
 ] as const;
 
 const ALLOWED_PROPS = [
@@ -99,6 +102,7 @@ const ALLOWED_PROPS = [
   "lang",
   "analysis_mode",
   "cta_variant",
+  "who_protect_category",
 ] as const;
 
 const BANNED_KEYS = [
