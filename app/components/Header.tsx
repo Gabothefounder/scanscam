@@ -4,39 +4,50 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-function isConversationPath(pathname: string | null): boolean {
-  return pathname === "/conversation" || pathname === "/fr/conversation";
-}
+/** Path-based locale pairs — only these routes use path EN/FR switching. */
+const PATH_LOCALE: Record<string, { en: string; fr: string; isFr: boolean }> = {
+  "/conversation": { en: "/conversation", fr: "/fr/conversation", isFr: false },
+  "/fr/conversation": { en: "/conversation", fr: "/fr/conversation", isFr: true },
+  "/protect-family": {
+    en: "/protect-family",
+    fr: "/fr/protect-family",
+    isFr: false,
+  },
+  "/fr/protect-family": {
+    en: "/protect-family",
+    fr: "/fr/protect-family",
+    isFr: true,
+  },
+};
 
 export default function Header() {
   const pathname = usePathname();
   const hideLangToggle = pathname === "/parking-ticket-text";
-  const conversationMode = isConversationPath(pathname);
+  const pathLocale = pathname ? PATH_LOCALE[pathname] : undefined;
 
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
   /* --- ensure stable first render (hydration-safe) --- */
   useEffect(() => {
-    if (conversationMode) {
-      setLang(pathname === "/fr/conversation" ? "fr" : "en");
+    if (pathLocale) {
+      setLang(pathLocale.isFr ? "fr" : "en");
     } else {
       const params = new URLSearchParams(window.location.search);
       const currentLang = params.get("lang") === "fr" ? "fr" : "en";
       setLang(currentLang);
     }
     setMounted(true);
-  }, [conversationMode, pathname]);
+  }, [pathLocale, pathname]);
 
   if (!mounted) {
     return null;
   }
 
   const switchLang = () => {
-    // Conversation smoke pages use path-based locales only; leave all other routes unchanged.
-    if (conversationMode) {
+    if (pathLocale) {
       const params = window.location.search || "";
-      const nextPath = lang === "fr" ? "/conversation" : "/fr/conversation";
+      const nextPath = lang === "fr" ? pathLocale.en : pathLocale.fr;
       window.location.assign(`${nextPath}${params}`);
       return;
     }
