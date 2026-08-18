@@ -37,7 +37,10 @@ export function logScanEvent(
     | "guide_report_cta_viewed"
     | "guide_report_cta_clicked"
     | "guide_report_optin_submitted"
-    | "guide_report_unlocked",
+    | "guide_report_unlocked"
+    | "conversation_page_view"
+    | "conversation_booking_click"
+    | "conversation_email_click",
   data?: { scan_id?: string; props?: Record<string, unknown> }
 ): void {
   if (typeof window === "undefined") return;

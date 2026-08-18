@@ -4,26 +4,43 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
+function isConversationPath(pathname: string | null): boolean {
+  return pathname === "/conversation" || pathname === "/fr/conversation";
+}
+
 export default function Header() {
   const pathname = usePathname();
   const hideLangToggle = pathname === "/parking-ticket-text";
+  const conversationMode = isConversationPath(pathname);
 
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
   /* --- ensure stable first render (hydration-safe) --- */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const currentLang = params.get("lang") === "fr" ? "fr" : "en";
-    setLang(currentLang);
+    if (conversationMode) {
+      setLang(pathname === "/fr/conversation" ? "fr" : "en");
+    } else {
+      const params = new URLSearchParams(window.location.search);
+      const currentLang = params.get("lang") === "fr" ? "fr" : "en";
+      setLang(currentLang);
+    }
     setMounted(true);
-  }, []);
+  }, [conversationMode, pathname]);
 
   if (!mounted) {
     return null;
   }
 
   const switchLang = () => {
+    // Conversation smoke pages use path-based locales only; leave all other routes unchanged.
+    if (conversationMode) {
+      const params = window.location.search || "";
+      const nextPath = lang === "fr" ? "/conversation" : "/fr/conversation";
+      window.location.assign(`${nextPath}${params}`);
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const nextLang = lang === "fr" ? "en" : "fr";
     params.set("lang", nextLang);
