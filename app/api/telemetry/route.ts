@@ -59,6 +59,9 @@ const ALLOWED_EVENTS = [
   "guide_report_cta_clicked",
   "guide_report_optin_submitted",
   "guide_report_unlocked",
+  "conversation_page_view",
+  "conversation_booking_click",
+  "conversation_email_click",
 ] as const;
 
 const ALLOWED_PROPS = [
