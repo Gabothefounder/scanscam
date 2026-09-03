@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { allSuspiciousEvents, families, type FamilyId } from "./atlasData";
+import EmergencyEncounter from "./EmergencyEncounter";
+import encounterStyles from "./encounter.module.css";
 import styles from "./atlas.module.css";
 
 const questions = [
@@ -39,13 +41,15 @@ export default function AtlasExperience() {
   return <main className={styles.page}>
     <header className={styles.header}><Link href="/">ScanScam</Link><div><b>Atlas of Deception</b><span>Cognitive defence</span></div><Link href="/scan">Scan a message</Link></header>
     <section className={styles.sky}>
-      <div className={styles.intro}><p className={styles.kicker}>A living map of deception</p><h1>Learn the pattern.<br/>Find your way back.</h1><p>Explore by fraud family or begin with something that felt wrong.</p></div>
+      <div className={styles.intro}><p className={styles.kicker}>A living map of deception</p><h1>Learn the pattern.<br/>Find your way back.</h1><p>Explore by fraud family or begin with something that felt wrong.</p><a className={encounterStyles.playLink} href="#encounter">Enter the first encounter ↓</a></div>
       <div className={styles.constellation}>
         <svg viewBox="0 0 1000 650" aria-hidden="true"><path d="M205 175C350 260 370 285 500 310S705 255 778 165M500 310C655 370 720 420 825 455M500 310C390 430 330 485 250 500M500 310C510 420 505 500 510 570"/></svg>
         {families.map((item) => <button key={item.id} className={familyId === item.id ? styles.open : ""} style={{left:`${item.x}%`,top:`${item.y}%`,width:item.size,height:item.size}} onClick={() => openFamily(item.id)} aria-pressed={familyId === item.id}><span>{item.name}</span><small>{item.constellationNote}</small></button>)}
       </div>
       <div className={styles.event}><label htmlFor="event">Something felt wrong…</label><select id="event" value={event} onChange={e => chooseEvent(e.target.value)}><option value="">Choose a suspicious event</option>{families.map(item => <optgroup key={item.id} label={item.name}>{item.events.map(e => <option key={e}>{e}</option>)}</optgroup>)}</select>{event && <a href="#journey">See where this appears ↓</a>}</div>
     </section>
+
+    <EmergencyEncounter />
 
     <section className={styles.journey} id="journey">
       <div className={styles.journeyIntro}><p className={styles.kicker}>Open constellation · {family.name}</p><h2>{family.title}</h2><p>{family.summary} Select a stage to see what may happen next.</p></div>
