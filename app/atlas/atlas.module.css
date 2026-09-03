@@ -5,8 +5,9 @@
   min-height: calc(100vh - 156px);
   color: var(--ink);
   background:
-    radial-gradient(circle at 48% 33%, rgba(255, 255, 255, 0.8), transparent 38%),
-    linear-gradient(145deg, #f8f3e8 0%, #efe6d3 100%);
+    radial-gradient(ellipse at 48% 30%, rgba(255, 233, 173, 0.88), transparent 26%),
+    radial-gradient(ellipse at 62% 54%, rgba(83, 105, 160, 0.18), transparent 34%),
+    linear-gradient(145deg, #e8dfca 0%, #f7f0df 47%, #d8c8a8 100%);
   padding: 1.25rem clamp(1rem, 3vw, 3rem) 3rem;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
@@ -85,14 +86,23 @@
 }
 
 .privacy { margin: 1rem 0 0; color: #64707c; font-size: 0.78rem; }
-.mapShell { min-width: 0; }
+.mapShell {
+  min-width: 0;
+  position: relative;
+  padding: 1.5rem 0;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 220, 126, 0.26), transparent 52%);
+}
 .map { display: block; width: 100%; height: auto; overflow: visible; }
 .mapInstruction { margin: 0.35rem 0 0; color: #6b7783; font-size: 0.8rem; text-align: center; }
 
 .contours path { fill: none; stroke: rgba(51, 91, 116, 0.18); stroke-width: 1; }
-.territory { cursor: pointer; outline: none; transition: opacity 180ms ease; }
+.territory { cursor: pointer; outline: none; transition: opacity 500ms ease, filter 500ms ease; }
 .territory path { stroke: rgba(255,255,255,0.5); stroke-width: 2; transition: stroke 180ms ease, transform 180ms ease; transform-box: fill-box; transform-origin: center; }
 .territory text { fill: #fff9e9; font: 600 18px Georgia, serif; letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none; }
+.territory.receded { opacity: 0.26; filter: saturate(0.42) blur(0.35px); }
+.territory.receded:hover,
+.territory.receded:focus { opacity: 0.72; filter: saturate(0.8); }
+.territory.selected { opacity: 1; filter: drop-shadow(0 0 18px rgba(255, 213, 116, 0.6)); }
 .territory:hover path,
 .territory:focus path,
 .territory.selected path { stroke: #ffdf92; stroke-width: 4; transform: scale(1.025); }
@@ -103,7 +113,7 @@
 .shame path, .detailMarker.shame { fill: #723b5d; background: #723b5d; }
 .anger path, .detailMarker.anger { fill: #9b3e2b; background: #9b3e2b; }
 
-.seaLabel { fill: rgba(16, 37, 59, 0.7); font: 500 13px Georgia, serif; letter-spacing: 0.35em; text-transform: uppercase; }
+.seaLabel { fill: rgba(16, 37, 59, 0.72); font: 500 12px Georgia, serif; letter-spacing: 0.22em; text-transform: uppercase; }
 .journey > path { fill: none; stroke: #f7cf79; stroke-width: 3; filter: url(#glow); }
 .journey circle { fill: #fff9e9; stroke: #bd8430; stroke-width: 2; }
 .journey text { fill: #172c3f; font: 600 10px var(--font-geist-sans), sans-serif; paint-order: stroke; stroke: #fbf4e7; stroke-width: 5px; stroke-linejoin: round; }
@@ -144,9 +154,14 @@
 .detail h2 { margin: 0.15rem 0 0.1rem; font-size: 2rem; }
 .short { margin: 0; color: #68727d; font-size: 0.86rem; }
 .description { margin: 0; line-height: 1.58; color: #394b5c; }
+.description p { margin: 0; }
+.description blockquote { margin: 0.8rem 0 0; padding-left: 0.9rem; border-left: 2px solid rgba(184,135,53,0.5); color: #263c50; font-family: Georgia, serif; font-style: italic; }
 .detail ul { margin: 0.45rem 0 0; padding-left: 1.1rem; color: #394b5c; line-height: 1.55; }
 .antidote { border-left: 1px solid rgba(184, 135, 53, 0.45); padding-left: 1.25rem; }
 .antidote p:last-child { margin: 0.45rem 0 0; line-height: 1.55; }
+.helpActions { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; }
+.helpActions a { padding: 0.55rem 0.7rem; border: 1px solid rgba(184,135,53,0.55); color: var(--ink); background: rgba(255,255,255,0.36); text-decoration: none; font-size: 0.78rem; font-weight: 650; }
+.helpActions a:first-child { color: #fff8e8; background: var(--ink); }
 
 @media (max-width: 1050px) {
   .workspace { grid-template-columns: minmax(190px, 0.75fr) minmax(0, 2fr); }
