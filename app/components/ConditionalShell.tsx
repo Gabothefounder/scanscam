@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import ClientShell from "./ClientShell";
 import Footer from "./Footer";
+import CookieConsentBanner from "./CookieConsentBanner";
 
 export default function ConditionalShell({
   children,
@@ -11,9 +12,19 @@ export default function ConditionalShell({
 }) {
   const pathname = usePathname();
   const isInternal = pathname?.startsWith("/internal");
+  const isAtlas = pathname === "/atlas";
 
   if (isInternal) {
     return <>{children}</>;
+  }
+
+  if (isAtlas) {
+    return (
+      <>
+        {children}
+        <CookieConsentBanner />
+      </>
+    );
   }
 
   return (
