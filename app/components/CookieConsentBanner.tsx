@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export const COOKIE_CONSENT_KEY = "scanscam_cookie_consent" as const;
 
@@ -76,6 +77,8 @@ const COPY: Record<
 };
 
 export default function CookieConsentBanner() {
+  const pathname = usePathname();
+  const atlasMode = pathname === "/atlas";
   const [choice, setChoice] = useCookieConsent();
   const [lang, setLang] = useState<Lang>("en");
 
@@ -106,7 +109,7 @@ export default function CookieConsentBanner() {
         position: "fixed",
         left: 0,
         right: 0,
-        bottom: 24,
+          bottom: atlasMode ? 10 : 24,
         zIndex: 40,
         display: "flex",
         justifyContent: "center",
@@ -117,12 +120,12 @@ export default function CookieConsentBanner() {
         style={{
           pointerEvents: "auto",
           margin: "10px 16px",
-          maxWidth: 760,
+          maxWidth: atlasMode ? 560 : 760,
           width: "100%",
-          backgroundColor: "#111827",
+          backgroundColor: atlasMode ? "rgba(8, 17, 31, 0.92)" : "#111827",
           color: "#F9FAFB",
-          borderRadius: 12,
-          padding: "14px 20px",
+          borderRadius: atlasMode ? 2 : 12,
+          padding: atlasMode ? "10px 14px" : "14px 20px",
           boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)",
           border: "1px solid rgba(255,255,255,0.06)",
           display: "flex",
@@ -204,4 +207,3 @@ export default function CookieConsentBanner() {
     </div>
   );
 }
-
