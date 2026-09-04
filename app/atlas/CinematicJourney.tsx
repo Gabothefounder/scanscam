@@ -79,6 +79,8 @@ export default function CinematicJourney() {
   };
   const emotionLines = scene?.key === "emotion" && selected.length
     ? selected.map((id) => ({ id, text: tx(emotionReflections[id], lang) })) : [];
+  const activeEmotion = scene?.key === "emotion" ? selected[selected.length - 1] : undefined;
+  const activeEmotionLabel = activeEmotion ? scene.choices?.find((choice) => choice[0] === activeEmotion)?.[lang === "en" ? 1 : 2] : undefined;
   const reflection = scene?.key !== "emotion" && scene?.reflection ? tx(scene.reflection, lang) : "";
 
   const summary = useMemo(() => {
@@ -110,7 +112,7 @@ export default function CinematicJourney() {
   const canContinue = selected.length > 0 || Boolean(words[scene?.key]?.trim()) || !scene?.choices || scene.key === "arrival";
 
   return (
-    <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={scene?.key === "emotion" ? selected[selected.length - 1] || "" : ""}>
+    <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={activeEmotion || ""} data-pressure={scene?.key === "pressure" ? Math.min(selected.length, 4) : 0} data-choice={selected[selected.length - 1] || ""}>
       <nav className={styles.nav}><Link href="/">ScanScam</Link><span>{t.atlas}</span><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
       <Image className={styles.art} src={imageFor(image)} alt="" fill priority sizes="100vw" />
       <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" />
@@ -133,6 +135,7 @@ export default function CinematicJourney() {
             {scene.ownWords && <div className={styles.own}>{!showWords ? <button onClick={() => setShowWords(true)}>＋ {t.own}</button> : <textarea autoFocus value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} />}</div>}
             {emotionLines.length > 0 && <div className={styles.emotionReflections}>{emotionLines.map((item) => <div key={item.id} data-emotion={item.id}><i aria-hidden="true" /><span>{item.text}</span></div>)}</div>}
             {reflection && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
+            {activeEmotion && <div className={styles.emotionMoment} data-emotion={activeEmotion}><i aria-hidden="true" /><p>{activeEmotionLabel}</p><blockquote>{tx(emotionReflections[activeEmotion], lang)}</blockquote><button onClick={advance}>{lang === "en" ? "Keep going" : "Continuer"}<span>→</span></button></div>}
             {scene.key === "return" && selected.length ? <div className={styles.ending}><p>{selected.includes("share") ? (lang === "en" ? "A new light joins the landscape." : "Une nouvelle lumière rejoint le paysage.") : (lang === "en" ? "Your light remains yours." : "Votre lumière demeure la vôtre.")}</p><button onClick={restart}>{t.restart}</button><Link href="/atlas">{lang === "en" ? "Explore the Atlas" : "Explorer l’Atlas"}</Link><label><span>{t.optional}</span><input type="email" placeholder={t.email} /><button type="button" title={t.noStore}>{t.notify}</button></label></div> : scene.key !== "return" &&
               <footer>{step > 0 && <button onClick={() => setStep(step - 1)}>{t.back}</button>}<button className={styles.skip} onClick={advance}>{t.skip}</button><button className={styles.next} disabled={!canContinue} onClick={advance}>{t.continue}<span>→</span></button></footer>}
           </article>
