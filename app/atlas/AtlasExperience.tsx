@@ -1,3 +1,5 @@
 "use client";
-import EmergencyEncounter from "./EmergencyEncounter";
-export default function AtlasExperience(){return <EmergencyEncounter/>}
+import CinematicJourney from "./CinematicJourney";
+export default function AtlasExperience() {
+  return <CinematicJourney />;
+}
