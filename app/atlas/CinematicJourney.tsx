@@ -14,7 +14,8 @@ type Fact =
   | "request"
   | "payment"
   | "evidence";
-const tx = {
+
+const copy = {
   en: {
     atlas: "Atlas of Deception",
     entry: "Something happened.",
@@ -23,6 +24,7 @@ const tx = {
     own: "In my own words",
     ownHint: "Write anything you remember—or leave this empty.",
     next: "Continue",
+    back: "Back",
     pass: "I’m not ready to answer",
     chapter: "Chapter",
     help: "Need help now?",
@@ -32,16 +34,12 @@ const tx = {
     open: "Open my book",
     return: "The Return",
     returnTitle: "You brought the story back into the light.",
-    returnSub:
-      "What happened is no longer sealed inside the moment. You named it, saw the pressure, and invited another perspective.",
-    story: "My story",
+    returnSub: "What happened is no longer sealed inside the moment.",
+    story: "What I lived",
     edit: "This is yours. Change any word that does not feel right.",
-    facts: "Make it useful",
-    factsSub:
-      "Add only the precision you want. Your book becomes a clearer ledger as you open these pages.",
-    clear: "I remember clearly",
-    unsure: "I’m not certain",
-    outcome: "What should my experience become?",
+    facts: "What I remember",
+    factsSub: "Add only the precision you want. Every field is optional.",
+    outcome: "What I choose",
     private: "Keep my private book",
     report: "Create a practical report",
     trusted: "Share with someone I trust",
@@ -49,12 +47,16 @@ const tx = {
     light: "Leave an anonymous light",
     redacted: "Offer a redacted story",
     lightExplain:
-      "Only fraud family, channel, pressure patterns, approximate country, and month. Never your words, name, evidence, or exact location.",
+      "Only the fraud family, channel, pressure patterns, approximate country, and month. Never your words, name, evidence, or exact location.",
+    sendLight: "Send my anonymous light",
+    sent: "Your light joined the landscape.",
     print: "Print / save my book",
     copyReport: "Copy practical report",
     reset: "Begin another journey",
     local:
       "Prototype: everything remains in this browser. Nothing is submitted or stored.",
+    clear: "I remember clearly",
+    unsure: "I’m not certain",
     nowTitle: "You do not need to decide yet.",
     nowText:
       "Stop contact. Do not send money, codes, or access. Reach your bank or the claimed person using a number you find independently.",
@@ -69,6 +71,7 @@ const tx = {
     own: "Dans mes propres mots",
     ownHint: "Écrivez ce dont vous vous souvenez—ou laissez vide.",
     next: "Continuer",
+    back: "Retour",
     pass: "Je ne suis pas prêt·e à répondre",
     chapter: "Chapitre",
     help: "Besoin d’aide maintenant?",
@@ -78,16 +81,13 @@ const tx = {
     open: "Ouvrir mon livre",
     return: "Le retour",
     returnTitle: "Vous avez ramené votre histoire dans la lumière.",
-    returnSub:
-      "Ce qui est arrivé n’est plus enfermé dans le moment. Vous l’avez nommé, vu la pression et invité un autre regard.",
-    story: "Mon histoire",
+    returnSub: "Ce qui est arrivé n’est plus enfermé dans le moment.",
+    story: "Ce que j’ai vécu",
     edit: "Elle vous appartient. Changez chaque mot qui ne vous ressemble pas.",
-    facts: "La rendre utile",
+    facts: "Ce dont je me souviens",
     factsSub:
-      "Ajoutez seulement la précision désirée. Votre livre devient un registre plus clair à mesure que vous ouvrez ces pages.",
-    clear: "Je m’en souviens clairement",
-    unsure: "Je ne suis pas certain·e",
-    outcome: "Que voulez-vous faire de votre expérience?",
+      "Ajoutez seulement la précision désirée. Chaque champ est facultatif.",
+    outcome: "Ce que je choisis",
     private: "Garder mon livre privé",
     report: "Créer un rapport pratique",
     trusted: "Partager avec une personne de confiance",
@@ -96,18 +96,23 @@ const tx = {
     redacted: "Offrir un récit caviardé",
     lightExplain:
       "Seulement la famille de fraude, le canal, les pressions, le pays approximatif et le mois. Jamais vos mots, votre nom, vos preuves ou votre position exacte.",
+    sendLight: "Envoyer ma lumière anonyme",
+    sent: "Votre lumière a rejoint le paysage.",
     print: "Imprimer / sauvegarder mon livre",
     copyReport: "Copier le rapport pratique",
     reset: "Commencer un autre parcours",
     local:
       "Prototype : tout reste dans ce navigateur. Rien n’est transmis ni enregistré.",
+    clear: "Je m’en souviens clairement",
+    unsure: "Je ne suis pas certain·e",
     nowTitle: "Vous n’avez pas à décider maintenant.",
     nowText:
       "Coupez le contact. N’envoyez ni argent, ni code, ni accès. Joignez votre banque ou la personne prétendue avec un numéro trouvé indépendamment.",
     official: "Centre antifraude du Canada",
   },
 };
-const events = {
+
+const events: Record<Lang, string[][]> = {
   en: [
     [
       "bank",
@@ -153,6 +158,7 @@ const events = {
     ["learn", "Je veux comprendre comment ça fonctionne", "Parcours éducatif"],
   ],
 };
+
 const scenes = {
   en: [
     {
@@ -171,12 +177,7 @@ const scenes = {
       title: "The borrowed face",
       q: "Who did they appear to be?",
       note: "Trust can be borrowed before it is earned.",
-      choices: [
-        "A person I know",
-        "A bank or company",
-        "Police or government",
-        "An expert or person in authority",
-      ],
+      choices: [],
       result: "A familiar face is not a verified identity.",
     },
     {
@@ -202,13 +203,7 @@ const scenes = {
       title: "The surrender gate",
       q: "What were you asked to give?",
       note: "The request reveals where the story was taking you.",
-      choices: [
-        "Money or gift cards",
-        "A password or code",
-        "Identity information",
-        "Access to a device or account",
-        "Silence or secrecy",
-      ],
+      choices: [],
       result: "Nothing must cross this gate today.",
     },
     {
@@ -241,12 +236,7 @@ const scenes = {
       title: "Le visage emprunté",
       q: "Qui cette personne semblait-elle être?",
       note: "La confiance peut être empruntée avant d’être méritée.",
-      choices: [
-        "Une personne que je connais",
-        "Une banque ou entreprise",
-        "La police ou le gouvernement",
-        "Un expert ou une autorité",
-      ],
+      choices: [],
       result: "Un visage familier n’est pas une identité vérifiée.",
     },
     {
@@ -279,13 +269,7 @@ const scenes = {
       title: "La porte du renoncement",
       q: "Qu’est-ce qu’on vous demandait de donner?",
       note: "La demande révèle où l’histoire voulait vous mener.",
-      choices: [
-        "Argent ou cartes-cadeaux",
-        "Un mot de passe ou code",
-        "Des renseignements personnels",
-        "L’accès à un appareil ou compte",
-        "Le silence ou le secret",
-      ],
+      choices: [],
       result: "Rien ne doit franchir cette porte aujourd’hui.",
     },
     {
@@ -300,6 +284,193 @@ const scenes = {
       ],
       result: "Vous avez interrompu le mécanisme en le regardant.",
     },
+  ],
+};
+
+const branch: Record<
+  Lang,
+  Record<string, { face: string[]; gate: string[] }>
+> = {
+  en: {
+    bank: {
+      face: [
+        "My bank",
+        "A fraud department",
+        "A payment company",
+        "A bank employee",
+      ],
+      gate: [
+        "A verification code",
+        "Account access",
+        "A transfer",
+        "Identity information",
+      ],
+    },
+    authority: {
+      face: ["Police", "Tax or government", "A court or lawyer", "A regulator"],
+      gate: [
+        "A fine or payment",
+        "Identity information",
+        "Secrecy",
+        "Remote access",
+      ],
+    },
+    loved: {
+      face: [
+        "A child or grandchild",
+        "A partner or friend",
+        "A familiar voice",
+        "Someone offering help",
+      ],
+      gate: [
+        "Money or gift cards",
+        "An immediate transfer",
+        "Secrecy",
+        "Personal information",
+      ],
+    },
+    company: {
+      face: [
+        "An employer",
+        "A delivery service",
+        "A marketplace seller",
+        "Technical support",
+      ],
+      gate: [
+        "A fee or payment",
+        "A password or code",
+        "Identity information",
+        "Device access",
+      ],
+    },
+    other: {
+      face: ["A person I know", "A company", "An authority", "An expert"],
+      gate: [
+        "Money",
+        "A password or code",
+        "Identity information",
+        "Access or secrecy",
+      ],
+    },
+    learn: {
+      face: [
+        "A loved one",
+        "A trusted institution",
+        "An authority",
+        "An expert",
+      ],
+      gate: [
+        "Money",
+        "A password or code",
+        "Identity information",
+        "Access or secrecy",
+      ],
+    },
+  },
+  fr: {
+    bank: {
+      face: [
+        "Ma banque",
+        "Un service antifraude",
+        "Une société de paiement",
+        "Un employé de banque",
+      ],
+      gate: [
+        "Un code de vérification",
+        "L’accès au compte",
+        "Un virement",
+        "Des renseignements personnels",
+      ],
+    },
+    authority: {
+      face: [
+        "La police",
+        "L’impôt ou le gouvernement",
+        "Un tribunal ou avocat",
+        "Un régulateur",
+      ],
+      gate: [
+        "Une amende ou un paiement",
+        "Des renseignements personnels",
+        "Le secret",
+        "Un accès à distance",
+      ],
+    },
+    loved: {
+      face: [
+        "Un enfant ou petit-enfant",
+        "Un partenaire ou ami",
+        "Une voix familière",
+        "Quelqu’un offrant son aide",
+      ],
+      gate: [
+        "De l’argent ou des cartes-cadeaux",
+        "Un virement immédiat",
+        "Le secret",
+        "Des renseignements personnels",
+      ],
+    },
+    company: {
+      face: [
+        "Un employeur",
+        "Un service de livraison",
+        "Un vendeur en ligne",
+        "Le soutien technique",
+      ],
+      gate: [
+        "Des frais ou un paiement",
+        "Un mot de passe ou code",
+        "Des renseignements personnels",
+        "L’accès à l’appareil",
+      ],
+    },
+    other: {
+      face: [
+        "Une personne connue",
+        "Une entreprise",
+        "Une autorité",
+        "Un expert",
+      ],
+      gate: [
+        "De l’argent",
+        "Un mot de passe ou code",
+        "Des renseignements personnels",
+        "Un accès ou le secret",
+      ],
+    },
+    learn: {
+      face: [
+        "Un proche",
+        "Une institution de confiance",
+        "Une autorité",
+        "Un expert",
+      ],
+      gate: [
+        "De l’argent",
+        "Un mot de passe ou code",
+        "Des renseignements personnels",
+        "Un accès ou le secret",
+      ],
+    },
+  },
+};
+
+const learningQuestions = {
+  en: [
+    "Where can it arrive?",
+    "Which identity might be borrowed?",
+    "How is time compressed?",
+    "What feelings can make the world smaller?",
+    "What can be requested?",
+    "What breaks the spell?",
+  ],
+  fr: [
+    "Par où peut-elle arriver?",
+    "Quelle identité peut être empruntée?",
+    "Comment le temps est-il comprimé?",
+    "Quelles émotions peuvent rétrécir le monde?",
+    "Que peut-on demander?",
+    "Qu’est-ce qui brise le charme?",
   ],
 };
 const people = {
@@ -356,41 +527,44 @@ const sceneFiles = [
   "03-stolen-clock",
   "04-closed-world",
   "05-surrender-gate",
-  "06-second-light",
+  "06-interruption",
 ];
+const glyphs = ["✉", "◐", "◷", "◎", "◇", "✦"];
 
 export default function CinematicJourney() {
-  const [lang, setLang] = useState<Lang>("en"),
-    t = tx[lang];
-  const [phase, setPhase] = useState<Phase>("entry"),
-    [event, setEvent] = useState(""),
-    [scene, setScene] = useState(0),
-    [moving, setMoving] = useState(false),
-    [reaction, setReaction] = useState("");
+  const [lang, setLang] = useState<Lang>("en");
+  const t = copy[lang];
+  const [phase, setPhase] = useState<Phase>("entry");
+  const [event, setEvent] = useState("");
+  const [scene, setScene] = useState(0);
+  const [moving, setMoving] = useState(false);
+  const [reaction, setReaction] = useState("");
   const [answers, setAnswers] = useState<string[][]>(
-      Array.from({ length: 6 }, () => []),
-    ),
-    [own, setOwn] = useState<string[]>(Array.from({ length: 6 }, () => "")),
-    [companion, setCompanion] = useState(""),
-    [copied, setCopied] = useState(false),
-    [now, setNow] = useState(false),
-    [story, setStory] = useState("");
+    Array.from({ length: 6 }, () => []),
+  );
+  const [own, setOwn] = useState<string[]>(Array.from({ length: 6 }, () => ""));
+  const [companion, setCompanion] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(false);
+  const [story, setStory] = useState("");
+  const [bookPage, setBookPage] = useState(0);
+  const [lightSent, setLightSent] = useState(false);
   const [facts, setFacts] = useState<Record<Fact, string>>({
-      when: "",
-      contact: "",
-      identity: "",
-      request: "",
-      payment: "",
-      evidence: "",
-    }),
-    [certainty, setCertainty] = useState<Record<Fact, string>>({
-      when: "",
-      contact: "",
-      identity: "",
-      request: "",
-      payment: "",
-      evidence: "",
-    });
+    when: "",
+    contact: "",
+    identity: "",
+    request: "",
+    payment: "",
+    evidence: "",
+  });
+  const [certainty, setCertainty] = useState<Record<Fact, string>>({
+    when: "",
+    contact: "",
+    identity: "",
+    request: "",
+    payment: "",
+    evidence: "",
+  });
   const [outcomes, setOutcomes] = useState({
     private: true,
     report: false,
@@ -399,62 +573,61 @@ export default function CinematicJourney() {
     light: false,
     redacted: false,
   });
-  const current = scenes[lang][scene],
-    family = events[lang].find((x) => x[0] === event)?.[2] || "";
-  const choose = (v: string) => {
+
+  const family = events[lang].find((x) => x[0] === event)?.[2] || "";
+  const current = scenes[lang][Math.min(scene, 5)];
+  const choices =
+    scene === 1
+      ? branch[lang][event]?.face || branch[lang].other.face
+      : scene === 4
+        ? branch[lang][event]?.gate || branch[lang].other.gate
+        : current.choices;
+  const question =
+    event === "learn" ? learningQuestions[lang][scene] : current.q;
+  const choose = (value: string) => {
     setAnswers((old) =>
-      old.map((r, i) =>
-        i === scene
-          ? r.includes(v)
-            ? r.filter((x) => x !== v)
-            : [...r, v]
-          : r,
+      old.map((row, index) =>
+        index === scene
+          ? row.includes(value)
+            ? row.filter((item) => item !== value)
+            : [...row, value]
+          : row,
       ),
     );
-    setReaction(v);
+    setReaction(value);
   };
   const advance = () => {
     setMoving(true);
-    setTimeout(() => {
-      setScene((x) => x + 1);
+    window.setTimeout(() => {
+      setScene((value) => value + 1);
       setReaction("");
       setMoving(false);
-    }, 900);
+    }, 950);
   };
   const helpMessage =
     lang === "en"
       ? "Something happened and I’m having trouble making sense of it. I don’t need you to solve everything. Could you look at this with me?"
       : "Quelque chose s’est passé et j’ai du mal à y voir clair. Je ne te demande pas de tout régler. Peux-tu regarder ça avec moi?";
-  const narrative = useMemo(
-    () =>
-      lang === "en"
-        ? `It began as ${family || "an uncertain event"}. ${answers[0][0] ? `The first door was ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `It wore the face of ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `You carried ${answers[3].join(", ").toLowerCase()} through the closed world.` : ""} ${answers[4][0] ? `You were asked for ${answers[4][0].toLowerCase()}.` : ""}\n\nNone of this means you were foolish. These patterns are designed to compress time, borrow trust, and isolate judgment. You slowed the story down, named what happened, and brought in ${companion ? companion.toLowerCase() : "the possibility of another perspective"}. That is how agency begins to return.`
-        : `Tout a commencé par ${family ? family.toLowerCase() : "un événement incertain"}. ${answers[0][0] ? `La première porte était ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `L’histoire portait le visage de ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `Vous avez porté ${answers[3].join(", ").toLowerCase()} dans ce monde fermé.` : ""} ${answers[4][0] ? `On vous demandait ${answers[4][0].toLowerCase()}.` : ""}\n\nRien de tout cela ne signifie que vous étiez naïf. Ces mécanismes sont conçus pour comprimer le temps, emprunter la confiance et isoler le jugement. Vous avez ralenti l’histoire, nommé ce qui s’est passé et fait entrer ${companion ? companion.toLowerCase() : "la possibilité d’un autre regard"}. C’est ainsi que l’autonomie revient.`,
-    [answers, companion, family, lang],
-  );
+  const narrative = useMemo(() => {
+    const personal = own.filter(Boolean).join(" ");
+    if (lang === "en")
+      return `It began as ${family || "an uncertain event"}. ${answers[0][0] ? `The first door was ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `It wore the face of ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `I carried ${answers[3].join(", ").toLowerCase()} through the closed world.` : ""} ${answers[4][0] ? `I was asked for ${answers[4][0].toLowerCase()}.` : ""}${personal ? `\n\nIn my own words: ${personal}` : ""}\n\nNone of this means I was foolish. The pattern was designed to compress time, borrow trust, and isolate judgment. I slowed the story down. I can pause, verify independently, and invite ${companion ? companion.toLowerCase() : "another perspective"}. My care was human. My next decision belongs to me.`;
+    return `Tout a commencé par ${family ? family.toLowerCase() : "un événement incertain"}. ${answers[0][0] ? `La première porte était ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `L’histoire portait le visage de ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `J’ai porté ${answers[3].join(", ").toLowerCase()} dans ce monde fermé.` : ""} ${answers[4][0] ? `On me demandait ${answers[4][0].toLowerCase()}.` : ""}${personal ? `\n\nDans mes mots : ${personal}` : ""}\n\nRien de tout cela ne signifie que j’étais naïf. Le mécanisme était conçu pour comprimer le temps, emprunter la confiance et isoler le jugement. J’ai ralenti l’histoire. Je peux faire une pause, vérifier ailleurs et inviter ${companion ? companion.toLowerCase() : "un autre regard"}. Ma bienveillance était humaine. Ma prochaine décision m’appartient.`;
+  }, [answers, companion, family, lang, own]);
   const report = useMemo(
     () =>
       `${t.atlas.toUpperCase()} — ${t.report.toUpperCase()}\n\n${family}\n\n${story || narrative}\n\n${factFields[
         lang
       ]
-        .map(([k, l]) =>
-          facts[k]
-            ? `${l}: ${facts[k]}${certainty[k] ? ` (${certainty[k]})` : ""}`
+        .map(([key, label]) =>
+          facts[key]
+            ? `${label}: ${facts[key]}${certainty[key] ? ` (${certainty[key]})` : ""}`
             : null,
         )
         .filter(Boolean)
         .join("\n")}`,
     [certainty, facts, family, lang, narrative, story, t],
   );
-  const start = (id: string) => {
-    setEvent(id);
-    setPhase("journey");
-    setScene(0);
-  };
-  const openBook = () => {
-    setStory(narrative);
-    setPhase("book");
-  };
   const reset = () => {
     setPhase("entry");
     setEvent("");
@@ -463,7 +636,10 @@ export default function CinematicJourney() {
     setOwn(Array.from({ length: 6 }, () => ""));
     setCompanion("");
     setStory("");
+    setLightSent(false);
   };
+  const pageNames = [t.story, t.facts, t.outcome];
+
   return (
     <main className={styles.page} data-reaction={reaction.toLowerCase()}>
       <nav>
@@ -481,7 +657,7 @@ export default function CinematicJourney() {
       {phase === "entry" && (
         <section className={styles.entry}>
           <Image
-          src="/atlas/scenes/01-arrival.webp"
+            src="/atlas/scenes/01-arrival.webp"
             alt="A luminous person at the beginning of an uncertain encounter"
             fill
             priority
@@ -497,7 +673,14 @@ export default function CinematicJourney() {
             <span>{t.entryNote}</span>
             <div>
               {events[lang].map(([id, label]) => (
-                <button key={id} onClick={() => start(id)}>
+                <button
+                  key={id}
+                  onClick={() => {
+                    setEvent(id);
+                    setPhase("journey");
+                    setScene(0);
+                  }}
+                >
                   {label}
                   <i>→</i>
                 </button>
@@ -512,7 +695,7 @@ export default function CinematicJourney() {
         >
           <Image
             key={scene}
-          src={`/atlas/scenes/${scene < 6 ? sceneFiles[scene] : "06-second-light"}.webp`}
+            src={`/atlas/scenes/${scene < 6 ? sceneFiles[scene] : "06-second-light"}.webp`}
             alt=""
             fill
             priority
@@ -520,10 +703,22 @@ export default function CinematicJourney() {
           />
           <div className={styles.shade} />
           <div className={styles.particles}>
-            {Array.from({ length: 14 }, (_, i) => (
-              <i key={i} />
+            {Array.from({ length: 14 }, (_, index) => (
+              <i key={index} />
             ))}
           </div>
+          {reaction && scene < 6 && (
+            <div className={styles.reactionArt} aria-hidden="true">
+              <i />
+              <i />
+              <span>{reaction}</span>
+            </div>
+          )}
+          {moving && (
+            <div className={styles.transitionGlyph} aria-hidden="true">
+              {glyphs[scene]}
+            </div>
+          )}
           {scene < 6 && (
             <article className={styles.scene}>
               <header>
@@ -531,17 +726,19 @@ export default function CinematicJourney() {
                   {t.chapter} {scene + 1} / 6 · {family}
                 </span>
                 <p>{current.title}</p>
-                <h1>{current.q}</h1>
+                <h1>{question}</h1>
                 <em>{current.note}</em>
               </header>
               <div className={styles.choices}>
-                {current.choices.map((v) => (
+                {choices.map((value) => (
                   <button
-                    key={v}
-                    className={answers[scene].includes(v) ? styles.chosen : ""}
-                    onClick={() => choose(v)}
+                    key={value}
+                    className={
+                      answers[scene].includes(value) ? styles.chosen : ""
+                    }
+                    onClick={() => choose(value)}
                   >
-                    {v}
+                    {value}
                   </button>
                 ))}
               </div>
@@ -549,9 +746,11 @@ export default function CinematicJourney() {
                 <span>{t.own}</span>
                 <textarea
                   value={own[scene]}
-                  onChange={(e) =>
-                    setOwn((o) =>
-                      o.map((v, i) => (i === scene ? e.target.value : v)),
+                  onChange={(event) =>
+                    setOwn((old) =>
+                      old.map((value, index) =>
+                        index === scene ? event.target.value : value,
+                      ),
                     )
                   }
                   placeholder={t.ownHint}
@@ -585,14 +784,14 @@ export default function CinematicJourney() {
                 </em>
               </header>
               <div className={styles.people}>
-                {people[lang].map((v) => (
+                {people[lang].map((value) => (
                   <button
-                    key={v}
-                    className={companion === v ? styles.chosen : ""}
-                    onClick={() => setCompanion(v)}
+                    key={value}
+                    className={companion === value ? styles.chosen : ""}
+                    onClick={() => setCompanion(value)}
                   >
                     <i />
-                    {v}
+                    {value}
                   </button>
                 ))}
               </div>
@@ -609,7 +808,14 @@ export default function CinematicJourney() {
                   </button>
                 </blockquote>
               )}
-              <button className={styles.primary} onClick={openBook}>
+              <button
+                className={styles.primary}
+                onClick={() => {
+                  setStory(narrative);
+                  setBookPage(0);
+                  setPhase("book");
+                }}
+              >
                 {t.open} →
               </button>
             </article>
@@ -620,118 +826,176 @@ export default function CinematicJourney() {
         </section>
       )}
       {phase === "book" && (
-        <section className={styles.return}>
+        <section
+          className={`${styles.return} ${lightSent ? styles.lightSent : ""}`}
+        >
           <Image
-          src="/atlas/scenes/07-return.webp"
+            src="/atlas/scenes/07-return.webp"
             alt="A communal landscape filled with lights"
             fill
             priority
             sizes="100vw"
           />
           <div className={styles.shade} />
+          {lightSent && (
+            <div className={styles.lightFlight}>
+              <i />
+              <span>{t.sent}</span>
+            </div>
+          )}
           <article className={styles.book}>
             <header>
               <p>{t.return}</p>
               <h1>{t.returnTitle}</h1>
               <span>{t.returnSub}</span>
+              <div className={styles.bookNav}>
+                {pageNames.map((name, index) => (
+                  <button
+                    key={name}
+                    className={bookPage === index ? styles.active : ""}
+                    onClick={() => setBookPage(index)}
+                  >
+                    <i>{index + 1}</i>
+                    {name}
+                  </button>
+                ))}
+              </div>
             </header>
-            <section className={styles.story}>
-              <div>
-                <p>01 · {t.story}</p>
-                <h2>{family}</h2>
-                <span>{t.edit}</span>
-              </div>
-              <textarea
-                value={story}
-                onChange={(e) => setStory(e.target.value)}
-              />
-            </section>
-            <section className={styles.facts}>
-              <header>
-                <p>02 · {t.facts}</p>
-                <h2>{t.factsSub}</h2>
-              </header>
-              <div>
-                {factFields[lang].map(([k, l, h]) => (
-                  <details key={k}>
-                    <summary>
-                      <i>{facts[k] ? "✦" : "○"}</i>
-                      <span>
-                        <b>{l}</b>
-                        <small>{h}</small>
-                      </span>
-                    </summary>
-                    <textarea
-                      value={facts[k]}
-                      onChange={(e) =>
-                        setFacts((o) => ({ ...o, [k]: e.target.value }))
-                      }
-                    />
-                    <fieldset>
+            {bookPage === 0 && (
+              <section className={styles.story}>
+                <div>
+                  <p>01 · {t.story}</p>
+                  <h2>{family}</h2>
+                  <span>{t.edit}</span>
+                </div>
+                <textarea
+                  value={story}
+                  onChange={(event) => setStory(event.target.value)}
+                />
+              </section>
+            )}
+            {bookPage === 1 && (
+              <section className={styles.facts}>
+                <header>
+                  <p>02 · {t.facts}</p>
+                  <h2>{t.factsSub}</h2>
+                </header>
+                <div>
+                  {factFields[lang].map(([key, label, hint]) => (
+                    <details key={key}>
+                      <summary>
+                        <i>{facts[key] ? "✦" : "○"}</i>
+                        <span>
+                          <b>{label}</b>
+                          <small>{hint}</small>
+                        </span>
+                      </summary>
+                      <textarea
+                        value={facts[key]}
+                        onChange={(event) =>
+                          setFacts((old) => ({
+                            ...old,
+                            [key]: event.target.value,
+                          }))
+                        }
+                      />
+                      <fieldset>
+                        <button
+                          className={
+                            certainty[key] === "clear" ? styles.active : ""
+                          }
+                          onClick={() =>
+                            setCertainty((old) => ({ ...old, [key]: "clear" }))
+                          }
+                        >
+                          {t.clear}
+                        </button>
+                        <button
+                          className={
+                            certainty[key] === "uncertain" ? styles.active : ""
+                          }
+                          onClick={() =>
+                            setCertainty((old) => ({
+                              ...old,
+                              [key]: "uncertain",
+                            }))
+                          }
+                        >
+                          {t.unsure}
+                        </button>
+                      </fieldset>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            )}
+            {bookPage === 2 && (
+              <>
+                <section className={styles.outcomes}>
+                  <p>03 · {t.outcome}</p>
+                  <div>
+                    {Object.entries({
+                      private: t.private,
+                      report: t.report,
+                      trusted: t.trusted,
+                      destination: t.destination,
+                      light: t.light,
+                      redacted: t.redacted,
+                    }).map(([key, label]) => (
+                      <label key={key}>
+                        <input
+                          type="checkbox"
+                          checked={outcomes[key as keyof typeof outcomes]}
+                          onChange={(event) =>
+                            setOutcomes((old) => ({
+                              ...old,
+                              [key]: event.target.checked,
+                            }))
+                          }
+                        />
+                        <i />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                  {outcomes.light && (
+                    <aside>
+                      <b>{t.light}</b>
+                      <p>{t.lightExplain}</p>
                       <button
-                        className={
-                          certainty[k] === "clear" ? styles.active : ""
-                        }
-                        onClick={() =>
-                          setCertainty((o) => ({ ...o, [k]: "clear" }))
-                        }
+                        disabled={lightSent}
+                        onClick={() => setLightSent(true)}
                       >
-                        {t.clear}
+                        {lightSent ? t.sent : t.sendLight}
                       </button>
-                      <button
-                        className={
-                          certainty[k] === "uncertain" ? styles.active : ""
-                        }
-                        onClick={() =>
-                          setCertainty((o) => ({ ...o, [k]: "uncertain" }))
-                        }
-                      >
-                        {t.unsure}
-                      </button>
-                    </fieldset>
-                  </details>
-                ))}
-              </div>
-            </section>
-            <section className={styles.outcomes}>
-              <p>03 · {t.outcome}</p>
-              <div>
-                {Object.entries({
-                  private: t.private,
-                  report: t.report,
-                  trusted: t.trusted,
-                  destination: t.destination,
-                  light: t.light,
-                  redacted: t.redacted,
-                }).map(([k, l]) => (
-                  <label key={k}>
-                    <input
-                      type="checkbox"
-                      checked={outcomes[k as keyof typeof outcomes]}
-                      onChange={(e) =>
-                        setOutcomes((o) => ({ ...o, [k]: e.target.checked }))
-                      }
-                    />
-                    <i />
-                    {l}
-                  </label>
-                ))}
-              </div>
-              {outcomes.light && (
-                <aside>
-                  <b>{t.light}</b>
-                  <p>{t.lightExplain}</p>
-                </aside>
-              )}
-            </section>
-            <section className={styles.actions}>
-              <button onClick={() => window.print()}>{t.print}</button>
-              <button onClick={() => navigator.clipboard.writeText(report)}>
-                {t.copyReport}
+                    </aside>
+                  )}
+                </section>
+                <section className={styles.actions}>
+                  <button onClick={() => window.print()}>{t.print}</button>
+                  <button onClick={() => navigator.clipboard.writeText(report)}>
+                    {t.copyReport}
+                  </button>
+                  <button onClick={reset}>{t.reset}</button>
+                </section>
+                <footer>{t.local}</footer>
+              </>
+            )}
+            <div className={styles.pageTurn}>
+              <button
+                disabled={bookPage === 0}
+                onClick={() => setBookPage((page) => page - 1)}
+              >
+                ← {t.back}
               </button>
-              <button onClick={reset}>{t.reset}</button>
-            </section>
-            <footer>{t.local}</footer>
+              <span>{bookPage + 1} / 3</span>
+              <button
+                disabled={bookPage === 2}
+                onClick={() => setBookPage((page) => page + 1)}
+              >
+                {t.next} →
+              </button>
+            </div>
           </article>
           <button className={styles.help} onClick={() => setNow(true)}>
             {t.help}
