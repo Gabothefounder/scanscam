@@ -1,5 +1,5 @@
 export type Lang = "en" | "fr";
-export type EntryMode = "scan" | "lived" | "learn";
+export type EntryMode = "scan" | "lived" | "helping" | "learn";
 
 export type JourneyScene = {
   key: string;

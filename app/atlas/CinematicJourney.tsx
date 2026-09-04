@@ -13,8 +13,9 @@ const imageFor = (name: string) => `/atlas/poetic-folk/${name}.webp`;
 
 const ui = {
   en: {
-    atlas: "Atlas of Deception", prompt: "What brought you here?", promise: "Follow what happened. See how the pressure worked. Leave with a clear record.", scan: "Scan something", lived: "Something happened", learn: "I want to learn",
-    scanLead: "Bring a suspicious message into the story.", livedLead: "Walk gently through something you experienced.", learnLead: "Explore a fictional example without creating a report.",
+    atlas: "Atlas of Deception", prompt: "Something happened. Let’s make it clear.", promise: "In about two minutes, retrace what happened, see the pressure that was used, and leave with a private record you can share with your bank, someone you trust, or official help.", reassurance: "You don’t need perfect words. Choose only what feels true.", lived: "It happened to me", helping: "I’m helping someone", learn: "I’m just exploring",
+    livedLead: "Walk gently through something you experienced.", helpingLead: "Help someone you care about make sense of what happened.", learnLead: "See how a fictional bank impersonation unfolds.",
+    scanContext: "This is the message you brought. Let’s look at what happened around it.", livedContext: "Start with the first thing you remember.", helpingContext: "Begin with what they told you. You do not need every detail.", learnContext: "Follow a fictional example. Nothing you choose creates a report.",
     continue: "Continue", back: "Back", skip: "I’m not ready to answer", own: "Use my own words", ownPlaceholder: "Write anything you remember—or leave this empty.",
     help: "This is happening now", helpTitle: "Pause here.", helpBody: "Stop contact. Don’t send money, codes or access. Reach your bank or the claimed person using a number you find independently.", close: "Return to the journey",
     message: "Suspicious message", messagePlaceholder: "Paste the message here—or continue without it.", example: "A message says your bank account is in danger. Act now or it will be frozen.",
@@ -24,8 +25,9 @@ const ui = {
     copy: "Copy summary", copied: "Copied", print: "Print or save", report: "Find where to report it", restart: "Begin again", optional: "Optional family protection updates", email: "Email address", notify: "Join the waitlist", noStore: "Prototype only—email is not submitted yet.",
   },
   fr: {
-    atlas: "Atlas de la tromperie", prompt: "Qu’est-ce qui vous amène ici?", promise: "Retracez ce qui s’est passé. Voyez comment la pression a agi. Repartez avec un registre clair.", scan: "Analyser quelque chose", lived: "Quelque chose s’est passé", learn: "Je veux comprendre",
-    scanLead: "Faites entrer un message suspect dans l’histoire.", livedLead: "Parcourez doucement une expérience vécue.", learnLead: "Explorez un exemple fictif sans créer de signalement.",
+    atlas: "Atlas de la tromperie", prompt: "Quelque chose s’est passé. Clarifions-le ensemble.", promise: "En environ deux minutes, retracez ce qui s’est passé, voyez la pression utilisée et repartez avec un registre privé à partager avec votre banque, une personne de confiance ou un service officiel.", reassurance: "Vous n’avez pas besoin des mots parfaits. Choisissez seulement ce qui semble vrai.", lived: "Ça m’est arrivé", helping: "J’aide quelqu’un", learn: "Je veux simplement explorer",
+    livedLead: "Parcourez doucement une expérience vécue.", helpingLead: "Aidez une personne qui vous est chère à comprendre ce qui s’est passé.", learnLead: "Voyez comment une fausse banque construit sa tromperie.",
+    scanContext: "Voici le message que vous avez apporté. Regardons ce qui s’est construit autour.", livedContext: "Commencez par la première chose dont vous vous souvenez.", helpingContext: "Commencez par ce que la personne vous a raconté. Tous les détails ne sont pas nécessaires.", learnContext: "Suivez un exemple fictif. Aucun de vos choix ne crée un signalement.",
     continue: "Continuer", back: "Retour", skip: "Je ne suis pas prêt·e à répondre", own: "Utiliser mes propres mots", ownPlaceholder: "Écrivez ce dont vous vous souvenez—ou laissez vide.",
     help: "Ça se passe maintenant", helpTitle: "Faites une pause ici.", helpBody: "Coupez le contact. N’envoyez ni argent, ni code, ni accès. Joignez votre banque ou la personne prétendue avec un numéro trouvé indépendamment.", close: "Revenir au parcours",
     message: "Message suspect", messagePlaceholder: "Collez le message ici—ou continuez sans le faire.", example: "Un message affirme que votre compte bancaire est en danger. Agissez maintenant ou il sera bloqué.",
@@ -107,6 +109,7 @@ export default function CinematicJourney() {
     window.localStorage.removeItem("scanscam-atlas-draft");
   };
   const begin = (entry: EntryMode) => { setMode(entry); setStep(0); if (entry === "learn") setMessage(t.example); };
+  const contextLine = mode === "scan" ? t.scanContext : mode === "helping" ? t.helpingContext : mode === "learn" ? t.learnContext : t.livedContext;
   const copySummary = async () => { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1800); };
   const image = !mode ? "entrance" : scene.image;
   const canContinue = selected.length > 0 || Boolean(words[scene?.key]?.trim()) || !scene?.choices || scene.key === "arrival";
@@ -115,18 +118,18 @@ export default function CinematicJourney() {
     <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={activeEmotion || ""} data-pressure={scene?.key === "pressure" ? Math.min(selected.length, 4) : 0} data-choice={selected[selected.length - 1] || ""}>
       <nav className={styles.nav}><Link href="/">ScanScam</Link><span>{t.atlas}</span><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
       <Image className={styles.art} src={imageFor(image)} alt="" fill priority sizes="100vw" />
-      <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" />
+      <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" /><div className={styles.storyThread} aria-hidden="true"><i /><i /><i /></div>
       {!mode ? (
-        <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><span className={styles.promise}>{t.promise}</span><div className={styles.doors}>
-          <button onClick={() => begin("scan")}><b>{t.scan}</b><span>{t.scanLead}</span></button>
+        <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><span className={styles.promise}>{t.promise}</span><span className={styles.reassurance}>{t.reassurance}</span><div className={styles.doors}>
           <button onClick={() => begin("lived")}><b>{t.lived}</b><span>{t.livedLead}</span></button>
-          <button onClick={() => begin("learn")}><b>{t.learn}</b><span>{t.learnLead}</span></button>
-        </div></section>
+          <button onClick={() => begin("helping")}><b>{t.helping}</b><span>{t.helpingLead}</span></button>
+        </div><button className={styles.explore} onClick={() => begin("learn")}>{t.learn}<span>{t.learnLead}</span></button></section>
       ) : (
         <section className={styles.experience}>
           <div className={styles.progress} aria-label={`${step + 1} / ${scenes.length}`}><i style={{ width: `${((step + 1) / scenes.length) * 100}%` }} /><span>{step < 2 ? (lang === "en" ? "The story arrives" : "L’histoire arrive") : step < 5 ? (lang === "en" ? "The world narrows" : "Le monde rétrécit") : (lang === "en" ? "The way returns" : "Le chemin revient")}</span></div>
           {step < scenes.length - 1 && <button className={styles.help} onClick={() => setShowHelp(true)}>{t.help}</button>}
           <article className={styles.card}>
+            {step === 0 && <div className={styles.contextLine}><i aria-hidden="true" />{contextLine}</div>}
             <header><p>{tx(scene.eyebrow, lang)}</p><h1>{tx(scene.title, lang)}</h1><span>{tx(scene.lead, lang)}</span></header>
             {scene.key === "arrival" && mode === "scan" && <label className={styles.message}><span>{t.message}</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.messagePlaceholder} /></label>}
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
