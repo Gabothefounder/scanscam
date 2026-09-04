@@ -196,6 +196,8 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
+    journeyCta: "Understand what this message was trying to make you do",
+    journeyCtaNote: "Walk through the pressure, your reactions, and the next safe step.",
     partnerScannerTitle: "Security Message Scanner",
     poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
@@ -485,6 +487,8 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
+    journeyCta: "Comprendre ce que ce message essayait de vous faire faire",
+    journeyCtaNote: "Parcourez la pression, vos réactions et le prochain geste sûr.",
     partnerScannerTitle: "Analyseur de messages suspects",
     poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
@@ -2399,6 +2403,12 @@ export default function ResultView() {
 
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
+        {!weakInputGateActive && !partner && (
+          <a href={`/atlas?mode=scan&lang=${lang}`} style={styles.journeyCta}>
+            <strong>{t.journeyCta}</strong>
+            <span>{t.journeyCtaNote}</span>
+          </a>
+        )}
         {!weakInputGateActive && (
           <a
             href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
@@ -2439,6 +2449,17 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 14,
+  },
+  journeyCta: {
+    display: "block",
+    maxWidth: 620,
+    margin: "0 auto 18px",
+    padding: "16px 18px",
+    border: "1px solid #B7791F",
+    background: "#FFF8E7",
+    color: "#173746",
+    textDecoration: "none",
+    textAlign: "left",
   },
   mspBelowCardHint: {
     margin: 0,
