@@ -13,23 +13,23 @@ const imageFor = (name: string) => `/atlas/poetic-folk/${name}.webp`;
 
 const ui = {
   en: {
-    atlas: "Atlas of Deception", prompt: "What brought you here?", scan: "Scan something", lived: "Something happened", learn: "I want to learn",
+    atlas: "Atlas of Deception", prompt: "What brought you here?", promise: "Follow what happened. See how the pressure worked. Leave with a clear record.", scan: "Scan something", lived: "Something happened", learn: "I want to learn",
     scanLead: "Bring a suspicious message into the story.", livedLead: "Walk gently through something you experienced.", learnLead: "Explore a fictional example without creating a report.",
     continue: "Continue", back: "Back", skip: "I’m not ready to answer", own: "Use my own words", ownPlaceholder: "Write anything you remember—or leave this empty.",
     help: "This is happening now", helpTitle: "Pause here.", helpBody: "Stop contact. Don’t send money, codes or access. Reach your bank or the claimed person using a number you find independently.", close: "Return to the journey",
     message: "Suspicious message", messagePlaceholder: "Paste the message here—or continue without it.", example: "A message says your bank account is in danger. Act now or it will be frozen.",
-    detailsTitle: "Add only what you want", detailsLead: "Do not enter passwords, complete card numbers, government ID numbers or intimate material.",
+    detailsTitle: "Make the record more useful", detailsLead: "Optional. Never enter passwords, complete card numbers, government ID numbers or intimate material.", addDetails: "Add precise details", hideDetails: "Close details",
     when: "When", contact: "Phone, email or website", organization: "Claimed organization", amount: "Amount and currency", payment: "Payment method", reference: "Transaction reference",
     path: "What happened", pressure: "Pressure used", feelings: "What I felt", asked: "What they asked for", nextStep: "My next step", private: "This record stays in this browser unless you copy, print or save it.",
     copy: "Copy summary", copied: "Copied", print: "Print or save", report: "Find where to report it", restart: "Begin again", optional: "Optional family protection updates", email: "Email address", notify: "Join the waitlist", noStore: "Prototype only—email is not submitted yet.",
   },
   fr: {
-    atlas: "Atlas de la tromperie", prompt: "Qu’est-ce qui vous amène ici?", scan: "Analyser quelque chose", lived: "Quelque chose s’est passé", learn: "Je veux comprendre",
+    atlas: "Atlas de la tromperie", prompt: "Qu’est-ce qui vous amène ici?", promise: "Retracez ce qui s’est passé. Voyez comment la pression a agi. Repartez avec un registre clair.", scan: "Analyser quelque chose", lived: "Quelque chose s’est passé", learn: "Je veux comprendre",
     scanLead: "Faites entrer un message suspect dans l’histoire.", livedLead: "Parcourez doucement une expérience vécue.", learnLead: "Explorez un exemple fictif sans créer de signalement.",
     continue: "Continuer", back: "Retour", skip: "Je ne suis pas prêt·e à répondre", own: "Utiliser mes propres mots", ownPlaceholder: "Écrivez ce dont vous vous souvenez—ou laissez vide.",
     help: "Ça se passe maintenant", helpTitle: "Faites une pause ici.", helpBody: "Coupez le contact. N’envoyez ni argent, ni code, ni accès. Joignez votre banque ou la personne prétendue avec un numéro trouvé indépendamment.", close: "Revenir au parcours",
     message: "Message suspect", messagePlaceholder: "Collez le message ici—ou continuez sans le faire.", example: "Un message affirme que votre compte bancaire est en danger. Agissez maintenant ou il sera bloqué.",
-    detailsTitle: "Ajoutez seulement ce que vous voulez", detailsLead: "N’inscrivez aucun mot de passe, numéro de carte complet, numéro d’identité gouvernemental ou contenu intime.",
+    detailsTitle: "Rendre le registre plus utile", detailsLead: "Facultatif. N’inscrivez aucun mot de passe, numéro de carte complet, numéro d’identité gouvernemental ou contenu intime.", addDetails: "Ajouter des détails précis", hideDetails: "Fermer les détails",
     when: "Quand", contact: "Téléphone, courriel ou site", organization: "Organisation prétendue", amount: "Montant et devise", payment: "Mode de paiement", reference: "Référence de transaction",
     path: "Ce qui s’est passé", pressure: "Pression utilisée", feelings: "Ce que j’ai ressenti", asked: "Ce qu’on m’a demandé", nextStep: "Mon prochain pas", private: "Ce registre reste dans ce navigateur à moins que vous le copiiez, l’imprimiez ou le sauvegardiez.",
     copy: "Copier le résumé", copied: "Copié", print: "Imprimer ou sauvegarder", report: "Trouver où le signaler", restart: "Recommencer", optional: "Nouvelles facultatives sur la protection familiale", email: "Adresse courriel", notify: "Joindre la liste d’attente", noStore: "Prototype seulement—le courriel n’est pas encore transmis.",
@@ -77,9 +77,9 @@ export default function CinematicJourney() {
     const source = scenes.find((item) => item.key === key)?.choices || [];
     return (answers[key] || []).map((id) => source.find((choice) => choice[0] === id)?.[lang === "en" ? 1 : 2] || id);
   };
-  const reflection = scene?.key === "emotion" && selected.length
-    ? selected.map((id) => tx(emotionReflections[id], lang)).join(" ")
-    : scene?.reflection ? tx(scene.reflection, lang) : "";
+  const emotionLines = scene?.key === "emotion" && selected.length
+    ? selected.map((id) => ({ id, text: tx(emotionReflections[id], lang) })) : [];
+  const reflection = scene?.key !== "emotion" && scene?.reflection ? tx(scene.reflection, lang) : "";
   const mechanism = [labelFor("identity")[0], labelFor("consequence")[0], labelFor("time")[0], labelFor("isolation")[0], labelFor("request")[0]].filter(Boolean).join("  →  ");
 
   const summary = useMemo(() => {
@@ -98,7 +98,6 @@ export default function CinematicJourney() {
     setAnswers({ ...answers, [scene.key]: scene.multi ? (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]) : [id] });
   };
   const advance = () => {
-    if (scene.key === "evidence" && selected.includes("details") && !showDetails) { setShowDetails(true); return; }
     setMoving(true);
     window.setTimeout(() => { setStep((value) => Math.min(value + 1, scenes.length - 1)); setShowWords(false); setMoving(false); window.scrollTo({ top: 0, behavior: "smooth" }); }, 420);
   };
@@ -112,32 +111,31 @@ export default function CinematicJourney() {
   const canContinue = selected.length > 0 || Boolean(words[scene?.key]?.trim()) || !scene?.choices || scene.key === "arrival";
 
   return (
-    <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"}>
+    <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={scene?.key === "emotion" ? selected[selected.length - 1] || "" : ""}>
       <nav className={styles.nav}><Link href="/">ScanScam</Link><span>{t.atlas}</span><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
       <Image className={styles.art} src={imageFor(image)} alt="" fill priority sizes="100vw" />
       <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" />
       {!mode ? (
-        <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><div className={styles.doors}>
+        <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><span className={styles.promise}>{t.promise}</span><div className={styles.doors}>
           <button onClick={() => begin("scan")}><b>{t.scan}</b><span>{t.scanLead}</span></button>
           <button onClick={() => begin("lived")}><b>{t.lived}</b><span>{t.livedLead}</span></button>
           <button onClick={() => begin("learn")}><b>{t.learn}</b><span>{t.learnLead}</span></button>
         </div></section>
       ) : (
         <section className={styles.experience}>
-          <div className={styles.progress} aria-label={`${step + 1} / ${scenes.length}`}><i style={{ width: `${((step + 1) / scenes.length) * 100}%` }} /></div>
-          {step < 15 && <button className={styles.help} onClick={() => setShowHelp(true)}>{t.help}</button>}
+          <div className={styles.progress} aria-label={`${step + 1} / ${scenes.length}`}><i style={{ width: `${((step + 1) / scenes.length) * 100}%` }} /><span>{step < 4 ? (lang === "en" ? "What happened" : "Ce qui s’est passé") : step < 8 ? (lang === "en" ? "See the pressure" : "Voir la pression") : (lang === "en" ? "Return to clarity" : "Revenir à la clarté")}</span></div>
+          {step < scenes.length - 1 && <button className={styles.help} onClick={() => setShowHelp(true)}>{t.help}</button>}
           <article className={styles.card}>
             <header><p>{tx(scene.eyebrow, lang)}</p><h1>{tx(scene.title, lang)}</h1><span>{tx(scene.lead, lang)}</span></header>
             {scene.key === "arrival" && mode === "scan" && <label className={styles.message}><span>{t.message}</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.messagePlaceholder} /></label>}
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
             {scene.key === "mechanism" && mechanism && <div className={styles.mechanism}>{mechanism}</div>}
-            {scene.key === "journey" && <JourneyPath lang={lang} answers={answers} />}
-            {scene.key === "evidence" && showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}
-            {scene.key === "ledger" && <Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} />}
-            {scene.choices && !(scene.key === "evidence" && showDetails) && <div className={styles.choices}>{scene.choices.map(([id, en, fr]) => <button key={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span><i>{selected.includes(id) ? "●" : "○"}</i></button>)}</div>}
+            {scene.key === "ledger" && <><JourneyPath lang={lang} answers={answers} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}<Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></>}
+            {scene.choices && <div className={`${styles.choices} ${scene.key === "emotion" ? styles.emotionChoices : ""}`}>{scene.choices.map(([id, en, fr]) => <button key={id} data-choice={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span><i>{selected.includes(id) ? "●" : "○"}</i></button>)}</div>}
             {scene.ownWords && <div className={styles.own}>{!showWords ? <button onClick={() => setShowWords(true)}>＋ {t.own}</button> : <textarea autoFocus value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} />}</div>}
+            {emotionLines.length > 0 && <div className={styles.emotionReflections}>{emotionLines.map((item) => <div key={item.id} data-emotion={item.id}><i aria-hidden="true" /><span>{item.text}</span></div>)}</div>}
             {reflection && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
-            {scene.key === "community" ? <div className={styles.ending}><button onClick={restart}>{t.restart}</button><Link href="/atlas">{lang === "en" ? "Explore the Atlas" : "Explorer l’Atlas"}</Link><label><span>{t.optional}</span><input type="email" placeholder={t.email} /><button type="button" title={t.noStore}>{t.notify}</button></label></div> :
+            {scene.key === "community" && selected.length ? <div className={styles.ending}><p>{selected.includes("share") ? (lang === "en" ? "A new light joins the landscape." : "Une nouvelle lumière rejoint le paysage.") : (lang === "en" ? "Your light remains yours." : "Votre lumière demeure la vôtre.")}</p><button onClick={restart}>{t.restart}</button><Link href="/atlas">{lang === "en" ? "Explore the Atlas" : "Explorer l’Atlas"}</Link><label><span>{t.optional}</span><input type="email" placeholder={t.email} /><button type="button" title={t.noStore}>{t.notify}</button></label></div> : scene.key !== "community" &&
               <footer>{step > 0 && <button onClick={() => setStep(step - 1)}>{t.back}</button>} {scene.key !== "ledger" && <button className={styles.skip} onClick={advance}>{t.skip}</button>}<button className={styles.next} disabled={!canContinue && scene.key !== "evidence"} onClick={advance}>{scene.key === "ledger" ? (lang === "en" ? "Carry the light" : "Porter la lumière") : t.continue}<span>→</span></button></footer>}
           </article>
         </section>
