@@ -80,13 +80,12 @@ export default function CinematicJourney() {
   const emotionLines = scene?.key === "emotion" && selected.length
     ? selected.map((id) => ({ id, text: tx(emotionReflections[id], lang) })) : [];
   const reflection = scene?.key !== "emotion" && scene?.reflection ? tx(scene.reflection, lang) : "";
-  const mechanism = [labelFor("identity")[0], labelFor("consequence")[0], labelFor("time")[0], labelFor("isolation")[0], labelFor("request")[0]].filter(Boolean).join("  →  ");
 
   const summary = useMemo(() => {
     const rows = [
-      [t.path, [labelFor("arrival"), labelFor("identity"), labelFor("consequence")].flat().join(" · ")],
-      [t.pressure, [labelFor("time"), labelFor("isolation"), labelFor("escalation")].flat().join(" · ")],
-      [t.feelings, labelFor("emotion").join(" · ")], [t.asked, labelFor("request").join(" · ")], [t.nextStep, labelFor("next").join(" · ")],
+      [t.path, [labelFor("arrival"), labelFor("identity")].flat().join(" · ")],
+      [t.pressure, labelFor("pressure").join(" · ")],
+      [t.feelings, labelFor("emotion").join(" · ")], [t.asked, labelFor("request").join(" · ")], [t.nextStep, labelFor("interruption").join(" · ")],
     ].filter((row) => row[1]);
     const details = Object.entries(evidence).filter(([, value]) => value.trim()).map(([key, value]) => `${t[key as keyof typeof t]}: ${value}`);
     return `${t.atlas}\n\n${rows.map(([label, value]) => `${label}: ${value}`).join("\n")}${details.length ? `\n\n${details.join("\n")}` : ""}\n\n${lang === "en" ? "Visitor account. Not an official police report." : "Récit de la personne. Ceci n’est pas un rapport de police officiel."}`;
@@ -123,20 +122,19 @@ export default function CinematicJourney() {
         </div></section>
       ) : (
         <section className={styles.experience}>
-          <div className={styles.progress} aria-label={`${step + 1} / ${scenes.length}`}><i style={{ width: `${((step + 1) / scenes.length) * 100}%` }} /><span>{step < 4 ? (lang === "en" ? "What happened" : "Ce qui s’est passé") : step < 8 ? (lang === "en" ? "See the pressure" : "Voir la pression") : (lang === "en" ? "Return to clarity" : "Revenir à la clarté")}</span></div>
+          <div className={styles.progress} aria-label={`${step + 1} / ${scenes.length}`}><i style={{ width: `${((step + 1) / scenes.length) * 100}%` }} /><span>{step < 2 ? (lang === "en" ? "The story arrives" : "L’histoire arrive") : step < 5 ? (lang === "en" ? "The world narrows" : "Le monde rétrécit") : (lang === "en" ? "The way returns" : "Le chemin revient")}</span></div>
           {step < scenes.length - 1 && <button className={styles.help} onClick={() => setShowHelp(true)}>{t.help}</button>}
           <article className={styles.card}>
             <header><p>{tx(scene.eyebrow, lang)}</p><h1>{tx(scene.title, lang)}</h1><span>{tx(scene.lead, lang)}</span></header>
             {scene.key === "arrival" && mode === "scan" && <label className={styles.message}><span>{t.message}</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.messagePlaceholder} /></label>}
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
-            {scene.key === "mechanism" && mechanism && <div className={styles.mechanism}>{mechanism}</div>}
-            {scene.key === "ledger" && <><JourneyPath lang={lang} answers={answers} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}<Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></>}
+            {scene.key === "return" && <div className={styles.returnBook}><JourneyPath lang={lang} answers={answers} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}<Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></div>}
             {scene.choices && <div className={`${styles.choices} ${scene.key === "emotion" ? styles.emotionChoices : ""}`}>{scene.choices.map(([id, en, fr]) => <button key={id} data-choice={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span><i>{selected.includes(id) ? "●" : "○"}</i></button>)}</div>}
             {scene.ownWords && <div className={styles.own}>{!showWords ? <button onClick={() => setShowWords(true)}>＋ {t.own}</button> : <textarea autoFocus value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} />}</div>}
             {emotionLines.length > 0 && <div className={styles.emotionReflections}>{emotionLines.map((item) => <div key={item.id} data-emotion={item.id}><i aria-hidden="true" /><span>{item.text}</span></div>)}</div>}
             {reflection && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
-            {scene.key === "community" && selected.length ? <div className={styles.ending}><p>{selected.includes("share") ? (lang === "en" ? "A new light joins the landscape." : "Une nouvelle lumière rejoint le paysage.") : (lang === "en" ? "Your light remains yours." : "Votre lumière demeure la vôtre.")}</p><button onClick={restart}>{t.restart}</button><Link href="/atlas">{lang === "en" ? "Explore the Atlas" : "Explorer l’Atlas"}</Link><label><span>{t.optional}</span><input type="email" placeholder={t.email} /><button type="button" title={t.noStore}>{t.notify}</button></label></div> : scene.key !== "community" &&
-              <footer>{step > 0 && <button onClick={() => setStep(step - 1)}>{t.back}</button>} {scene.key !== "ledger" && <button className={styles.skip} onClick={advance}>{t.skip}</button>}<button className={styles.next} disabled={!canContinue && scene.key !== "evidence"} onClick={advance}>{scene.key === "ledger" ? (lang === "en" ? "Carry the light" : "Porter la lumière") : t.continue}<span>→</span></button></footer>}
+            {scene.key === "return" && selected.length ? <div className={styles.ending}><p>{selected.includes("share") ? (lang === "en" ? "A new light joins the landscape." : "Une nouvelle lumière rejoint le paysage.") : (lang === "en" ? "Your light remains yours." : "Votre lumière demeure la vôtre.")}</p><button onClick={restart}>{t.restart}</button><Link href="/atlas">{lang === "en" ? "Explore the Atlas" : "Explorer l’Atlas"}</Link><label><span>{t.optional}</span><input type="email" placeholder={t.email} /><button type="button" title={t.noStore}>{t.notify}</button></label></div> : scene.key !== "return" &&
+              <footer>{step > 0 && <button onClick={() => setStep(step - 1)}>{t.back}</button>}<button className={styles.skip} onClick={advance}>{t.skip}</button><button className={styles.next} disabled={!canContinue} onClick={advance}>{t.continue}<span>→</span></button></footer>}
           </article>
         </section>
       )}
@@ -146,7 +144,7 @@ export default function CinematicJourney() {
 }
 
 function JourneyPath({ lang, answers }: { lang: Lang; answers: Answers }) {
-  const keys = ["arrival", "identity", "time", "isolation", "emotion", "request", "next"];
+  const keys = ["arrival", "identity", "pressure", "emotion", "request", "interruption"];
   return <ol className={styles.path}>{keys.map((key, index) => { const item = scenes.find((x) => x.key === key)!; const labels = (answers[key] || []).map((id) => item.choices?.find((choice) => choice[0] === id)?.[lang === "en" ? 1 : 2]).filter(Boolean); return <li key={key}><i>{index + 1}</i><div><b>{tx(item.eyebrow, lang)}</b><span>{labels.join(" · ") || "—"}</span></div></li>; })}</ol>;
 }
 
