@@ -19,8 +19,9 @@ const copy = {
   en: {
     atlas: "Atlas of Deception",
     entry: "Something happened.",
-    entry2: "Let’s find where it began.",
-    entryNote: "Choose the event that feels closest. You can change it later.",
+    entry2: "Let’s slow it down together.",
+    entryNote:
+      "Understand what happened, see the pressure, make a useful record—and help protect others.",
     own: "In my own words",
     ownHint: "Write anything you remember—or leave this empty.",
     next: "Continue",
@@ -61,13 +62,26 @@ const copy = {
     nowText:
       "Stop contact. Do not send money, codes, or access. Reach your bank or the claimed person using a number you find independently.",
     official: "Canadian Anti-Fraud Centre",
+    mechanism: "See the mechanism",
+    mechanismLead: "Here is what they built around you.",
+    practiced:
+      "These techniques are practised, refined, and sometimes used at scale. They work on all of us because trust, fear, hope, and care are human.",
+    carry: "Carry my light to the Atlas",
+    carrying: "Your light is joining the others…",
+    bookLead:
+      "This is your journey and your practical record. Keep it, or use it to begin a conversation with someone who can help.",
+    familyKit: "Help protect the people you love",
+    familyKitText:
+      "We’re creating a simple family protection kit. Leave your email if you’d like to see it when it is ready.",
+    email: "Email address",
+    notify: "Tell me when it’s ready",
   },
   fr: {
     atlas: "Atlas de la tromperie",
     entry: "Quelque chose s’est passé.",
-    entry2: "Retrouvons le point de départ.",
+    entry2: "Ralentissons ensemble.",
     entryNote:
-      "Choisissez l’événement qui s’en rapproche. Vous pourrez le changer.",
+      "Comprendre, voir la pression, créer un registre utile—et aider à protéger les autres.",
     own: "Dans mes propres mots",
     ownHint: "Écrivez ce dont vous vous souvenez—ou laissez vide.",
     next: "Continuer",
@@ -109,6 +123,19 @@ const copy = {
     nowText:
       "Coupez le contact. N’envoyez ni argent, ni code, ni accès. Joignez votre banque ou la personne prétendue avec un numéro trouvé indépendamment.",
     official: "Centre antifraude du Canada",
+    mechanism: "Voir le mécanisme",
+    mechanismLead: "Voici ce qu’on a construit autour de vous.",
+    practiced:
+      "Ces techniques sont pratiquées, raffinées et parfois utilisées à grande échelle. Elles nous touchent tous parce que la confiance, la peur, l’espoir et la bienveillance sont humains.",
+    carry: "Porter ma lumière jusqu’à l’Atlas",
+    carrying: "Votre lumière rejoint les autres…",
+    bookLead:
+      "Voici votre parcours et votre registre pratique. Gardez-le ou utilisez-le pour commencer une conversation avec quelqu’un qui peut vous aider.",
+    familyKit: "Aider à protéger vos proches",
+    familyKitText:
+      "Nous créons une trousse simple pour protéger les familles. Laissez votre courriel pour la découvrir lorsqu’elle sera prête.",
+    email: "Adresse courriel",
+    notify: "Me prévenir lorsqu’elle sera prête",
   },
 };
 
@@ -473,24 +500,6 @@ const learningQuestions = {
     "Qu’est-ce qui brise le charme?",
   ],
 };
-const people = {
-  en: [
-    "A friend",
-    "Family",
-    "A colleague",
-    "A professional",
-    "My bank or institution",
-    "I don’t know yet",
-  ],
-  fr: [
-    "Un·e ami·e",
-    "Ma famille",
-    "Un·e collègue",
-    "Un professionnel",
-    "Ma banque ou institution",
-    "Je ne sais pas encore",
-  ],
-};
 const factFields: Record<Lang, Array<[Fact, string, string]>> = {
   en: [
     ["when", "When", "Dates or approximate times"],
@@ -530,6 +539,29 @@ const sceneFiles = [
   "06-interruption",
 ];
 const glyphs = ["✉", "◐", "◷", "◎", "◇", "✦"];
+const emotionResponses: Record<Lang, Record<string, string>> = {
+  en: {
+    Shame: "Shame grows when we stay hidden. Trust me: you are not alone.",
+    Fear: "The threat appeared real. It is okay that your body tried to protect you.",
+    Anger: "Anger means a boundary was crossed. You can use it for action.",
+    Hope: "Hope is beautiful and real. Someone attached deception to something you truly wanted.",
+    Confusion: "Slow down. Clarity returns when the pressure leaves.",
+    "I felt numb":
+      "The mind creates distance when something is too much. Return to it gradually.",
+  },
+  fr: {
+    Honte:
+      "La honte grandit quand on reste caché. Croyez-moi : vous n’êtes pas seul·e.",
+    Peur: "La menace semblait réelle. Votre corps essayait de vous protéger.",
+    Colère:
+      "La colère signifie qu’une limite a été franchie. Elle peut devenir une action.",
+    Espoir:
+      "L’espoir est beau et réel. Quelqu’un a attaché la tromperie à ce que vous désiriez vraiment.",
+    Confusion: "Ralentissez. La clarté revient lorsque la pression disparaît.",
+    "Je ne ressentais plus rien":
+      "L’esprit crée une distance lorsque c’est trop. Revenez-y graduellement.",
+  },
+};
 
 export default function CinematicJourney() {
   const [lang, setLang] = useState<Lang>("en");
@@ -543,12 +575,12 @@ export default function CinematicJourney() {
     Array.from({ length: 6 }, () => []),
   );
   const [own, setOwn] = useState<string[]>(Array.from({ length: 6 }, () => ""));
-  const [companion, setCompanion] = useState("");
-  const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(false);
   const [story, setStory] = useState("");
   const [bookPage, setBookPage] = useState(0);
   const [lightSent, setLightSent] = useState(false);
+  const [interestEmail, setInterestEmail] = useState("");
+  const [interestSaved, setInterestSaved] = useState(false);
   const [facts, setFacts] = useState<Record<Fact, string>>({
     when: "",
     contact: "",
@@ -564,14 +596,6 @@ export default function CinematicJourney() {
     request: "",
     payment: "",
     evidence: "",
-  });
-  const [outcomes, setOutcomes] = useState({
-    private: true,
-    report: false,
-    trusted: false,
-    destination: false,
-    light: false,
-    redacted: false,
   });
 
   const family = events[lang].find((x) => x[0] === event)?.[2] || "";
@@ -604,16 +628,12 @@ export default function CinematicJourney() {
       setMoving(false);
     }, 950);
   };
-  const helpMessage =
-    lang === "en"
-      ? "Something happened and I’m having trouble making sense of it. I don’t need you to solve everything. Could you look at this with me?"
-      : "Quelque chose s’est passé et j’ai du mal à y voir clair. Je ne te demande pas de tout régler. Peux-tu regarder ça avec moi?";
   const narrative = useMemo(() => {
     const personal = own.filter(Boolean).join(" ");
     if (lang === "en")
-      return `It began as ${family || "an uncertain event"}. ${answers[0][0] ? `The first door was ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `It wore the face of ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `I carried ${answers[3].join(", ").toLowerCase()} through the closed world.` : ""} ${answers[4][0] ? `I was asked for ${answers[4][0].toLowerCase()}.` : ""}${personal ? `\n\nIn my own words: ${personal}` : ""}\n\nNone of this means I was foolish. The pattern was designed to compress time, borrow trust, and isolate judgment. I slowed the story down. I can pause, verify independently, and invite ${companion ? companion.toLowerCase() : "another perspective"}. My care was human. My next decision belongs to me.`;
-    return `Tout a commencé par ${family ? family.toLowerCase() : "un événement incertain"}. ${answers[0][0] ? `La première porte était ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `L’histoire portait le visage de ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `J’ai porté ${answers[3].join(", ").toLowerCase()} dans ce monde fermé.` : ""} ${answers[4][0] ? `On me demandait ${answers[4][0].toLowerCase()}.` : ""}${personal ? `\n\nDans mes mots : ${personal}` : ""}\n\nRien de tout cela ne signifie que j’étais naïf. Le mécanisme était conçu pour comprimer le temps, emprunter la confiance et isoler le jugement. J’ai ralenti l’histoire. Je peux faire une pause, vérifier ailleurs et inviter ${companion ? companion.toLowerCase() : "un autre regard"}. Ma bienveillance était humaine. Ma prochaine décision m’appartient.`;
-  }, [answers, companion, family, lang, own]);
+      return `It began as ${family || "an uncertain event"}. ${answers[0][0] ? `The first door was ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `It wore the face of ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `I carried ${answers[3].join(", ").toLowerCase()} through the closed world.` : ""} ${answers[4][0] ? `I was asked for ${answers[4][0].toLowerCase()}.` : ""}${personal ? `\n\nIn my own words: ${personal}` : ""}\n\nNone of this means I was foolish. The pattern was designed to compress time, borrow trust, and isolate judgment. I slowed the story down. I can pause, verify independently, preserve what happened, and speak with someone I trust. My care was human. My next decision belongs to me.`;
+    return `Tout a commencé par ${family ? family.toLowerCase() : "un événement incertain"}. ${answers[0][0] ? `La première porte était ${answers[0][0].toLowerCase()}.` : ""} ${answers[1][0] ? `L’histoire portait le visage de ${answers[1][0].toLowerCase()}.` : ""} ${answers[2][0] ? `${answers[2][0]}.` : ""} ${answers[3].length ? `J’ai porté ${answers[3].join(", ").toLowerCase()} dans ce monde fermé.` : ""} ${answers[4][0] ? `On me demandait ${answers[4][0].toLowerCase()}.` : ""}${personal ? `\n\nDans mes mots : ${personal}` : ""}\n\nRien de tout cela ne signifie que j’étais naïf. Le mécanisme était conçu pour comprimer le temps, emprunter la confiance et isoler le jugement. J’ai ralenti l’histoire. Je peux faire une pause, vérifier ailleurs, préserver ce qui s’est passé et parler à quelqu’un en qui j’ai confiance. Ma bienveillance était humaine. Ma prochaine décision m’appartient.`;
+  }, [answers, family, lang, own]);
   const report = useMemo(
     () =>
       `${t.atlas.toUpperCase()} — ${t.report.toUpperCase()}\n\n${family}\n\n${story || narrative}\n\n${factFields[
@@ -634,11 +654,12 @@ export default function CinematicJourney() {
     setScene(0);
     setAnswers(Array.from({ length: 6 }, () => []));
     setOwn(Array.from({ length: 6 }, () => ""));
-    setCompanion("");
     setStory("");
     setLightSent(false);
+    setInterestEmail("");
+    setInterestSaved(false);
   };
-  const pageNames = [t.story, t.facts, t.outcome];
+  const pageNames = [t.story, t.facts];
 
   return (
     <main className={styles.page} data-reaction={reaction.toLowerCase()}>
@@ -657,8 +678,8 @@ export default function CinematicJourney() {
       {phase === "entry" && (
         <section className={styles.entry}>
           <Image
-            src="/atlas/scenes/01-arrival.webp"
-            alt="A luminous person at the beginning of an uncertain encounter"
+            src="/atlas/scenes/bank-kitchen.webp"
+            alt="A person slowing down with a suspicious message at the kitchen table"
             fill
             priority
             sizes="100vw"
@@ -695,12 +716,26 @@ export default function CinematicJourney() {
         >
           <Image
             key={scene}
-            src={`/atlas/scenes/${scene < 6 ? sceneFiles[scene] : "06-second-light"}.webp`}
+            src={
+              event === "bank" && scene === 0
+                ? "/atlas/scenes/bank-kitchen.webp"
+                : event === "bank" && scene >= 5
+                  ? lightSent
+                    ? "/atlas/scenes/bank-community.webp"
+                    : "/atlas/scenes/bank-mechanism.webp"
+                  : `/atlas/scenes/${scene < 6 ? sceneFiles[scene] : "06-second-light"}.webp`
+            }
             alt=""
             fill
             priority
             sizes="100vw"
           />
+          {lightSent && scene === 6 && (
+            <div className={styles.lightFlight} aria-hidden="true">
+              <i />
+              <span>{t.carrying}</span>
+            </div>
+          )}
           <div className={styles.shade} />
           <div className={styles.particles}>
             {Array.from({ length: 14 }, (_, index) => (
@@ -768,55 +803,48 @@ export default function CinematicJourney() {
             </article>
           )}
           {scene === 6 && (
-            <article className={`${styles.scene} ${styles.second}`}>
+            <article className={`${styles.scene} ${styles.mechanism}`}>
               <header>
-                <span>{t.second}</span>
-                <p>{lang === "en" ? "The world opens" : "Le monde s’ouvre"}</p>
-                <h1>
-                  {lang === "en"
-                    ? "Who could stand beside you?"
-                    : "Qui pourrait se tenir à vos côtés?"}
-                </h1>
-                <em>
-                  {lang === "en"
-                    ? "They do not need to solve everything. A second person can help you see."
-                    : "Cette personne n’a pas à tout régler. Un deuxième regard peut vous aider à voir."}
-                </em>
+                <span>{t.mechanism}</span>
+                <p>{t.mechanismLead}</p>
+                <h1>{family}</h1>
+                <em>{t.practiced}</em>
               </header>
-              <div className={styles.people}>
-                {people[lang].map((value) => (
-                  <button
-                    key={value}
-                    className={companion === value ? styles.chosen : ""}
-                    onClick={() => setCompanion(value)}
-                  >
-                    <i />
-                    {value}
-                  </button>
+              <div className={styles.chain}>
+                {[
+                  answers[0][0],
+                  answers[1][0],
+                  answers[2][0],
+                  answers[3][0],
+                  answers[4][0],
+                ]
+                  .filter(Boolean)
+                  .map((value, index) => (
+                    <span key={`${value}-${index}`}>
+                      <i>{index + 1}</i>
+                      {value}
+                    </span>
+                  ))}
+              </div>
+              <div className={styles.reframes}>
+                {answers[3].map((emotion) => (
+                  <p key={emotion}>
+                    <b>{emotion}</b>
+                    {emotionResponses[lang][emotion]}
+                  </p>
                 ))}
               </div>
-              {companion && (
-                <blockquote>
-                  “{helpMessage}”{" "}
-                  <button
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(helpMessage);
-                      setCopied(true);
-                    }}
-                  >
-                    {copied ? t.copied : t.copy}
-                  </button>
-                </blockquote>
-              )}
               <button
                 className={styles.primary}
                 onClick={() => {
+                  setLightSent(true);
                   setStory(narrative);
                   setBookPage(0);
-                  setPhase("book");
+                  window.setTimeout(() => setPhase("book"), 2800);
                 }}
+                disabled={lightSent}
               >
-                {t.open} →
+                {lightSent ? t.carrying : t.carry} →
               </button>
             </article>
           )}
@@ -830,8 +858,8 @@ export default function CinematicJourney() {
           className={`${styles.return} ${lightSent ? styles.lightSent : ""}`}
         >
           <Image
-            src="/atlas/scenes/07-return.webp"
-            alt="A communal landscape filled with lights"
+            src="/atlas/scenes/bank-community.webp"
+            alt="A person carrying a light from their private book into a neighborhood"
             fill
             priority
             sizes="100vw"
@@ -847,7 +875,7 @@ export default function CinematicJourney() {
             <header>
               <p>{t.return}</p>
               <h1>{t.returnTitle}</h1>
-              <span>{t.returnSub}</span>
+              <span>{t.bookLead}</span>
               <div className={styles.bookNav}>
                 {pageNames.map((name, index) => (
                   <button
@@ -929,58 +957,37 @@ export default function CinematicJourney() {
                 </div>
               </section>
             )}
-            {bookPage === 2 && (
-              <>
-                <section className={styles.outcomes}>
-                  <p>03 · {t.outcome}</p>
-                  <div>
-                    {Object.entries({
-                      private: t.private,
-                      report: t.report,
-                      trusted: t.trusted,
-                      destination: t.destination,
-                      light: t.light,
-                      redacted: t.redacted,
-                    }).map(([key, label]) => (
-                      <label key={key}>
-                        <input
-                          type="checkbox"
-                          checked={outcomes[key as keyof typeof outcomes]}
-                          onChange={(event) =>
-                            setOutcomes((old) => ({
-                              ...old,
-                              [key]: event.target.checked,
-                            }))
-                          }
-                        />
-                        <i />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                  {outcomes.light && (
-                    <aside>
-                      <b>{t.light}</b>
-                      <p>{t.lightExplain}</p>
-                      <button
-                        disabled={lightSent}
-                        onClick={() => setLightSent(true)}
-                      >
-                        {lightSent ? t.sent : t.sendLight}
-                      </button>
-                    </aside>
-                  )}
-                </section>
-                <section className={styles.actions}>
-                  <button onClick={() => window.print()}>{t.print}</button>
-                  <button onClick={() => navigator.clipboard.writeText(report)}>
-                    {t.copyReport}
-                  </button>
-                  <button onClick={reset}>{t.reset}</button>
-                </section>
-                <footer>{t.local}</footer>
-              </>
-            )}
+            <section className={styles.actions}>
+              <button onClick={() => window.print()}>{t.print}</button>
+              <button onClick={() => navigator.clipboard.writeText(report)}>
+                {t.copyReport}
+              </button>
+              <button onClick={reset}>{t.reset}</button>
+            </section>
+            <form
+              className={styles.familyKit}
+              onSubmit={(event) => {
+                event.preventDefault();
+                setInterestSaved(true);
+              }}
+            >
+              <div>
+                <b>{t.familyKit}</b>
+                <p>{t.familyKitText}</p>
+              </div>
+              <label>
+                <span>{t.email}</span>
+                <input
+                  type="email"
+                  required
+                  value={interestEmail}
+                  onChange={(event) => setInterestEmail(event.target.value)}
+                  placeholder="you@example.com"
+                />
+              </label>
+              <button>{interestSaved ? "✓" : t.notify}</button>
+            </form>
+            <footer>{t.local}</footer>
             <div className={styles.pageTurn}>
               <button
                 disabled={bookPage === 0}
@@ -988,9 +995,9 @@ export default function CinematicJourney() {
               >
                 ← {t.back}
               </button>
-              <span>{bookPage + 1} / 3</span>
+              <span>{bookPage + 1} / 2</span>
               <button
-                disabled={bookPage === 2}
+                disabled={bookPage === 1}
                 onClick={() => setBookPage((page) => page + 1)}
               >
                 {t.next} →

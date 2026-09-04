@@ -540,6 +540,80 @@
   display: block;
   margin-left: auto;
 }
+.mechanism {
+  background: linear-gradient(180deg, #06161c6e, #06171df2 23%, #06171dfa);
+}
+.mechanism header em {
+  display: block;
+  max-width: 760px;
+  margin: 0 auto;
+  font-size: 1rem;
+}
+.chain {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 1.1rem 0;
+}
+.chain span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 62px;
+  padding: 0.65rem;
+  border: 1px solid #f2d78052;
+  color: #f8eed5;
+  background: #06141bc7;
+  text-align: center;
+  font-size: 0.82rem;
+}
+.chain span:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  z-index: 2;
+  right: -0.55rem;
+  color: #f3d57b;
+}
+.chain span i {
+  position: absolute;
+  left: 0.35rem;
+  top: 0.25rem;
+  color: #f1d273;
+  font-size: 0.65rem;
+  font-style: normal;
+}
+.reframes {
+  max-width: 760px;
+  margin: 0 auto 1rem;
+}
+.reframes p {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 0.8rem;
+  margin: 0.35rem 0;
+  padding: 0.65rem 0.8rem;
+  border-left: 1px solid #f0d174;
+  color: #e8e5d8;
+  background: #f3dda910;
+  font:
+    italic 0.9rem/1.4 Georgia,
+    serif;
+}
+.reframes b {
+  color: #f3d77f;
+  font:
+    700 0.72rem/1.4 var(--font-geist-sans),
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mechanism > .primary {
+  display: block;
+  margin: 0 auto;
+}
 .return {
   padding: 5rem 1rem 3rem;
 }
@@ -583,7 +657,7 @@
 }
 .bookNav {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.5rem;
   margin: 0 auto 1.4rem;
 }
@@ -827,6 +901,48 @@
   color: #6f7975;
   font-size: 0.72rem;
 }
+.familyKit {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr auto;
+  align-items: end;
+  gap: 0.8rem;
+  margin-top: 1.4rem;
+  padding: 1.1rem;
+  color: #f4e8c6;
+  background: #173a40;
+}
+.familyKit b {
+  font:
+    400 1.35rem Georgia,
+    serif;
+}
+.familyKit p {
+  margin: 0.35rem 0 0;
+  color: #d5dfd9;
+  line-height: 1.4;
+}
+.familyKit label {
+  display: grid;
+  gap: 0.3rem;
+  color: #e8d89f;
+  font-size: 0.72rem;
+}
+.familyKit input {
+  min-height: 42px;
+  padding: 0.65rem;
+  border: 1px solid #f0d67b75;
+  color: #fff;
+  background: #071b22;
+}
+.familyKit button {
+  min-height: 42px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #f0d67b;
+  color: #173a40;
+  background: #f0d67b;
+  font-weight: 700;
+  cursor: pointer;
+}
 .now {
   position: fixed;
   z-index: 100;
@@ -999,6 +1115,20 @@
   }
   .people {
     grid-template-columns: 1fr 1fr;
+  }
+  .chain {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .chain span:not(:last-child)::after {
+    display: none;
+  }
+  .reframes p {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+  .familyKit {
+    grid-template-columns: 1fr;
   }
   .bookNav {
     grid-template-columns: 1fr;
