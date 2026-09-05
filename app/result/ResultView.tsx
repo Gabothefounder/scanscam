@@ -2675,59 +2675,70 @@ export default function ResultView() {
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
         {!weakInputGateActive && !partner && !insufficientContextState && (
-          <div style={styles.moreBlock}>
-            <span style={styles.moreLabel}>{t.moreTitle}</span>
-            <div style={styles.secondaryActions}>
+          <section style={styles.continueCard}>
+            <div style={styles.continueHeader}>
+              <span style={styles.continueEyebrow}>{t.continueTitle}</span>
+              <p style={styles.continueLead}>{t.continueLead}</p>
+            </div>
+
+            <a
+              href={`/atlas?find=scan&source=post_scan&lang=${lang}`}
+              style={styles.atlasPrimary}
+              onClick={() => logScanEvent("post_scan_action_selected", {
+                scan_id: scanIdForContext || undefined,
+                props: {
+                  surface: "result",
+                  intent: "atlas",
+                  action: "learn_pattern",
+                  risk_tier: risk,
+                  input_type: inputType,
+                  lang,
+                },
+              })}
+            >
+              <span style={styles.atlasPrimaryTitle}>{t.atlasNextTitle} →</span>
+              <span style={styles.atlasPrimaryBody}>{t.atlasNextBody}</span>
+            </a>
+
+            <div style={styles.networkActions}>
               <a
-                href={`/atlas?find=scan&lang=${lang}`}
-                style={styles.secondaryAction}
-                onClick={() => logScanEvent("post_scan_action_selected", {
-                  scan_id: scanIdForContext || undefined,
-                  props: {
-                    surface: "result",
-                    intent: "atlas",
-                    risk_tier: risk,
-                    input_type: inputType,
-                    lang,
-                  },
-                })}
-              >
-                {t.atlasCta}
-              </a>
-              <a
-                href={`/atlas?mode=scan&lang=${lang}`}
-                style={styles.secondaryAction}
+                href={`/atlas?mode=scan&source=post_scan_network&lang=${lang}`}
+                style={styles.networkAction}
                 onClick={() => logScanEvent("post_scan_action_selected", {
                   scan_id: scanIdForContext || undefined,
                   props: {
                     surface: "result",
                     intent: "journey",
+                    action: "help_network",
                     risk_tier: risk,
                     input_type: inputType,
                     lang,
                   },
                 })}
               >
-                {t.journeyCta}
+                <strong>{t.networkCta}</strong>
+                <span>{t.networkHint}</span>
               </a>
               <a
                 href={lang === "fr" ? "/fr/protect-family?source=post_scan" : "/protect-family?source=post_scan"}
-                style={styles.secondaryAction}
+                style={styles.networkAction}
                 onClick={() => logScanEvent("post_scan_action_selected", {
                   scan_id: scanIdForContext || undefined,
                   props: {
                     surface: "result",
                     intent: "protect_family",
+                    action: "protect_someone",
                     risk_tier: risk,
                     input_type: inputType,
                     lang,
                   },
                 })}
               >
-                {t.protectCta}
+                <strong>{t.protectCta}</strong>
+                <span>{t.protectHint}</span>
               </a>
             </div>
-          </div>
+          </section>
         )}
         {!weakInputGateActive && (
           <a
