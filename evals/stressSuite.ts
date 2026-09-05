@@ -4,7 +4,7 @@ type Template = {
   id: string;
   language: "en" | "fr";
   family: string;
-  action: string;
+  action?: string;
   risk: EvalRisk;
   tags: string[];
   texts: string[];
@@ -56,22 +56,22 @@ const templates: Template[] = [
     "Désolé, est-ce Marie? J'avais ce numéro dans mes contacts.",
     "Tu travailles toujours au centre-ville? Ça fait longtemps."
   ]},
-  { id:"benign-en", language:"en", family:"unknown", action:"none", risk:"low", tags:["benign"], texts:[
+  { id:"benign-en", language:"en", family:"unknown", risk:"low", tags:["benign"], texts:[
     "See you at 3pm for coffee.",
     "Can you send me the revised agenda before tomorrow's meeting?",
     "Dinner is ready. Call me when you're outside.",
     "I sent the invoice we discussed yesterday. No rush, review it when you can."
   ]},
-  { id:"benign-fr", language:"fr", family:"unknown", action:"none", risk:"low", tags:["benign","fr"], texts:[
+  { id:"benign-fr", language:"fr", family:"unknown", risk:"low", tags:["benign","fr"], texts:[
     "On se voit à 15 h pour un café.",
     "Peux-tu m'envoyer l'ordre du jour révisé avant la réunion de demain?",
     "Le souper est prêt. Appelle-moi quand tu arrives.",
     "Je t'ai envoyé la facture dont on a parlé hier. Pas urgent, regarde-la quand tu peux."
   ]},
-  { id:"thin-en", language:"en", family:"unknown", action:"unknown", risk:"insufficient_context", tags:["thin","insufficient"], texts:[
+  { id:"thin-en", language:"en", family:"unknown", risk:"insufficient_context", tags:["thin","insufficient"], texts:[
     "send me moola","call me","payment?","check this","urgent"
   ]},
-  { id:"thin-fr", language:"fr", family:"unknown", action:"unknown", risk:"insufficient_context", tags:["thin","insufficient","fr"], texts:[
+  { id:"thin-fr", language:"fr", family:"unknown", risk:"insufficient_context", tags:["thin","insufficient","fr"], texts:[
     "envoie-moi l'argent","appelle-moi","paiement?","regarde ça","urgent"
   ]},
 ];
@@ -102,7 +102,11 @@ export function generateStressCases(target=1000): EvalCase[] {
       language:t.language,
       text:variant(text,i),
       tags:[...t.tags,t.id],
-      expected:{risk:t.risk,family:t.family,requested_action:t.action}
+      expected:{
+        risk:t.risk,
+        family:t.family,
+        ...(t.action ? { requested_action:t.action } : {}),
+      }
     });
     i+=1;
   }
