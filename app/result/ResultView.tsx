@@ -1980,6 +1980,11 @@ export default function ResultView() {
     return out;
   };
   const riskCardInterpretationLines = consumeInterpretation(interpretationUi.riskCard, 2);
+  const groundedReasonLines = buildGroundedReasonLines(intel as Record<string, unknown>, lang);
+  const whyLines = [...groundedReasonLines, ...riskCardInterpretationLines]
+    .filter((line, index, arr) => arr.indexOf(line) === index)
+    .slice(0, 3);
+  const quickIntel = getQuickIntel(intel as Record<string, unknown>, lang);
   const whatToDoNextItems = getWhatToDoNextItems(lang, intel as Record<string, unknown>, interpretationUi);
   const summaryRaw = analysisUnavailable
     ? result.summary_sentence || t.analysisUnavailable.banner
