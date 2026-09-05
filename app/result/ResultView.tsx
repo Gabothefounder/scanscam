@@ -196,6 +196,8 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
+    atlasCta: "See patterns like this in the Atlas",
+    atlasCtaNote: "See where this scan sits among the patterns other people are encountering.",
     journeyCta: "Understand what this message was trying to make you do",
     journeyCtaNote: "Walk through the pressure, your reactions, and the next safe step.",
     partnerScannerTitle: "Security Message Scanner",
@@ -487,6 +489,8 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
+    atlasCta: "Voir des motifs semblables dans l’Atlas",
+    atlasCtaNote: "Voyez où cette analyse se situe parmi les motifs rencontrés par d’autres personnes.",
     journeyCta: "Comprendre ce que ce message essayait de vous faire faire",
     journeyCtaNote: "Parcourez la pression, vos réactions et le prochain geste sûr.",
     partnerScannerTitle: "Analyseur de messages suspects",
@@ -2404,16 +2408,52 @@ export default function ResultView() {
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
         {!weakInputGateActive && !partner && (
-          <a href={`/atlas?mode=scan&lang=${lang}`} style={styles.journeyCta}>
-            <strong>{t.journeyCta}</strong>
-            <span>{t.journeyCtaNote}</span>
-          </a>
+          <>
+            <a
+              href={`/atlas?find=scan&lang=${lang}`}
+              style={styles.atlasCta}
+              onClick={() => logScanEvent("post_scan_action_selected", {
+                scan_id: scanIdForContext || undefined,
+                props: {
+                  surface: "result",
+                  intent: "atlas",
+                  risk_tier: risk,
+                  input_type: inputType,
+                  lang,
+                },
+              })}
+            >
+              <strong>{t.atlasCta}</strong>
+              <span>{t.atlasCtaNote}</span>
+            </a>
+            <a
+              href={`/atlas?mode=scan&lang=${lang}`}
+              style={styles.journeyCta}
+              onClick={() => logScanEvent("post_scan_action_selected", {
+                scan_id: scanIdForContext || undefined,
+                props: {
+                  surface: "result",
+                  intent: "journey",
+                  risk_tier: risk,
+                  input_type: inputType,
+                  lang,
+                },
+              })}
+            >
+              <strong>{t.journeyCta}</strong>
+              <span>{t.journeyCtaNote}</span>
+            </a>
+          </>
         )}
         {!weakInputGateActive && (
           <a
             href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
             className="text-sm font-medium"
             style={styles.scanAnotherQuiet}
+            onClick={() => logScanEvent("post_scan_action_selected", {
+              scan_id: scanIdForContext || undefined,
+              props: { surface: "result", intent: "scan_another", risk_tier: risk, input_type: inputType, lang },
+            })}
           >
             {t.scanAnother}
           </a>
@@ -2449,6 +2489,17 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 14,
+  },
+  atlasCta: {
+    display: "block",
+    maxWidth: 620,
+    margin: "0 auto",
+    padding: "16px 18px",
+    border: "1px solid #6D4B41",
+    background: "#171315",
+    color: "#F1E5DB",
+    textDecoration: "none",
+    textAlign: "left",
   },
   journeyCta: {
     display: "block",
