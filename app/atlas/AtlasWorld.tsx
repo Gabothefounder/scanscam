@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./atlasWorld.module.css";
+import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 type Current = {
   id: string;
@@ -123,6 +124,7 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
   const [mineStatus, setMineStatus] = useState<"idle" | "looking" | "missing">("idle");
 
   useEffect(() => {
+    logScanEvent("atlas_viewed", { props: { surface: "atlas", flow: "atlas" } });
     let active = true;
     fetch("/api/atlas/currents", { cache: "no-store" })
       .then((response) => response.json())
@@ -146,6 +148,9 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
   const maxCount = Math.max(...currents.map((item) => Number(item.signal_count || 0)), 1);
 
   const findMine = async () => {
+    logScanEvent("atlas_find_mine_clicked", {
+      props: { surface: "atlas", intent: "find_patterns_like_mine" },
+    });
     let scanId: string | null = null;
     try {
       const stored = JSON.parse(window.sessionStorage.getItem("scanResult") || "{}") as Record<string, unknown>;
@@ -161,6 +166,17 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
       const payload = await response.json();
       if (!response.ok || !payload?.current?.cluster_key) throw new Error("not_found");
       setSelectedKey(payload.current.cluster_key);
+      logScanEvent("atlas_current_opened", {
+        scan_id: scanId || undefined,
+        props: {
+          surface: "atlas",
+          intent: "find_patterns_like_mine",
+          current_family: String(payload.current.scam_family || "unclassified"),
+          channel: String(payload.current.channel || "unclassified"),
+          primary_request: String(payload.current.primary_request || "unclassified"),
+          signal_count: Number(payload.current.signal_count || 0),
+        },
+      });
       setMineStatus("idle");
     } catch {
       setMineStatus("missing");
@@ -174,7 +190,10 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
         <span>Atlas of Deception</span>
         <div className={styles.navActions}>
           <Link href="/scan">Scan something</Link>
-          <button onClick={onJourney}>Something happened</button>
+          <button onClick={() => {
+            logScanEvent("journey_started", { props: { surface: "atlas_nav", entry_mode: "lived" } });
+            onJourney();
+          }}>Something happened</button>
         </div>
       </nav>
 
@@ -191,7 +210,10 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
               Explore the currents
             </button>
             <button className={styles.secondary} onClick={findMine}>Find patterns like mine</button>
-            <button className={styles.secondary} onClick={onJourney}>Leave a light</button>
+            <button className={styles.secondary} onClick={() => {
+              logScanEvent("journey_started", { props: { surface: "atlas_hero", entry_mode: "lived", intent: "leave_a_light" } });
+              onJourney();
+            }}>Leave a light</button>
           </div>
           {mineStatus === "missing" && (
             <p className={styles.mineNote}>
@@ -256,7 +278,19 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
                       stroke={familyTone(current.scam_family)}
                       strokeOpacity={active ? .98 : .18 + Math.min(.5, riskShare * .7)}
                       strokeWidth={active ? width + 4 : width}
-                      onClick={() => setSelectedKey(current.cluster_key)}
+                      onClick={() => {
+                        setSelectedKey(current.cluster_key);
+                        logScanEvent("atlas_current_opened", {
+                          props: {
+                            surface: "atlas",
+                            intent: "explore_current",
+                            current_family: current.scam_family,
+                            channel: current.channel,
+                            primary_request: current.primary_request,
+                            signal_count: Number(current.signal_count || 0),
+                          },
+                        });
+                      }}
                     />
                     {index < 16 && (
                       <circle r={active ? 5.5 : 2.8} fill={familyTone(current.scam_family)} opacity={active ? 1 : .68} filter="url(#glow)">
@@ -301,7 +335,18 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
                 <div><dt>Last seen</dt><dd>{formatDate(selected.last_seen)}</dd></div>
               </dl>
               <div className={styles.panelActions}>
-                <button onClick={onJourney}>Something like this happened</button>
+                <button onClick={() => {
+                  logScanEvent("journey_started", {
+                    props: {
+                      surface: "atlas_current",
+                      entry_mode: "lived",
+                      current_family: selected.scam_family,
+                      channel: selected.channel,
+                      primary_request: selected.primary_request,
+                    },
+                  });
+                  onJourney();
+                }}>Something like this happened</button>
                 <button className={styles.ghost} onClick={() => setSelectedKey(null)}>Return to the whole</button>
               </div>
             </aside>
@@ -334,7 +379,10 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
         <p>ONE EXPERIENCE CAN STAY PRIVATE AND STILL BECOME USEFUL.</p>
         <h2>Your words can remain yours.<br />The pattern can become a light.</h2>
         <div>
-          <button onClick={onJourney}>Something happened to me</button>
+          <button onClick={() => {
+            logScanEvent("journey_started", { props: { surface: "atlas_closure", entry_mode: "lived" } });
+            onJourney();
+          }}>Something happened to me</button>
           <Link href="/scan">Scan something suspicious</Link>
         </div>
       </section>
