@@ -70,6 +70,9 @@ export default function FamilyProtectLanding({ lang }: Props) {
     logScanEvent("family_protect_cta_click", {
       props: { lang, flow: "family_protect", ...attributionTelemetryProps() },
     });
+    logScanEvent("family_interest_started", {
+      props: { lang, flow: "family_protect", surface: "family_landing", intent: "protect_family" },
+    });
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => firstFieldRef.current?.focus(), 350);
   };
@@ -269,6 +272,27 @@ export default function FamilyProtectLanding({ lang }: Props) {
             </form>
           )}
         </section>
+
+        <section style={styles.networkSection} aria-labelledby="family-network-heading">
+          <p style={styles.networkEyebrow}>{lang === "fr" ? "Construire le réseau" : "Build the network"}</p>
+          <h2 id="family-network-heading" style={styles.sectionHeading}>
+            {lang === "fr" ? "Vous voulez aider à bâtir cette défense?" : "Want to help build this defense?"}
+          </h2>
+          <p style={styles.body}>
+            {lang === "fr"
+              ? "Si vous travaillez en fraude, cybersécurité, vieillissement, finance, psychologie, éducation — ou si vous voulez simplement aider — écrivez-nous."
+              : "If you work in fraud, cybersecurity, aging, finance, psychology, education — or simply want to help — write to us."}
+          </p>
+          <a
+            href="mailto:hello@scanscam.ca?subject=I%20want%20to%20help%20with%20ScanScam"
+            style={styles.networkLink}
+            onClick={() => logScanEvent("network_contact_clicked", {
+              props: { surface: "family_landing", intent: "join_network", target: "hello@scanscam.ca", lang },
+            })}
+          >
+            hello@scanscam.ca →
+          </a>
+        </section>
       </div>
     </main>
   );
@@ -328,6 +352,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: "-0.3px",
     color: "#0B1220",
+  },
+  networkSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    marginTop: "34px",
+    padding: "26px 22px",
+    border: "1px solid #DDD6CE",
+    borderRadius: "16px",
+    backgroundColor: "#FAF7F3",
+  },
+  networkEyebrow: {
+    margin: 0,
+    color: "#9A6958",
+    fontSize: "11px",
+    fontWeight: 800,
+    letterSpacing: "0.15em",
+    textTransform: "uppercase",
+  },
+  networkLink: {
+    alignSelf: "flex-start",
+    marginTop: "4px",
+    color: "#8A523E",
+    fontSize: "15px",
+    fontWeight: 700,
+    textDecoration: "none",
   },
   earlyAccess: {
     display: "flex",
