@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ScannerForm } from "@/components/ScannerForm";
-import { captureAttribution, getAttribution } from "@/lib/attribution";
+import { captureAttribution } from "@/lib/attribution";
+import { useScanSuccessNavigation } from "@/lib/scan/useScanSuccessNavigation";
 
 /* ---------- copy ---------- */
 
@@ -33,7 +33,6 @@ const copy = {
 };
 
 export default function ScanPage() {
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
   useEffect(() => {
@@ -46,27 +45,7 @@ export default function ScanPage() {
 
   const t = copy[lang];
 
-  const handleScanSuccess = (result: Record<string, unknown>) => {
-    sessionStorage.setItem("scanResult", JSON.stringify(result));
-    try { sessionStorage.removeItem("scan_partner"); } catch { /* ignore */ }
-    const attr = getAttribution();
-    const attrProps: Record<string, string> = {};
-    if (attr.utm_source) attrProps.utm_source = attr.utm_source;
-    if (attr.utm_campaign) attrProps.utm_campaign = attr.utm_campaign;
-    if (attr.utm_term) attrProps.utm_term = attr.utm_term;
-    if (attr.utm_medium) attrProps.utm_medium = attr.utm_medium;
-    if (attr.utm_content) attrProps.utm_content = attr.utm_content;
-    if (attr.gclid) attrProps.gclid = attr.gclid;
-    if (Object.keys(attrProps).length > 0) {
-      sessionStorage.setItem("scan_attribution", JSON.stringify(attrProps));
-    }
-    const scanId = typeof result.scan_id === "string" ? result.scan_id.trim() : "";
-    if (scanId) {
-      router.push(`/result/${scanId}?lang=${lang}`);
-    } else {
-      router.push(`/result?lang=${lang}`);
-    }
-  };
+  const handleScanSuccess = useScanSuccessNavigation(lang);
 
   if (!mounted) return null;
 
