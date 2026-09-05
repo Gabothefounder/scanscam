@@ -2565,60 +2565,60 @@ export default function ResultView() {
 
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
-        {!weakInputGateActive && !partner && (
-          <>
-            <a
-              href={`/atlas?find=scan&lang=${lang}`}
-              style={styles.atlasCta}
-              onClick={() => logScanEvent("post_scan_action_selected", {
-                scan_id: scanIdForContext || undefined,
-                props: {
-                  surface: "result",
-                  intent: "atlas",
-                  risk_tier: risk,
-                  input_type: inputType,
-                  lang,
-                },
-              })}
-            >
-              <strong>{t.atlasCta}</strong>
-              <span>{t.atlasCtaNote}</span>
-            </a>
-            <a
-              href={`/atlas?mode=scan&lang=${lang}`}
-              style={styles.journeyCta}
-              onClick={() => logScanEvent("post_scan_action_selected", {
-                scan_id: scanIdForContext || undefined,
-                props: {
-                  surface: "result",
-                  intent: "journey",
-                  risk_tier: risk,
-                  input_type: inputType,
-                  lang,
-                },
-              })}
-            >
-              <strong>{t.journeyCta}</strong>
-              <span>{t.journeyCtaNote}</span>
-            </a>
-            <a
-              href={lang === "fr" ? "/fr/protect-family?source=post_scan" : "/protect-family?source=post_scan"}
-              style={styles.protectCta}
-              onClick={() => logScanEvent("post_scan_action_selected", {
-                scan_id: scanIdForContext || undefined,
-                props: {
-                  surface: "result",
-                  intent: "protect_family",
-                  risk_tier: risk,
-                  input_type: inputType,
-                  lang,
-                },
-              })}
-            >
-              <strong>{t.protectCta}</strong>
-              <span>{t.protectCtaNote}</span>
-            </a>
-          </>
+        {!weakInputGateActive && !partner && !insufficientContextState && (
+          <div style={styles.moreBlock}>
+            <span style={styles.moreLabel}>{t.moreTitle}</span>
+            <div style={styles.secondaryActions}>
+              <a
+                href={`/atlas?find=scan&lang=${lang}`}
+                style={styles.secondaryAction}
+                onClick={() => logScanEvent("post_scan_action_selected", {
+                  scan_id: scanIdForContext || undefined,
+                  props: {
+                    surface: "result",
+                    intent: "atlas",
+                    risk_tier: risk,
+                    input_type: inputType,
+                    lang,
+                  },
+                })}
+              >
+                {t.atlasCta}
+              </a>
+              <a
+                href={`/atlas?mode=scan&lang=${lang}`}
+                style={styles.secondaryAction}
+                onClick={() => logScanEvent("post_scan_action_selected", {
+                  scan_id: scanIdForContext || undefined,
+                  props: {
+                    surface: "result",
+                    intent: "journey",
+                    risk_tier: risk,
+                    input_type: inputType,
+                    lang,
+                  },
+                })}
+              >
+                {t.journeyCta}
+              </a>
+              <a
+                href={lang === "fr" ? "/fr/protect-family?source=post_scan" : "/protect-family?source=post_scan"}
+                style={styles.secondaryAction}
+                onClick={() => logScanEvent("post_scan_action_selected", {
+                  scan_id: scanIdForContext || undefined,
+                  props: {
+                    surface: "result",
+                    intent: "protect_family",
+                    risk_tier: risk,
+                    input_type: inputType,
+                    lang,
+                  },
+                })}
+              >
+                {t.protectCta}
+              </a>
+            </div>
+          </div>
         )}
         {!weakInputGateActive && (
           <a
