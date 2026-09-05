@@ -195,10 +195,12 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
-    atlasCta: "See patterns like this in the Atlas",
-    atlasCtaNote: "See where this scan sits among the patterns other people are encountering.",
-    journeyCta: "Understand what this message was trying to make you do",
-    journeyCtaNote: "Walk through the pressure, your reactions, and the next safe step.",
+    atlasCta: "See this scan in the Atlas",
+    atlasCtaNote: "Compare it with anonymous scans that share similar scam and deception signals.",
+    journeyCta: "Understand what happened",
+    journeyCtaNote: "Walk through the pressure tactics, what they wanted, and your safest next step.",
+    protectCta: "Protect someone you care about",
+    protectCtaNote: "Explore a simple way to help a family member check suspicious situations before acting.",
     partnerScannerTitle: "Security Message Scanner",
     poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
@@ -488,10 +490,12 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
-    atlasCta: "Voir des motifs semblables dans l’Atlas",
-    atlasCtaNote: "Voyez où cette analyse se situe parmi les motifs rencontrés par d’autres personnes.",
-    journeyCta: "Comprendre ce que ce message essayait de vous faire faire",
-    journeyCtaNote: "Parcourez la pression, vos réactions et le prochain geste sûr.",
+    atlasCta: "Voir cette analyse dans l’Atlas",
+    atlasCtaNote: "Comparez-la à des analyses anonymes qui partagent des signaux d’arnaque et de tromperie semblables.",
+    journeyCta: "Comprendre ce qui s’est passé",
+    journeyCtaNote: "Parcourez les tactiques de pression, ce qu’on voulait obtenir et votre prochain geste le plus sûr.",
+    protectCta: "Protéger quelqu’un qui compte pour vous",
+    protectCtaNote: "Découvrez une façon simple d’aider un proche à vérifier une situation suspecte avant d’agir.",
     partnerScannerTitle: "Analyseur de messages suspects",
     poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
@@ -2426,6 +2430,23 @@ export default function ResultView() {
               <strong>{t.journeyCta}</strong>
               <span>{t.journeyCtaNote}</span>
             </a>
+            <a
+              href={lang === "fr" ? "/fr/protect-family?source=post_scan" : "/protect-family?source=post_scan"}
+              style={styles.protectCta}
+              onClick={() => logScanEvent("post_scan_action_selected", {
+                scan_id: scanIdForContext || undefined,
+                props: {
+                  surface: "result",
+                  intent: "protect_family",
+                  risk_tier: risk,
+                  input_type: inputType,
+                  lang,
+                },
+              })}
+            >
+              <strong>{t.protectCta}</strong>
+              <span>{t.protectCtaNote}</span>
+            </a>
           </>
         )}
         {!weakInputGateActive && (
@@ -2477,21 +2498,38 @@ const styles: Record<string, React.CSSProperties> = {
     display: "block",
     maxWidth: 620,
     margin: "0 auto",
-    padding: "16px 18px",
-    border: "1px solid #6D4B41",
-    background: "#171315",
-    color: "#F1E5DB",
+    padding: "17px 18px",
+    border: "1px solid #C9B8AE",
+    borderRadius: 14,
+    background: "#FBF8F5",
+    color: "#253039",
+    boxShadow: "0 5px 18px rgba(31,35,40,0.05)",
     textDecoration: "none",
     textAlign: "left",
   },
   journeyCta: {
     display: "block",
     maxWidth: 620,
-    margin: "0 auto 18px",
-    padding: "16px 18px",
-    border: "1px solid #B7791F",
-    background: "#FFF8E7",
-    color: "#173746",
+    margin: "0 auto",
+    padding: "17px 18px",
+    border: "1px solid #CDD2D8",
+    borderRadius: 14,
+    background: "#FFFFFF",
+    color: "#253039",
+    boxShadow: "0 5px 18px rgba(31,35,40,0.045)",
+    textDecoration: "none",
+    textAlign: "left",
+  },
+  protectCta: {
+    display: "block",
+    maxWidth: 620,
+    margin: "0 auto 12px",
+    padding: "17px 18px",
+    border: "1px solid #D8CEC5",
+    borderRadius: 14,
+    background: "#F7F4EF",
+    color: "#253039",
+    boxShadow: "0 5px 18px rgba(31,35,40,0.04)",
     textDecoration: "none",
     textAlign: "left",
   },
