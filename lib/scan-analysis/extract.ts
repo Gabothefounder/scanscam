@@ -139,12 +139,12 @@ const ACTION_RULES: { id: RequestedAction; test: RegExp }[] = [
   {
     id: "pay_money",
     test:
-      /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|bitcoin\b|etransfer\b|zelle\b|venmo\b|\bpayer\b|envoyer\s+(?:de\s+)?l'argent|virement|carte(?:-|\s)cadeau|frais\b|\bamende\b|interac\b/i,
+      /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|bitcoin\b|etransfer\b|zelle\b|venmo\b|\bpay(?:er|ez|e|ons|ent|é|ée|és|ées)\b|\brégl(?:er|ez|e|ons|ent|é|ée|és|ées)\b|envoyer\s+(?:de\s+)?l'argent|virement|carte(?:-|\s)cadeau|frais\b|\bamende\b|interac\b/i,
   },
   {
     id: "click_link",
     test:
-      /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+link\b|cliquez|cliquer|appuyez\s+sur|ouvrez\s+le\s+lien|suivez\s+le\s+lien/i,
+      /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+link\b|cliquez|cliquer|appuyez\s+sur|ouvrez\s+le\s+lien|suivez\s+le\s+lien|(?:avec|via)\s+(?:ce|le)\s+lien/i,
   },
   {
     id: "call_number",
