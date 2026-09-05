@@ -60,7 +60,7 @@ const NARRATIVE_RULES: { id: NarrativeFamily; test: RegExp }[] = [
   {
     id: "account_verification",
     test:
-      /\bverify\s+(your\s+)?account\b|account\s+(?:will\s+be\s+|is\s+|has\s+been\s+)?suspend(?:ed|ed\s+soon|)|unusual\s+activity|confirm\s+(?:your\s+)?identity\b|verify\s+(?:your\s+)?identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b|vérifier\s+(votre\s+)?compte|compte\s+(?:sera\s+)?suspendu|activité\s+inhabituelle|confirmer\s+(votre\s+)?identité|confirmer\s+vos\s+coordonnées|éviter\s+(?:la\s+)?suspension|sécuriser\s+votre\s+compte|connexion\s+requise|ouvrir\s+(?:une\s+)?session/i,
+      /\bverify\s+(your\s+)?account\b|account\s+(?:will\s+be\s+|is\s+|has\s+been\s+)?suspend(?:ed|ed\s+soon|)|unusual\s+activity|confirm\s+(?:your\s+)?identity\b|verify\s+(?:your\s+)?identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b|vérifier\s+(votre\s+)?compte|compte(?:\s+bancaire)?\s+(?:sera\s+|est\s+|a\s+été\s+)?suspendu|activité\s+inhabituelle|confirmer\s+(votre\s+)?identité|confirmer\s+vos\s+coordonnées|éviter\s+(?:la\s+)?suspension|sécuriser\s+votre\s+compte|connexion\s+requise|ouvrir\s+(?:une\s+)?session/i,
   },
   {
     id: "delivery_scam",
