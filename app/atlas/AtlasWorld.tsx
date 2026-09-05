@@ -112,10 +112,29 @@ function formatDate(value: string) {
 }
 
 function currentSentence(current: Current) {
-  const family = current.scam_family === "unclassified" ? "an unresolved pattern" : label(current.scam_family).toLowerCase();
+  const family = current.scam_family === "unclassified" ? "a still-unclassified scam pattern" : label(current.scam_family).toLowerCase();
   const channel = current.channel === "unclassified" ? "an unclear channel" : label(current.channel);
   const request = current.primary_request === "unclassified" ? "an unclear request" : label(current.primary_request).toLowerCase();
-  return `${current.signal_count} traces connect ${family} with ${channel} and ${request}.`;
+  return `${current.signal_count} scans share this pattern: ${family}, arriving through ${channel}, asking people to ${request}.`;
+}
+
+function tacticExplanation(tactic: string) {
+  const explanations: Record<string, string> = {
+    urgency: "They make you feel you have to act before you have time to verify.",
+    time_pressure: "They compress the time you think you have to make a decision.",
+    false_trust: "They create familiarity or credibility so you lower your guard.",
+    helpfulness: "They appear helpful first, then use that trust to move you toward an action.",
+    financial: "They move the interaction toward money, payment, or financial access.",
+    threat: "They use a negative consequence to push you into acting.",
+    credential_request: "They try to get passwords, codes, or account information.",
+    authority: "They borrow the credibility of a bank, government, employer, or other authority.",
+    shortened_link: "They hide the final destination behind a shortened or redirected link.",
+    legal_threat: "They invoke police, courts, fines, or legal consequences to create pressure.",
+    fear: "They make fear do the thinking before you can slow down and verify.",
+    excitement: "They use reward, opportunity, or anticipation to make scrutiny feel less important.",
+    account_threat: "They threaten access to an account or service unless you act.",
+  };
+  return explanations[tactic] || "A repeated manipulation mechanism that appears across different scam stories.";
 }
 
 export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
@@ -199,6 +218,12 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
         <span>Atlas of Deception</span>
         <div className={styles.navActions}>
           <Link href="/scan">Scan something</Link>
+          <Link
+            href="/protect-family?source=atlas_nav"
+            onClick={() => logScanEvent("intent_selected", {
+              props: { surface: "atlas_nav", intent: "protect_family", target: "/protect-family" },
+            })}
+          >Protect family</Link>
           <button onClick={() => {
             logScanEvent("journey_started", { props: { surface: "atlas_nav", entry_mode: "lived" } });
             onJourney();
@@ -208,21 +233,29 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
 
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
-          <p>THE ATLAS IS ALIVE</p>
-          <h1>Patterns appear<br />when experiences overlap.</h1>
+          <p>A LIVE MAP OF SCAM & DECEPTION PATTERNS</p>
+          <h1>See the patterns<br />scammers keep reusing.</h1>
           <span>
-            Every faint trace comes from a scan. Repeated behaviors gather into currents.
-            A Light appears only when someone deliberately contributes a Journey.
+            The Atlas turns anonymous ScanScam signals into a map of recurring scam behavior:
+            how people are contacted, what pressure is used, and what they are asked to do.
+            Explore what others are seeing, learn how the manipulation works, or use it to help protect someone you care about.
           </span>
           <div className={styles.heroActions}>
             <button onClick={() => document.getElementById("atlas-vessel")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-              Explore the currents
+              Explore scam patterns
             </button>
-            <button className={styles.secondary} onClick={findMine}>Find patterns like mine</button>
+            <button className={styles.secondary} onClick={findMine}>Find my scan in the Atlas</button>
             <button className={styles.secondary} onClick={() => {
               logScanEvent("journey_started", { props: { surface: "atlas_hero", entry_mode: "lived", intent: "leave_a_light" } });
               onJourney();
-            }}>Leave a light</button>
+            }}>Tell us what happened</button>
+            <Link
+              className={styles.protectAction}
+              href="/protect-family?source=atlas_hero"
+              onClick={() => logScanEvent("intent_selected", {
+                props: { surface: "atlas_hero", intent: "protect_family", target: "/protect-family" },
+              })}
+            >Protect a family member</Link>
           </div>
           {mineStatus === "missing" && (
             <p className={styles.mineNote}>
@@ -239,10 +272,11 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
 
       <section id="atlas-vessel" className={styles.vesselSection}>
         <div className={styles.vesselCopy}>
-          <p>THE LIVING MAP</p>
-          <h2>Follow a current.</h2>
+          <p>SCAM CURRENTS</p>
+          <h2>Follow a scam pattern.</h2>
           <span>
-            Thickness shows how many traces gather there. Brighter strands carry a larger share of high-risk scans.
+            Each current groups scans that share important features—such as the scam family, the channel used,
+            and what the message asks someone to do. Thicker currents contain more scans; brighter ones contain a higher share of high-risk scans.
           </span>
         </div>
 
@@ -330,7 +364,7 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
           {selected ? (
             <aside className={styles.currentPanel}>
               <button className={styles.panelClose} onClick={() => setSelectedKey(null)} aria-label="Close current">×</button>
-              <p>CURRENT</p>
+              <p>SCAM CURRENT</p>
               <h3>{selected.scam_family === "unclassified" ? label(selected.channel) : label(selected.scam_family)}</h3>
               <span className={styles.currentSentence}>{currentSentence(selected)}</span>
               <div className={styles.currentStats}>
@@ -361,8 +395,8 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
             </aside>
           ) : (
             <div className={styles.vesselPrompt}>
-              <span>Click a strand</span>
-              <b>Enter a current</b>
+              <span>Click a scam strand</span>
+              <b>See what this pattern means</b>
             </div>
           )}
         </div>
@@ -370,14 +404,27 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
 
       <section className={styles.forces}>
         <div>
-          <p>FORCES RUNNING THROUGH THE ATLAS</p>
-          <h2>The story changes. The mechanisms repeat.</h2>
+          <p>WHY THESE SCAMS WORK</p>
+          <h2>Different stories. Repeated pressure tactics.</h2>
+          <span className={styles.forceIntro}>
+            A delivery text, a fake bank alert, and a government impersonation can look completely different.
+            But they often rely on the same psychological mechanisms. Learning those mechanisms makes new scams easier to recognize.
+          </span>
         </div>
         <div className={styles.forceGrid}>
           {(data?.tactics || []).slice(0, 8).map((tactic) => (
             <article key={tactic.tactic}>
               <b>{label(tactic.tactic)}</b>
-              <span>{Number(tactic.signal_count).toLocaleString()} traces</span>
+              <span className={styles.forceMeaning}>{tacticExplanation(tactic.tactic)}</span>
+              <span className={styles.forceCount}>{Number(tactic.signal_count).toLocaleString()} Atlas traces</span>
+              <Link
+                href={`/atlas?journey=1&mode=learn&topic=${encodeURIComponent(tactic.tactic)}`}
+                onClick={() => logScanEvent("cognitive_defense_opened", {
+                  props: { surface: "atlas_tactic", intent: "learn", target: tactic.tactic },
+                })}
+              >
+                Learn the defense →
+              </Link>
               <i style={{ transform: `scaleX(${Math.max(.08, Math.min(1, tactic.signal_count / Math.max(data?.tactics?.[0]?.signal_count || 1, 1)))})` }} />
             </article>
           ))}
@@ -386,10 +433,11 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
 
       <section className={styles.network}>
         <p>HELP BUILD THE DEFENSE</p>
-        <h2>This gets stronger when different kinds of people connect.</h2>
+        <h2>Protection gets stronger when different kinds of people connect.</h2>
         <span>
-          Fraud professionals, researchers, psychologists, educators, builders, institutions,
-          and people with lived experience are welcome.
+          Scams move across families, banks, platforms, technologies, and communities.
+          Better defense needs the same kind of network. Fraud professionals, researchers, psychologists,
+          educators, builders, institutions, and people with lived experience are welcome.
         </span>
         <a
           href="mailto:hello@scanscam.ca?subject=I%20want%20to%20help%20build%20ScanScam"
@@ -402,13 +450,19 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
       </section>
 
       <section className={styles.closure}>
-        <p>ONE EXPERIENCE CAN STAY PRIVATE AND STILL BECOME USEFUL.</p>
-        <h2>Your words can remain yours.<br />The pattern can become a light.</h2>
+        <p>YOUR EXPERIENCE CAN HELP REVEAL THE PATTERN.</p>
+        <h2>Your story can stay private.<br />Its anonymous signals can help protect the next person.</h2>
         <div>
           <button onClick={() => {
             logScanEvent("journey_started", { props: { surface: "atlas_closure", entry_mode: "lived" } });
             onJourney();
           }}>Something happened to me</button>
+          <Link
+            href="/protect-family?source=atlas_closure"
+            onClick={() => logScanEvent("intent_selected", {
+              props: { surface: "atlas_closure", intent: "protect_family", target: "/protect-family" },
+            })}
+          >Protect a family member</Link>
           <Link href="/scan">Scan something suspicious</Link>
         </div>
       </section>
