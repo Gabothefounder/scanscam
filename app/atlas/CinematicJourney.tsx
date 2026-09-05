@@ -22,7 +22,7 @@ const ui = {
     detailsTitle: "Make the record more useful", detailsLead: "Optional. Never enter passwords, complete card numbers, government ID numbers or intimate material.", addDetails: "Add precise details", hideDetails: "Close details",
     when: "When", contact: "Phone, email or website", organization: "Claimed organization", amount: "Amount and currency", payment: "Payment method", reference: "Transaction reference",
     path: "What happened", pressure: "Pressure used", feelings: "What I felt", asked: "What they asked for", nextStep: "My next step", private: "This record stays in this browser unless you copy, print or save it.",
-    copy: "Copy summary", copied: "Copied", print: "Print or save", report: "Find where to report it", restart: "Begin again", optional: "Optional family protection updates", email: "Email address", notify: "Join the waitlist", noStore: "Prototype only—email is not submitted yet.",
+    copy: "Copy summary", copied: "Copied", print: "Print or save", report: "Find where to report it", restart: "Begin again", actionPlan: "Your action plan", actionLead: "Start with the first step. You do not need to do everything at once.", shareConsent: "Share only the anonymous pattern with the Atlas. Your pasted message, private notes and ledger details are not included.", shareNow: "Add my anonymous pattern", sharing: "Adding your light…", shared: "Your light joined the Atlas.", shareError: "We could not add the pattern right now. Your private record is unchanged.", done: "You’re done.", doneBody: "You have a record and a next step. That is enough for now.", protectPrompt: "Who would you hate to see go through this?", protectCta: "Protect someone you love", exploreAtlas: "Explore the Atlas",
   },
   fr: {
     atlas: "Atlas de la tromperie", prompt: "Quelque chose s’est passé. Clarifions-le ensemble.", promise: "En environ deux minutes, retracez ce qui s’est passé, voyez la pression utilisée et repartez avec un registre privé à partager avec votre banque, une personne de confiance ou un service officiel.", reassurance: "Vous n’avez pas besoin des mots parfaits. Choisissez seulement ce qui semble vrai.", lived: "Ça m’est arrivé", helping: "J’aide quelqu’un", learn: "Je veux simplement explorer",
@@ -34,9 +34,62 @@ const ui = {
     detailsTitle: "Rendre le registre plus utile", detailsLead: "Facultatif. N’inscrivez aucun mot de passe, numéro de carte complet, numéro d’identité gouvernemental ou contenu intime.", addDetails: "Ajouter des détails précis", hideDetails: "Fermer les détails",
     when: "Quand", contact: "Téléphone, courriel ou site", organization: "Organisation prétendue", amount: "Montant et devise", payment: "Mode de paiement", reference: "Référence de transaction",
     path: "Ce qui s’est passé", pressure: "Pression utilisée", feelings: "Ce que j’ai ressenti", asked: "Ce qu’on m’a demandé", nextStep: "Mon prochain pas", private: "Ce registre reste dans ce navigateur à moins que vous le copiiez, l’imprimiez ou le sauvegardiez.",
-    copy: "Copier le résumé", copied: "Copié", print: "Imprimer ou sauvegarder", report: "Trouver où le signaler", restart: "Recommencer", optional: "Nouvelles facultatives sur la protection familiale", email: "Adresse courriel", notify: "Joindre la liste d’attente", noStore: "Prototype seulement—le courriel n’est pas encore transmis.",
+    copy: "Copier le résumé", copied: "Copié", print: "Imprimer ou sauvegarder", report: "Trouver où le signaler", restart: "Recommencer", actionPlan: "Votre plan d’action", actionLead: "Commencez par la première étape. Vous n’avez pas à tout faire d’un coup.", shareConsent: "Partagez uniquement le motif anonyme avec l’Atlas. Votre message collé, vos notes privées et les détails du registre ne sont pas inclus.", shareNow: "Ajouter mon motif anonyme", sharing: "Votre lumière rejoint l’Atlas…", shared: "Votre lumière a rejoint l’Atlas.", shareError: "Impossible d’ajouter le motif pour le moment. Votre registre privé demeure inchangé.", done: "C’est terminé.", doneBody: "Vous avez un registre et une prochaine étape. C’est suffisant pour aujourd’hui.", protectPrompt: "Qui voudriez-vous protéger d’une expérience comme celle-ci?", protectCta: "Protéger une personne que vous aimez", exploreAtlas: "Explorer l’Atlas",
   },
 };
+
+
+type ActionItem = { id: string; title: string; detail?: string };
+
+function buildActionPlan(answers: Answers, lang: Lang): ActionItem[] {
+  const requested = new Set(answers.request || []);
+  const next = new Set(answers.interruption || []);
+  const en = lang === "en";
+  const items: ActionItem[] = [
+    {
+      id: "stop_contact",
+      title: en ? "Stop contact and slow the situation down." : "Coupez le contact et ralentissez la situation.",
+      detail: en ? "Do not send more money, codes, information or device access." : "N’envoyez plus d’argent, de codes, d’informations ni d’accès à votre appareil.",
+    },
+  ];
+
+  if (requested.has("money")) items.push({
+    id: "contact_financial_institution",
+    title: en ? "Contact your bank or payment provider using a number you find independently." : "Communiquez avec votre institution financière ou votre fournisseur de paiement avec un numéro trouvé indépendamment.",
+    detail: en ? "Ask whether a payment, transfer or card transaction can be stopped, recalled or disputed." : "Demandez si un paiement, un transfert ou une transaction peut être arrêté, rappelé ou contesté.",
+  });
+
+  if (requested.has("code") || requested.has("personal")) items.push({
+    id: "secure_accounts",
+    title: en ? "Secure the affected accounts." : "Sécurisez les comptes touchés.",
+    detail: en ? "Change affected passwords, review recovery information and sign out other sessions where possible." : "Changez les mots de passe concernés, vérifiez les options de récupération et déconnectez les autres sessions si possible.",
+  });
+
+  if (requested.has("device")) items.push({
+    id: "disconnect_device_access",
+    title: en ? "Remove remote access and secure the device." : "Retirez l’accès à distance et sécurisez l’appareil.",
+    detail: en ? "Disconnect remote-control tools and use a trusted device to change important credentials." : "Déconnectez les outils de contrôle à distance et utilisez un appareil fiable pour changer les identifiants importants.",
+  });
+
+  items.push({
+    id: "preserve_evidence",
+    title: en ? "Keep the evidence." : "Conservez les preuves.",
+    detail: en ? "Save messages, phone numbers, websites, receipts and transaction references. Do not delete them yet." : "Conservez les messages, numéros, sites, reçus et références de transaction. Ne les supprimez pas pour l’instant.",
+  });
+
+  if (next.has("tell")) items.push({
+    id: "tell_trusted_person",
+    title: en ? "Tell the person you chose to trust." : "Parlez-en à la personne de confiance que vous avez choisie.",
+  });
+
+  items.push({
+    id: "report_officially",
+    title: en ? "Report it when you are ready." : "Signalez la situation lorsque vous serez prêt·e.",
+    detail: en ? "Your ledger can help you explain what happened without reconstructing everything from memory." : "Votre registre peut vous aider à expliquer ce qui s’est passé sans devoir tout reconstruire de mémoire.",
+  });
+
+  return items.slice(0, 6);
+}
 
 export default function CinematicJourney() {
   const [lang, setLang] = useState<Lang>("en");
@@ -51,11 +104,19 @@ export default function CinematicJourney() {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [atlasConsent, setAtlasConsent] = useState(false);
+  const [atlasStatus, setAtlasStatus] = useState<"idle" | "sending" | "shared" | "error">("idle");
+  const [journeySessionId, setJourneySessionId] = useState<string | null>(null);
+  const [scanId, setScanId] = useState<string | null>(null);
   const t = ui[lang];
   const scene = scenes[step];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const existingJourneyId = window.sessionStorage.getItem("scanscam-atlas-session-id");
+    const journeyId = existingJourneyId || crypto.randomUUID();
+    if (!existingJourneyId) window.sessionStorage.setItem("scanscam-atlas-session-id", journeyId);
+    setJourneySessionId(journeyId);
     const incoming = params.get("message");
     if (incoming) setMessage(incoming.slice(0, 4000));
     if (params.get("mode") === "scan") {
@@ -64,14 +125,16 @@ export default function CinematicJourney() {
         try {
           const result = JSON.parse(window.sessionStorage.getItem("scanResult") || "{}") as Record<string, unknown>;
           const candidate = [result.original_text, result.raw_message, result.message, result.input, result.submitted_text].find((value) => typeof value === "string") as string | undefined;
+          const candidateScanId = [result.id, result.scan_id].find((value) => typeof value === "string") as string | undefined;
           if (candidate) setMessage(candidate.slice(0, 4000));
+          if (candidateScanId) setScanId(candidateScanId);
         } catch { /* A missing scan still opens the journey safely. */ }
       }
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("scanscam-atlas-draft", JSON.stringify({ mode, step, answers, words, evidence, message }));
+    window.sessionStorage.setItem("scanscam-atlas-draft", JSON.stringify({ mode, step, answers, words, evidence, message }));
   }, [answers, evidence, message, mode, step, words]);
 
   const selected = answers[scene?.key] || [];
@@ -82,6 +145,8 @@ export default function CinematicJourney() {
   const activeEmotion = scene?.key === "emotion" ? (emotionPulse || selected[selected.length - 1]) : undefined;
   const activeEmotionLabel = activeEmotion ? scene.choices?.find((choice) => choice[0] === activeEmotion)?.[lang === "en" ? 1 : 2] : undefined;
   const reflection = scene?.key !== "emotion" && scene?.reflection ? tx(scene.reflection, lang) : "";
+
+  const actionPlan = useMemo(() => buildActionPlan(answers, lang), [answers, lang]);
 
   const summary = useMemo(() => {
     const rows = [
@@ -114,11 +179,44 @@ export default function CinematicJourney() {
   };
   const restart = () => {
     setMode(null); setStep(0); setAnswers({}); setWords({}); setEvidence(emptyEvidence); setMessage(""); setShowDetails(false); setEmotionPulse(null);
-    window.localStorage.removeItem("scanscam-atlas-draft");
+    window.sessionStorage.removeItem("scanscam-atlas-draft");
+    window.sessionStorage.removeItem("scanscam-atlas-session-id");
+    setAtlasConsent(false); setAtlasStatus("idle"); setJourneySessionId(null); setScanId(null);
   };
   const begin = (entry: EntryMode) => { setMode(entry); setStep(0); if (entry === "learn") setMessage(t.example); };
   const contextLine = mode === "scan" ? t.scanContext : mode === "helping" ? t.helpingContext : mode === "learn" ? t.learnContext : t.livedContext;
   const copySummary = async () => { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1800); };
+  const contributeToAtlas = async () => {
+    if (!atlasConsent || !journeySessionId || !mode || mode === "learn") return;
+    setAtlasStatus("sending");
+    try {
+      const response = await fetch("/api/atlas/contribute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          session_id: journeySessionId,
+          scan_id: scanId,
+          lang,
+          entry_mode: mode,
+          selected_signals: {
+            arrival: answers.arrival || [],
+            identity: answers.identity || [],
+            pressure: answers.pressure || [],
+            emotion: answers.emotion || [],
+            request: answers.request || [],
+            interruption: answers.interruption || [],
+          },
+          action_ids: actionPlan.map((item) => item.id),
+          consent: true,
+          consent_version: "atlas_pattern_v1",
+        }),
+      });
+      if (!response.ok) throw new Error("atlas_contribution_failed");
+      setAtlasStatus("shared");
+    } catch {
+      setAtlasStatus("error");
+    }
+  };
   const image = !mode ? "entrance" : scene.image;
   const canContinue = selected.length > 0 || Boolean(words[scene?.key]?.trim()) || !scene?.choices || scene.key === "arrival";
 
@@ -126,7 +224,7 @@ export default function CinematicJourney() {
     <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={activeEmotion || ""} data-pressure={scene?.key === "pressure" ? Math.min(selected.length, 4) : 0} data-choice={selected[selected.length - 1] || ""}>
       <nav className={styles.nav}><Link href="/">ScanScam</Link><span>{t.atlas}</span><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
       <Image className={styles.art} src={imageFor(image)} alt="" fill priority sizes="100vw" />
-      <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" /><div className={styles.storyThread} aria-hidden="true"><i /><i /><i />{scene?.key === "return" && selected.includes("share") && <i className={styles.joinedLight} />}</div>{scene?.key === "return" && selected.includes("share") && <div className={styles.lightJoin} aria-hidden="true"><i /></div>}
+      <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" /><div className={styles.storyThread} aria-hidden="true"><i /><i /><i />{scene?.key === "return" && atlasStatus === "shared" && <i className={styles.joinedLight} />}</div>{scene?.key === "return" && atlasStatus === "shared" && <div className={styles.lightJoin} aria-hidden="true"><i /></div>}
       {!mode ? (
         <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><span className={styles.promise}>{t.promise}</span><span className={styles.reassurance}>{t.reassurance}</span><div className={styles.doors}>
           <button onClick={() => begin("lived")}><b>{t.lived}</b><span>{t.livedLead}</span></button>
@@ -141,12 +239,13 @@ export default function CinematicJourney() {
             <header><p>{tx(scene.eyebrow, lang)}</p><h1>{tx(scene.title, lang)}</h1><span>{tx(scene.lead, lang)}</span></header>
             {scene.key === "arrival" && mode === "scan" && <label className={styles.message}><span>{t.message}</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.messagePlaceholder} /></label>}
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
-            {scene.key === "return" && <div className={styles.returnBook}><div className={styles.openBook}><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "The path you traced" : "Le chemin retracé"}</p><JourneyPath lang={lang} answers={answers} /></section><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "Your private record" : "Votre registre privé"}</p><Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></section></div><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}</div>}
+            {scene.key === "return" && <div className={styles.returnBook}><div className={styles.openBook}><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "The path you traced" : "Le chemin retracé"}</p><JourneyPath lang={lang} answers={answers} /></section><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "Your private record" : "Votre registre privé"}</p><Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></section></div><ActionPlan lang={lang} items={actionPlan} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}</div>}
             {scene.choices && <div className={`${styles.choices} ${scene.key === "emotion" ? styles.emotionChoices : ""}`}>{scene.choices.map(([id, en, fr]) => <button key={id} data-choice={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span></button>)}</div>}
             <label className={styles.own}><span>{t.own}</span><textarea value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} rows={2} /></label>
             {reflection && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
             {scene.key === "emotion" && emotionPulse && <div className={styles.emotionFlash} data-emotion={emotionPulse} aria-live="polite"><i aria-hidden="true" /><p>{activeEmotionLabel}</p><blockquote>{tx(emotionReflections[emotionPulse], lang)}</blockquote></div>}
-            {scene.key === "return" && selected.length ? <div className={styles.ending}><p>{selected.includes("share") ? (lang === "en" ? "You added one light to the map. One experience can help the next person recognize the pattern sooner." : "Vous avez ajouté une lumière à la carte. Une expérience peut aider la prochaine personne à reconnaître le motif plus tôt.") : (lang === "en" ? "Your light remains yours. Keeping this private is a complete choice." : "Votre lumière demeure la vôtre. Garder ceci privé est un choix complet.")}</p><button onClick={restart}>{t.restart}</button><Link href="/atlas">{lang === "en" ? "Explore the Atlas" : "Explorer l’Atlas"}</Link><label><span>{t.optional}</span><input type="email" placeholder={t.email} /><button type="button" title={t.noStore}>{t.notify}</button></label></div> : scene.key !== "return" &&
+            {scene.key === "return" && selected.includes("share") && mode !== "learn" && atlasStatus !== "shared" && <div className={styles.shareConsent}><label><input type="checkbox" checked={atlasConsent} onChange={(event) => setAtlasConsent(event.target.checked)} /><span>{t.shareConsent}</span></label><button type="button" disabled={!atlasConsent || atlasStatus === "sending"} onClick={contributeToAtlas}>{atlasStatus === "sending" ? t.sharing : t.shareNow}</button>{atlasStatus === "error" && <p>{t.shareError}</p>}</div>}
+            {scene.key === "return" && selected.length ? <div className={styles.ending}><div className={styles.doneMoment}><b>{t.done}</b><span>{selected.includes("share") && atlasStatus === "shared" ? t.shared : t.doneBody}</span></div><div className={styles.endingActions}><Link href="/atlas">{t.exploreAtlas}</Link><button onClick={restart}>{t.restart}</button></div><div className={styles.protectBridge}><span>{t.protectPrompt}</span><Link href={lang === "fr" ? "/fr/protect-family?source=atlas_journey" : "/protect-family?source=atlas_journey"}>{t.protectCta}<b>→</b></Link></div></div> : scene.key !== "return" &&
               <footer>{step > 0 && <button onClick={() => setStep(step - 1)}>{t.back}</button>}<button className={styles.skip} onClick={advance}>{t.skip}</button><button className={styles.next} disabled={!canContinue} onClick={advance}>{t.continue}<span>→</span></button></footer>}
           </article>
         </section>
@@ -154,6 +253,11 @@ export default function CinematicJourney() {
       {showHelp && <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="help-title"><div><p>{t.help}</p><h2 id="help-title">{t.helpTitle}</h2><span>{t.helpBody}</span><a href={lang === "en" ? "https://antifraudcentre-centreantifraude.ca/index-eng.htm" : "https://antifraudcentre-centreantifraude.ca/index-fra.htm"} target="_blank" rel="noreferrer">{lang === "en" ? "Canadian Anti-Fraud Centre" : "Centre antifraude du Canada"}</a><button onClick={() => setShowHelp(false)}>{t.close}</button></div></div>}
     </main>
   );
+}
+
+function ActionPlan({ lang, items }: { lang: Lang; items: ActionItem[] }) {
+  const t = ui[lang];
+  return <section className={styles.actionPlan}><p>{t.actionPlan}</p><span>{t.actionLead}</span><ol>{items.map((item, index) => <li key={item.id}><i>{index + 1}</i><div><b>{item.title}</b>{item.detail && <span>{item.detail}</span>}</div></li>)}</ol></section>;
 }
 
 function JourneyPath({ lang, answers }: { lang: Lang; answers: Answers }) {
