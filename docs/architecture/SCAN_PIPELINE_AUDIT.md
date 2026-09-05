@@ -41,6 +41,8 @@ This is the largest maintainability risk. A future change can update one path wh
 
 ### 2. Independent network calls were serialized
 
+One important detail from tracing the actual risk path: shortened-link expansion participates in the behavioral/infra interpretation, but the current Web Risk and RDAP results are primarily supporting/display intelligence rather than the canonical core risk decision. That means they are candidates for progressive/background enrichment if timing data shows they dominate latency.
+
 Before this audit, a URL scan effectively waited for:
 
 1. model analysis,
