@@ -100,6 +100,7 @@ export default function CinematicJourney() {
   const [evidence, setEvidence] = useState<Evidence>(emptyEvidence);
   const [message, setMessage] = useState("");
   const [emotionPulse, setEmotionPulse] = useState<string | null>(null);
+  const [writingOpen, setWritingOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -180,10 +181,10 @@ export default function CinematicJourney() {
   };
   const advance = () => {
     setMoving(true);
-    window.setTimeout(() => { setStep((value) => Math.min(value + 1, scenes.length - 1)); setEmotionPulse(null); setMoving(false); window.scrollTo({ top: 0, behavior: "smooth" }); }, 420);
+    window.setTimeout(() => { setStep((value) => Math.min(value + 1, scenes.length - 1)); setEmotionPulse(null); setWritingOpen(false); setMoving(false); window.scrollTo({ top: 0, behavior: "smooth" }); }, 420);
   };
   const restart = () => {
-    setMode(null); setStep(0); setAnswers({}); setWords({}); setEvidence(emptyEvidence); setMessage(""); setShowDetails(false); setEmotionPulse(null);
+    setMode(null); setStep(0); setAnswers({}); setWords({}); setEvidence(emptyEvidence); setMessage(""); setShowDetails(false); setEmotionPulse(null); setWritingOpen(false);
     window.sessionStorage.removeItem("scanscam-atlas-draft");
     window.sessionStorage.removeItem("scanscam-atlas-session-id");
     setAtlasConsent(false); setAtlasStatus("idle"); setJourneySessionId(null); setScanId(null);
@@ -246,8 +247,8 @@ export default function CinematicJourney() {
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
             {scene.key === "return" && <div className={styles.returnBook}><div className={styles.openBook}><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "The path you traced" : "Le chemin retracé"}</p><JourneyPath lang={lang} answers={answers} /></section><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "Your private record" : "Votre registre privé"}</p><Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></section></div><ActionPlan lang={lang} items={actionPlan} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}</div>}
             {scene.choices && <div className={`${styles.choices} ${scene.key === "emotion" ? styles.emotionChoices : ""}`}>{scene.choices.map(([id, en, fr]) => <button key={id} data-choice={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span></button>)}</div>}
-            <label className={styles.own}><span>{t.own}</span><textarea value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} rows={2} /></label>
-            {reflection && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
+            <div className={styles.own}>{!writingOpen ? <button type="button" onClick={() => setWritingOpen(true)}>＋ {t.own}</button> : <textarea autoFocus value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} rows={2} />}</div>
+            {reflection && selected.length > 0 && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
             {scene.key === "emotion" && emotionPulse && <div className={styles.emotionFlash} data-emotion={emotionPulse} aria-live="polite"><i aria-hidden="true" /><p>{activeEmotionLabel}</p><blockquote>{tx(emotionReflections[emotionPulse], lang)}</blockquote></div>}
             {scene.key === "return" && selected.includes("share") && mode !== "learn" && atlasStatus !== "shared" && <div className={styles.shareConsent}><label><input type="checkbox" checked={atlasConsent} onChange={(event) => setAtlasConsent(event.target.checked)} /><span>{t.shareConsent}</span></label><button type="button" disabled={!atlasConsent || atlasStatus === "sending"} onClick={contributeToAtlas}>{atlasStatus === "sending" ? t.sharing : t.shareNow}</button>{atlasStatus === "error" && <p>{t.shareError}</p>}</div>}
             {scene.key === "return" && selected.length ? <div className={styles.ending}><div className={styles.doneMoment}><b>{t.done}</b><span>{selected.includes("share") && atlasStatus === "shared" ? t.shared : t.doneBody}</span></div><div className={styles.endingActions}><Link href="/atlas">{t.exploreAtlas}</Link><button onClick={restart}>{t.restart}</button></div><div className={styles.protectBridge}><span>{t.protectPrompt}</span><Link href={lang === "fr" ? "/fr/protect-family?source=atlas_journey" : "/protect-family?source=atlas_journey"}>{t.protectCta}<b>→</b></Link></div></div> : scene.key !== "return" &&
