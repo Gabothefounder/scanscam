@@ -173,16 +173,16 @@ export const scenes: JourneyScene[] = [
     key: "request",
     image: "mechanism",
     eyebrow: [
-      "Chapter five · The surrender point",
-      "Chapitre cinq · Le point de renoncement",
+      "Chapter five · The ask",
+      "Chapitre cinq · La demande",
     ],
     title: [
-      "Now the destination becomes visible.",
-      "La destination devient maintenant visible.",
+      "Now we can see what they were trying to get.",
+      "Nous pouvons maintenant voir ce qu’on essayait d’obtenir.",
     ],
     lead: [
-      "What did they want you to surrender?",
-      "Qu’est-ce qu’on voulait vous faire céder?",
+      "What were they asking from you?",
+      "Qu’est-ce qu’on vous demandait?",
     ],
     choices: [
       ["money", "Money", "De l’argent"],
@@ -218,7 +218,7 @@ export const scenes: JourneyScene[] = [
       ["report", "Find official help", "Trouver de l’aide officielle"],
       ["unsure", "I don’t know yet", "Je ne sais pas encore"],
     ],
-    multi: true,
+    multi: false,
     reflection: [
       "You have your time back. You can verify through a number or website you find independently.",
       "Votre temps vous appartient de nouveau. Vous pouvez vérifier avec un numéro ou un site trouvé indépendamment.",
