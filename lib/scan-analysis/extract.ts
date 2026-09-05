@@ -134,7 +134,7 @@ const ACTION_RULES: { id: RequestedAction; test: RegExp }[] = [
   {
     id: "submit_credentials",
     test:
-      /\b(password|otp|verification\s+code|enter\s+code)\b|\bverify\s+(?:your\s+)?identity\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b|mot\s+de\s+passe|code\s+de\s+vérification|confirmer\s+(votre\s+)?identité|connexion|ouvrir\s+(?:une\s+)?session|valider\s+votre\s+compte/i,
+      /\b(password|otp|verification\s+code|enter\s+code)\b|\bverify\s+(?:your\s+)?identity\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b|mot\s+de\s+passe|code\s+de\s+vérification|confirmer\s+(votre\s+)?identité|vérifi(?:er|ez|e|ons|ent|é|ée|és|ées)\s+(votre\s+)?identité|connexion|ouvrir\s+(?:une\s+)?session|valider\s+votre\s+compte/i,
   },
   {
     id: "pay_money",
@@ -180,7 +180,7 @@ const THREAT_RULES: { id: ThreatStage; test: RegExp }[] = [
   {
     id: "credential_capture",
     test:
-      /\botp\b|verification\s+code\b|password\b|login\b|verify\s+account\b|confirm\s+identity\b|mot\s+de\s+passe|code\s+de\s+vérification|connexion|vérifier\s+(votre\s+)?compte/i,
+      /\botp\b|verification\s+code\b|password\b|login\b|verify\s+account\b|confirm\s+identity\b|mot\s+de\s+passe|code\s+de\s+vérification|connexion|vérifi(?:er|ez|e|ons|ent)\s+(?:votre\s+)?(?:compte|identité)/i,
   },
   {
     id: "payment_extraction",
