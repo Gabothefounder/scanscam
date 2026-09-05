@@ -2501,13 +2501,13 @@ export default function ResultView() {
                 </p>
               )}
 
-              <div className="text-center text-2xl font-semibold" style={{ color: tierColor }}>
-                {riskTitle}
+              <div style={styles.resultHero}>
+                <div style={{ ...styles.riskBadge, color: tierColor }}>{riskTitle}</div>
+                <h1 style={styles.patternHeadline}>{resultPatternTitle}</h1>
+                <p className="text-base text-gray-900" style={styles.summaryPrimary}>
+                  {summary}
+                </p>
               </div>
-
-              <p className="text-center text-base text-gray-900" style={styles.summaryPrimary}>
-                {summary}
-              </p>
 
               {(quickIntel.wants.length > 0 || quickIntel.pressure.length > 0) && !insufficientContextState && (
                 <div style={styles.quickIntel}>
@@ -2526,27 +2526,36 @@ export default function ResultView() {
                 </div>
               )}
 
-              {whyLines.length > 0 && !insufficientContextState && (
-                <div style={styles.whyBlock}>
-                  <div style={styles.whyTitle}>{t.whyTitle}</div>
-                  <ul style={styles.whyList}>
-                    {whyLines.map((line, i) => <li key={`why-${i}`}>{line}</li>)}
-                  </ul>
+              {!insufficientContextState && primaryAction && (
+                <div style={styles.immediateActionBlock}>
+                  <div style={styles.actionEyebrow}>{t.actionEyebrow[risk]}</div>
+                  <div style={styles.primaryActionTitle}>{primaryAction.action}</div>
+                  {primaryAction.explanation ? (
+                    <p style={styles.primaryActionExplanation}>{primaryAction.explanation}</p>
+                  ) : null}
+                  {secondaryActionItems.length > 0 && (
+                    <ul style={styles.secondaryActionList}>
+                      {secondaryActionItems.map((item) => (
+                        <li key={item.action}>
+                          <strong>{item.action}</strong>
+                          {item.explanation ? <span> — {item.explanation}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
-              {!insufficientContextState && whatToDoNextItems.length > 0 && (
-                <div style={styles.immediateActionBlock}>
-                  <h3 style={styles.immediateActionTitle}>{t.actionTitle}</h3>
-                  <ol style={styles.immediateActionList}>
-                    {whatToDoNextItems.slice(0, 3).map((item) => (
-                      <li key={item.action}>
-                        <strong>{item.action}</strong>
-                        {item.explanation ? <span>{item.explanation}</span> : null}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+              {whyLines.length > 0 && !insufficientContextState && (
+                <details style={styles.whyDetails}>
+                  <summary style={styles.whySummary}>{t.whyTitle}</summary>
+                  <ul style={styles.whyList}>
+                    {whyLines.map((line, i) => <li key={`why-${i}`}>{line}</li>)}
+                  </ul>
+                  <div style={styles.confidenceInside}>
+                    {riskConfidenceLabel} {riskConfidenceText}
+                  </div>
+                </details>
               )}
 
               {hasRefinementParent && (
@@ -2556,7 +2565,6 @@ export default function ResultView() {
               )}
 
               <div style={styles.resultMeta}>
-                <span>{riskConfidenceLabel} {riskConfidenceText}</span>
                 <span>{t.freeVerifyHint}</span>
               </div>
             </div>
