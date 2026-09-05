@@ -384,6 +384,23 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
         </div>
       </section>
 
+      <section className={styles.network}>
+        <p>HELP BUILD THE DEFENSE</p>
+        <h2>This gets stronger when different kinds of people connect.</h2>
+        <span>
+          Fraud professionals, researchers, psychologists, educators, builders, institutions,
+          and people with lived experience are welcome.
+        </span>
+        <a
+          href="mailto:hello@scanscam.ca?subject=I%20want%20to%20help%20build%20ScanScam"
+          onClick={() => logScanEvent("network_contact_clicked", {
+            props: { surface: "atlas", intent: "join_network", target: "hello@scanscam.ca" },
+          })}
+        >
+          hello@scanscam.ca <b>→</b>
+        </a>
+      </section>
+
       <section className={styles.closure}>
         <p>ONE EXPERIENCE CAN STAY PRIVATE AND STILL BECOME USEFUL.</p>
         <h2>Your words can remain yours.<br />The pattern can become a light.</h2>
