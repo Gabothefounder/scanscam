@@ -2388,47 +2388,82 @@ export default function ResultView() {
           </div>
         ) : (
           <>
-            {/* ---------- A) Risk Block ---------- */}
-            <div style={riskBlockStyle} className="gap-2">
+            {/* ---------- Decision surface ---------- */}
+            <div style={riskBlockStyle}>
               {analysisUnavailable && (
                 <p
                   className="text-center text-xs font-medium text-stone-700"
-                  style={{ margin: "0 0 4px", lineHeight: 1.4 }}
+                  style={{ margin: "0 0 8px", lineHeight: 1.4 }}
                   role="status"
                 >
                   {unavailableBannerText}
                 </p>
               )}
-              <div className="text-center text-xl font-semibold" style={{ color: tierColor }}>
+
+              <div className="text-center text-2xl font-semibold" style={{ color: tierColor }}>
                 {riskTitle}
               </div>
-              <p className="text-center text-sm font-medium text-gray-700" style={styles.systemConfidenceLine}>
-                {riskConfidenceLabel} {riskConfidenceText}
+
+              <p className="text-center text-base text-gray-900" style={styles.summaryPrimary}>
+                {summary}
               </p>
-              <p className="text-center text-xs text-gray-500" style={styles.systemConfidenceHelper}>
-                {riskConfidenceHelper}
-              </p>
-              {!insufficientContextState && (
-                <RiskMeter
-                  risk={risk}
-                  label={riskMeterLabel}
-                  levelText={riskMeterLevelText}
-                  unavailable={unavailableWithoutElevatedCaution}
-                />
+
+              {(quickIntel.wants.length > 0 || quickIntel.pressure.length > 0) && !insufficientContextState && (
+                <div style={styles.quickIntel}>
+                  {quickIntel.wants.length > 0 && (
+                    <div style={styles.quickIntelRow}>
+                      <span style={styles.quickIntelLabel}>{t.wantLabel}</span>
+                      <span style={styles.quickIntelValue}>{quickIntel.wants.join(" · ")}</span>
+                    </div>
+                  )}
+                  {quickIntel.pressure.length > 0 && (
+                    <div style={styles.quickIntelRow}>
+                      <span style={styles.quickIntelLabel}>{t.pressureLabel}</span>
+                      <span style={styles.quickIntelValue}>{quickIntel.pressure.join(" · ")}</span>
+                    </div>
+                  )}
+                </div>
               )}
+
+              {whyLines.length > 0 && !insufficientContextState && (
+                <div style={styles.whyBlock}>
+                  <div style={styles.whyTitle}>{t.whyTitle}</div>
+                  <ul style={styles.whyList}>
+                    {whyLines.map((line, i) => <li key={`why-${i}`}>{line}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {!insufficientContextState && whatToDoNextItems.length > 0 && (
+                <div style={styles.immediateActionBlock}>
+                  <h3 style={styles.immediateActionTitle}>{t.actionTitle}</h3>
+                  <ol style={styles.immediateActionList}>
+                    {whatToDoNextItems.slice(0, 3).map((item) => (
+                      <li key={item.action}>
+                        <strong>{item.action}</strong>
+                        {item.explanation ? <span>{item.explanation}</span> : null}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
               {hasRefinementParent && (
-                <p
-                  className="text-center text-xs text-gray-500"
-                  style={styles.refinementLineage}
-                >
+                <p className="text-center text-xs text-gray-500" style={styles.refinementLineage}>
                   {t.refinementLineage}
                 </p>
               )}
-              <p className="text-sm text-gray-900" style={styles.summary}>
-                {summary}
-              </p>
-              {linkArtifact && (
-                <div className="mt-3 text-sm leading-normal text-gray-900">
+
+              <div style={styles.resultMeta}>
+                <span>{riskConfidenceLabel} {riskConfidenceText}</span>
+                <span>{t.freeVerifyHint}</span>
+              </div>
+            </div>
+
+            {linkArtifact && (
+              <details style={styles.technicalDetails}>
+                <summary style={styles.technicalSummary}>{t.detailsTitle}</summary>
+                <div style={styles.technicalBody}>
                   {(() => {
                     const ls = linkSurfaceLines(linkArtifact, lang);
                     const highRiskLine = highRiskLinkLine(
@@ -2440,9 +2475,7 @@ export default function ResultView() {
                     return (
                       <>
                         <p className="text-sm leading-normal text-gray-900">{highRiskLine ?? ls.line1}</p>
-                        {ls.line2 ? (
-                          <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
-                        ) : null}
+                        {ls.line2 ? <p className="mt-1 text-sm leading-normal text-gray-700">{ls.line2}</p> : null}
                         <LinkIntelligenceFreeBlock
                           intel={intel as Record<string, unknown>}
                           link={linkArtifact}
@@ -2461,35 +2494,16 @@ export default function ResultView() {
                     </ul>
                   )}
                 </div>
-              )}
-              {riskCardInterpretationLines.length > 0 && (
-                <ul className="mt-2 list-disc space-y-1 pl-[18px] text-xs leading-normal text-gray-700">
-                  {riskCardInterpretationLines.map((line, i) => (
-                    <li key={`risk-ai-${i}`}>{line}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+              </details>
+            )}
 
-            <div style={styles.sectionDivider} className="rounded-lg border border-gray-200/90 bg-gray-50/60 px-3 py-2.5">
-              <p className="text-center text-xs leading-relaxed text-gray-600">{t.freeVerifyHint}</p>
-            </div>
-
-            {!weakInputGateActive && whatToDoNextItems.length > 0 ? (
-              <div style={styles.sectionDivider}>
-                <h3 className="text-base font-semibold text-gray-950">{t.actionTitle}</h3>
-                <ul className="mt-3 list-disc space-y-2.5 pl-5 text-sm leading-relaxed text-gray-800">
-                  {whatToDoNextItems.map((item) => (
-                    <li key={item.action}>
-                      <span className="font-medium text-gray-900">{item.action}</span>
-                      {item.explanation ? (
-                        <p className="mt-0.5 text-gray-600">{item.explanation}</p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            {!partner && !insufficientContextState && (
+              <PostScanRecoveryGate
+                lang={lang}
+                scanId={scanIdForContext || undefined}
+                riskTier={risk}
+              />
+            )}
 
             {partner ? (
               <>
