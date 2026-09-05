@@ -2133,7 +2133,7 @@ export default function ResultView() {
       ? "#F5F5F4"
       : unavailableWithoutElevatedCaution
         ? UNAVAILABLE_CONFIG.bgColor
-        : RISK_CONFIG[risk].bgColor,
+        : "#FFFFFF",
     border: "1px solid #D1D5DB",
   };
 
@@ -2785,6 +2785,136 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: 14,
   },
+  resultHero: {
+    textAlign: "left",
+  },
+  riskBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 9px",
+    borderRadius: 999,
+    background: "#F4F4F5",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase",
+  },
+  patternHeadline: {
+    margin: "10px 0 0",
+    color: "#171A1F",
+    fontSize: "clamp(24px, 5vw, 32px)",
+    lineHeight: 1.1,
+    fontWeight: 760,
+    letterSpacing: "-0.025em",
+  },
+  actionEyebrow: {
+    marginBottom: 5,
+    color: "#6B7280",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase",
+  },
+  primaryActionTitle: {
+    color: "#171A1F",
+    fontSize: 19,
+    lineHeight: 1.25,
+    fontWeight: 760,
+  },
+  primaryActionExplanation: {
+    margin: "5px 0 0",
+    color: "#4B5563",
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+  secondaryActionList: {
+    margin: "12px 0 0",
+    paddingTop: 10,
+    paddingLeft: 20,
+    borderTop: "1px solid #E5E7EB",
+    color: "#4B5563",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+  whyDetails: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTop: "1px solid #E5E7EB",
+  },
+  whySummary: {
+    cursor: "pointer",
+    color: "#4B5563",
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  confidenceInside: {
+    marginTop: 9,
+    color: "#7A8089",
+    fontSize: 11,
+  },
+  continueCard: {
+    width: "100%",
+    padding: 16,
+    borderRadius: 14,
+    border: "1px solid #C9CED6",
+    background: "#FFFFFF",
+    boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+    boxSizing: "border-box",
+  },
+  continueHeader: {
+    marginBottom: 12,
+  },
+  continueEyebrow: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: 760,
+  },
+  continueLead: {
+    margin: "4px 0 0",
+    color: "#6B7280",
+    fontSize: 13,
+    lineHeight: 1.45,
+  },
+  atlasPrimary: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "14px 15px",
+    borderRadius: 11,
+    background: "#1F2937",
+    color: "#FFFFFF",
+    textDecoration: "none",
+  },
+  atlasPrimaryTitle: {
+    fontSize: 15,
+    fontWeight: 760,
+  },
+  atlasPrimaryBody: {
+    color: "#D1D5DB",
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
+  networkActions: {
+    marginTop: 9,
+    display: "flex",
+    gap: 9,
+    flexWrap: "wrap",
+  },
+  networkAction: {
+    flex: "1 1 220px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    padding: "11px 12px",
+    border: "1px solid #D4D7DC",
+    borderRadius: 10,
+    background: "#F8F9FA",
+    color: "#303841",
+    textDecoration: "none",
+    fontSize: 13,
+    lineHeight: 1.35,
+  },
+
   moreBlock: {
     width: "100%",
     display: "flex",
@@ -2822,8 +2952,8 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.25,
   },
   summaryPrimary: {
-    margin: "10px auto 0",
-    maxWidth: 500,
+    margin: "9px 0 0",
+    maxWidth: 520,
     lineHeight: 1.5,
   },
   quickIntel: {
