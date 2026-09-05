@@ -1,194 +1,216 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ScannerForm } from "@/components/ScannerForm";
 import { captureAttribution } from "@/lib/attribution";
-
-/* ---------------- Copy ---------------- */
+import { useScanSuccessNavigation } from "@/lib/scan/useScanSuccessNavigation";
+import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 const copy = {
   en: {
-    title: "Is this a scam?",
-    subtext: "Paste a suspicious message or upload a screenshot to check instantly.",
-    primaryCta: "Check Now",
-    reassurance: "No login required. Instant results. No personal profile.",
-    policy1: "Messages may be stored securely for up to 30 days to improve detection.",
-    policy2: "Approximate region (city-level) may be used to detect local scam trends.",
-    policy3: "No accounts. No personal tracking or profiling.",
+    title: "Something feels off?",
+    subtext: "Paste a suspicious message, link, or upload a screenshot. Get the answer first.",
+    reassurance: "Free · No account required · Clear next steps",
+    policy:
+      "Messages may be stored securely for up to 30 days to improve detection. No personal profile is created.",
+    atlasCta: "Explore the Atlas",
+    happenedCta: "Something happened?",
+    familyCta: "Protect someone",
     howItWorks: "How it works",
     privacyLink: "Privacy & Data Use",
   },
   fr: {
-    title: "Est-ce une arnaque ?",
-    subtext: "Collez un message suspect ou téléversez une capture d'écran pour vérifier instantanément.",
-    primaryCta: "Vérifier maintenant",
-    reassurance: "Aucune connexion requise. Résultats instantanés. Aucun profil personnel.",
-    policy1: "Les messages peuvent être stockés de manière sécurisée jusqu'à 30 jours pour améliorer la détection.",
-    policy2: "La région approximative (niveau ville) peut être utilisée pour détecter les tendances locales.",
-    policy3: "Aucun compte. Aucun suivi personnel ni profilage.",
+    title: "Quelque chose vous semble louche?",
+    subtext: "Collez un message ou un lien suspect, ou téléversez une capture d’écran. Obtenez d’abord une réponse claire.",
+    reassurance: "Gratuit · Aucun compte requis · Prochaines étapes claires",
+    policy:
+      "Les messages peuvent être conservés de façon sécurisée jusqu’à 30 jours afin d’améliorer la détection. Aucun profil personnel n’est créé.",
+    atlasCta: "Explorer l’Atlas",
+    happenedCta: "Quelque chose est arrivé?",
+    familyCta: "Protéger un proche",
     howItWorks: "Comment ça marche",
     privacyLink: "Confidentialité et utilisation des données",
   },
 };
 
-/* ---------------- Page ---------------- */
-
 export default function Home() {
-  const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
-
-  const [scanHref, setScanHref] = useState("/scan");
 
   useEffect(() => {
     captureAttribution();
     const params = new URLSearchParams(window.location.search);
     const currentLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(currentLang);
-
-    const attr = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"];
-    const scanParams = new URLSearchParams({ lang: currentLang });
-    attr.forEach((k) => {
-      const v = params.get(k);
-      if (v) scanParams.set(k, v);
+    logScanEvent("page_view", {
+      props: { surface: "home", flow: "public_home", lang: currentLang },
     });
-    setScanHref(`/scan?${scanParams.toString()}`);
-    setMounted(true);
   }, []);
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return null;
-  }
+  const handleScanSuccess = useScanSuccessNavigation(lang);
 
   const t = copy[lang];
+  const trackIntent = (intent: string, target: string) => {
+    logScanEvent("intent_selected", {
+      props: { surface: "home", flow: "public_home", intent, target, lang },
+    });
+  };
 
   return (
-    <main style={styles.container}>
-      {/* Main */}
-      <section style={styles.main}>
-        <div style={styles.card}>
+    <main style={styles.page}>
+      <section style={styles.hero}>
+        <div style={styles.scannerCard}>
+          <p style={styles.eyebrow}>ScanScam</p>
           <h1 style={styles.title}>{t.title}</h1>
           <p style={styles.subtext}>{t.subtext}</p>
 
-          <a href={scanHref} style={styles.primaryButton}>
-            {t.primaryCta}
-          </a>
-          <p style={styles.reassurance}>{t.reassurance}</p>
-
-          <div style={styles.policyBlock}>
-            <p style={styles.policyText}>{t.policy1}</p>
-            <p style={styles.policyText}>{t.policy2}</p>
-            <p style={styles.policyText}>{t.policy3}</p>
-            <p style={styles.policyLinks}>
-              <a href={`/how-it-works?lang=${lang}`} style={styles.policyLink}>
-                {t.howItWorks}
-              </a>
-              {" · "}
-              <a href={`/privacy?lang=${lang}`} style={styles.policyLink}>
-                {t.privacyLink}
-              </a>
-            </p>
+          <div style={styles.scannerShell}>
+            <ScannerForm lang={lang} onScanSuccess={handleScanSuccess} surface="home" />
           </div>
+
+          <p style={styles.reassurance}>{t.reassurance}</p>
+          <p style={styles.policy}>{t.policy}</p>
+          <p style={styles.policyLinks}>
+            <Link href={`/how-it-works?lang=${lang}`} style={styles.policyLink}>
+              {t.howItWorks}
+            </Link>
+            {" · "}
+            <Link href={`/privacy?lang=${lang}`} style={styles.policyLink}>
+              {t.privacyLink}
+            </Link>
+          </p>
+        </div>
+      </section>
+
+      <section style={styles.quickLinksSection} aria-label={lang === "fr" ? "Autres options" : "Other options"}>
+        <div style={styles.quickLinks}>
+          <Link
+            href={`/atlas?source=home_intent&lang=${lang}`}
+            style={styles.quickLink}
+            onClick={() => trackIntent("explore_atlas", "/atlas")}
+          >
+            {t.atlasCta}
+          </Link>
+          <Link
+            href={`/atlas?journey=1&source=home_intent&lang=${lang}`}
+            style={styles.quickLink}
+            onClick={() => trackIntent("something_happened", "/atlas?journey=1")}
+          >
+            {t.happenedCta}
+          </Link>
+          <Link
+            href={lang === "fr" ? "/fr/protect-family?source=home_intent" : "/protect-family?source=home_intent"}
+            style={styles.quickLink}
+            onClick={() => trackIntent("protect_family", "/protect-family")}
+          >
+            {t.familyCta}
+          </Link>
         </div>
       </section>
     </main>
   );
 }
 
-/* ---------------- Styles ---------------- */
-
-const styles = {
-  container: {
-    height: "calc(100vh - 156px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E2E4E9",
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    width: "100%",
+    background: "#E2E4E9",
     color: "#0B1220",
-    fontFamily: "Inter, system-ui, sans-serif",
+    fontFamily: "var(--font-geist-sans), Inter, system-ui, sans-serif",
   },
-
-  main: {
+  hero: {
+    minHeight: "calc(100vh - 156px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    paddingLeft: "16px",
-    paddingRight: "16px",
-    width: "100%",
+    padding: "42px 16px 54px",
+    boxSizing: "border-box",
   },
-
-  card: {
+  scannerCard: {
     width: "100%",
-    maxWidth: "600px",
-    backgroundColor: "#FFFFFF",
-    borderRadius: "14px",
-    padding: "32px 28px",
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "12px",
-    boxShadow: "0 16px 48px rgba(11,18,32,0.18)",
-    border: "1px solid #D1D5DB",
+    maxWidth: 700,
+    background: "#FFFFFF",
+    border: "1px solid #C7CCD5",
+    borderRadius: 18,
+    padding: "34px 30px 28px",
+    boxShadow: "0 18px 54px rgba(11,18,32,0.16)",
+    boxSizing: "border-box",
   },
-
+  eyebrow: {
+    margin: "0 0 10px",
+    textAlign: "center",
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+  },
   title: {
-    fontSize: "36px",
-    lineHeight: 1.15,
-    fontWeight: 700,
-    letterSpacing: "-0.4px",
-    textAlign: "center" as const,
+    margin: 0,
+    fontSize: "clamp(34px, 6vw, 52px)",
+    lineHeight: 1.05,
+    fontWeight: 760,
+    letterSpacing: "-0.04em",
+    textAlign: "center",
   },
-
   subtext: {
-    fontSize: "18px",
-    lineHeight: 1.5,
-    color: "#374151",
-    textAlign: "center" as const,
+    maxWidth: 560,
+    margin: "14px auto 24px",
+    color: "#4B5563",
+    fontSize: 17,
+    lineHeight: 1.55,
+    textAlign: "center",
   },
-
-  primaryButton: {
-    marginTop: "4px",
-    padding: "14px 24px",
-    backgroundColor: "#2563EB",
-    color: "#FFFFFF",
-    textAlign: "center" as const,
-    borderRadius: "12px",
-    textDecoration: "none",
-    fontWeight: 700,
-    fontSize: "17px",
-    boxShadow: "0 3px 8px rgba(37,99,235,0.35)",
+  scannerShell: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
   },
-
   reassurance: {
-    marginTop: "4px",
-    marginBottom: 0,
-    fontSize: "16px",
-    fontWeight: 500,
+    margin: "18px 0 0",
     color: "#374151",
-    textAlign: "center" as const,
+    fontSize: 14,
+    fontWeight: 600,
+    textAlign: "center",
   },
-
-  policyBlock: {
-    marginTop: "12px",
-    paddingTop: "10px",
-    borderTop: "1px solid rgba(0,0,0,0.06)",
+  policy: {
+    maxWidth: 580,
+    margin: "10px auto 0",
+    color: "#8A9099",
+    fontSize: 12,
+    lineHeight: 1.5,
+    textAlign: "center",
   },
-
-  policyText: {
-    margin: "0 0 4px",
-    fontSize: "12px",
-    color: "#9CA3AF",
-    textAlign: "center" as const,
-    lineHeight: 1.4,
-  },
-
   policyLinks: {
-    margin: "6px 0 0",
-    fontSize: "12px",
+    margin: "7px 0 0",
     color: "#9CA3AF",
-    textAlign: "center" as const,
+    fontSize: 12,
+    textAlign: "center",
   },
-
   policyLink: {
-    color: "#2563EB",
+    color: "#4F6EA8",
+    textDecoration: "none",
+  },
+  quickLinksSection: {
+    padding: "0 16px 44px",
+    background: "#E2E4E9",
+  },
+  quickLinks: {
+    maxWidth: 700,
+    margin: "0 auto",
+    display: "flex",
+    justifyContent: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  quickLink: {
+    padding: "9px 12px",
+    borderRadius: 999,
+    border: "1px solid #C8CDD5",
+    background: "rgba(255,255,255,0.58)",
+    color: "#4B5563",
+    fontSize: 13,
+    fontWeight: 650,
     textDecoration: "none",
   },
 };

@@ -60,7 +60,7 @@ const NARRATIVE_RULES: { id: NarrativeFamily; test: RegExp }[] = [
   {
     id: "account_verification",
     test:
-      /\bverify\s+(your\s+)?account\b|account\s+suspend|unusual\s+activity|confirm\s+identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b|vérifier\s+(votre\s+)?compte|compte\s+(?:sera\s+)?suspendu|activité\s+inhabituelle|confirmer\s+(votre\s+)?identité|confirmer\s+vos\s+coordonnées|éviter\s+(?:la\s+)?suspension|sécuriser\s+votre\s+compte|connexion\s+requise|ouvrir\s+(?:une\s+)?session/i,
+      /\bverify\s+(your\s+)?account\b|account\s+(?:will\s+be\s+|is\s+|has\s+been\s+)?suspend(?:ed|ed\s+soon|)|unusual\s+activity|confirm\s+(?:your\s+)?identity\b|verify\s+(?:your\s+)?identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b|vérifier\s+(votre\s+)?compte|compte(?:\s+bancaire)?\s+(?:sera\s+|est\s+|a\s+été\s+)?suspendu|activité\s+inhabituelle|confirmer\s+(votre\s+)?identité|confirmer\s+vos\s+coordonnées|éviter\s+(?:la\s+)?suspension|sécuriser\s+votre\s+compte|connexion\s+requise|ouvrir\s+(?:une\s+)?session/i,
   },
   {
     id: "delivery_scam",
@@ -134,17 +134,17 @@ const ACTION_RULES: { id: RequestedAction; test: RegExp }[] = [
   {
     id: "submit_credentials",
     test:
-      /\b(password|otp|verification\s+code|enter\s+code|verify\s+identity)\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b|mot\s+de\s+passe|code\s+de\s+vérification|confirmer\s+(votre\s+)?identité|connexion|ouvrir\s+(?:une\s+)?session|valider\s+votre\s+compte/i,
+      /\b(password|otp|verification\s+code|enter\s+code)\b|\bverify\s+(?:your\s+)?identity\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b|mot\s+de\s+passe|code\s+de\s+vérification|confirmer\s+(votre\s+)?identité|vérifi(?:er|ez|e|ons|ent|é|ée|és|ées)\s+(votre\s+)?identité|connexion|ouvrir\s+(?:une\s+)?session|valider\s+votre\s+compte/i,
   },
   {
     id: "pay_money",
     test:
-      /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|bitcoin\b|etransfer\b|zelle\b|venmo\b|\bpayer\b|envoyer\s+(?:de\s+)?l'argent|virement|carte(?:-|\s)cadeau|frais\b|\bamende\b|interac\b/i,
+      /\bpay\b|send\s+money\b|wire\b|transfer\b|gift\s*card\b|bitcoin\b|etransfer\b|zelle\b|venmo\b|\bpay(?:er|ez|e|ons|ent|é|ée|és|ées)\b|\brégl(?:er|ez|e|ons|ent|é|ée|és|ées)\b|envoyer\s+(?:de\s+)?l'argent|virement|carte(?:-|\s)cadeau|frais\b|\bamende\b|interac\b/i,
   },
   {
     id: "click_link",
     test:
-      /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+link\b|cliquez|cliquer|appuyez\s+sur|ouvrez\s+le\s+lien|suivez\s+le\s+lien/i,
+      /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+(?:this\s+)?link\b|cliquez|cliquer|appuyez\s+sur|ouvrez\s+le\s+lien|suivez\s+le\s+lien|(?:avec|via)\s+(?:ce|le)\s+lien/i,
   },
   {
     id: "call_number",
@@ -180,7 +180,7 @@ const THREAT_RULES: { id: ThreatStage; test: RegExp }[] = [
   {
     id: "credential_capture",
     test:
-      /\botp\b|verification\s+code\b|password\b|login\b|verify\s+account\b|confirm\s+identity\b|mot\s+de\s+passe|code\s+de\s+vérification|connexion|vérifier\s+(votre\s+)?compte/i,
+      /\botp\b|verification\s+code\b|password\b|login\b|verify\s+account\b|confirm\s+identity\b|mot\s+de\s+passe|code\s+de\s+vérification|connexion|vérifi(?:er|ez|e|ons|ent)\s+(?:votre\s+)?(?:compte|identité)/i,
   },
   {
     id: "payment_extraction",

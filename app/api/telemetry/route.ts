@@ -1,221 +1,128 @@
 export const runtime = "nodejs";
 
+import { after } from "next/server";
 import { logEvent } from "@/lib/observability";
+import {
+  LEGACY_TELEMETRY_EVENT_MAP,
+  TELEMETRY_BANNED_KEYS,
+  TELEMETRY_EVENTS,
+  TELEMETRY_PROP_KEYS,
+} from "@/lib/telemetry/events";
 
 /**
  * POST /api/telemetry
- * Client-side telemetry endpoint with strict validation.
- * Persists events before responding (await) for reliable delivery on serverless.
+ * Strict, privacy-bounded product telemetry endpoint.
  */
 
-const ALLOWED_EVENTS = [
-  "scan_attempt",
-  "scan_processing",
-  "scan_shown",
-  "scan_consent",
-  "scan_viewed",
-  "scan_submit_clicked",
-  "scan_request_sent",
-  "scan_result_received",
-  "scan_result_rendered",
-  "scan_abandon_before_result",
-  "scan_consent_clicked_allow",
-  "scan_consent_clicked_deny",
-  "scan_error",
-  "scan_created",
-  "context_refinement_shown",
-  "context_refinement_submitted",
-  "context_refinement_completed_analysis",
-  "report_cta_viewed",
-  "report_cta_clicked",
-  "report_mission_viewed",
-  "report_mission_continue",
-  "report_step_viewed",
-  "report_step_back",
-  "report_exit",
-  "report_submit_clicked",
-  "report_submit_success",
-  "report_submit_failed",
-  "telemetry_rejected_payload",
-  "cta_shown",
-  "cta_clicked",
-  "pro_preview_viewed",
-  "pro_sales_viewed",
-  "pro_unlock_clicked",
-  "beta_unlock_started",
-  "beta_unlock_completed",
-  "report_feedback_submitted",
-  "user_state_selected",
-  "pro_useful_yes",
-  "pro_useful_no",
-  "user_research_cta_viewed",
-  "user_research_cta_clicked",
-  "user_research_started",
-  "user_research_completed",
-  "user_research_full_report_unlocked",
-  "human_review_cta_viewed",
-  "human_review_cta_clicked",
-  "guide_report_cta_viewed",
-  "guide_report_cta_clicked",
-  "guide_report_optin_submitted",
-  "guide_report_unlocked",
-  "conversation_page_view",
-  "conversation_booking_click",
-  "conversation_email_click",
-  "family_protect_page_view",
-  "family_protect_cta_click",
-  "family_protect_signup",
-] as const;
+const EVENT_SET = new Set<string>(TELEMETRY_EVENTS);
+const PROP_SET = new Set<string>(TELEMETRY_PROP_KEYS);
 
-const ALLOWED_PROPS = [
-  "flow",
-  "step",
-  "risk_tier",
-  "ui_action",
-  "latency_ms",
-  "error_code",
-  "build_id",
-  "input_length",
-  "attempt_id",
-  "utm_source",
-  "utm_medium",
-  "utm_campaign",
-  "utm_term",
-  "utm_content",
-  "gclid",
-  "mode",
-  "trigger_reason",
-  "input_type",
-  "char_len_bucket",
-  "intel_state",
-  "context_quality",
-  "cta_reason",
-  "variant",
-  "web_risk_status",
-  "link_type",
-  "domain_signal",
-  "state",
-  "price",
-  "report_useful",
-  "worth_five",
-  "source",
-  "lang",
-  "analysis_mode",
-  "cta_variant",
-  "who_protect_category",
-] as const;
+function hasBannedKeys(obj: unknown, bannedKeys: readonly string[]): boolean {
+  if (obj === null || obj === undefined || typeof obj !== "object") return false;
+  if (Array.isArray(obj)) return obj.some((item) => hasBannedKeys(item, bannedKeys));
 
-const BANNED_KEYS = [
-  "text",
-  "message",
-  "content",
-  "body",
-  "prompt",
-  "input",
-  "email",
-  "phone",
-  "url",
-  "link",
-] as const;
-
-/** Legacy event names → canonical names logged in event_type. original_event stored in context when mapped. */
-const LEGACY_EVENT_MAP: Record<string, string> = {
-  scan_attempt: "scan_submit_clicked",
-  scan_shown: "scan_result_rendered",
-  scan_created: "scan_api_success",
-};
-
-function hasBannedKeys(obj: any, bannedKeys: readonly string[]): boolean {
-  if (obj === null || obj === undefined) return false;
-  if (typeof obj !== "object") return false;
-
-  if (Array.isArray(obj)) {
-    return obj.some((item) => hasBannedKeys(item, bannedKeys));
-  }
-
-  for (const key in obj) {
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     if (bannedKeys.includes(key)) return true;
-    if (hasBannedKeys(obj[key], bannedKeys)) return true;
+    if (hasBannedKeys(value, bannedKeys)) return true;
   }
   return false;
 }
 
-function extractSafePayload(body: any): {
+function safeString(value: unknown, max = 160): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, max);
+}
+
+function extractSafePayload(body: unknown): {
   event_type: string;
   session_id?: string;
   scan_id?: string;
   route?: string;
-  props?: Record<string, any>;
+  props?: Record<string, unknown>;
 } | null {
-  // Backward compatibility: accept event_type or event
-  const event_type = body.event_type ?? body.event;
-  if (!event_type || typeof event_type !== "string") return null;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const input = body as Record<string, unknown>;
+  const eventType = input.event_type ?? input.event;
+  if (typeof eventType !== "string" || !EVENT_SET.has(eventType)) return null;
 
-  if (!ALLOWED_EVENTS.includes(event_type as any)) return null;
+  const safePayload: {
+    event_type: string;
+    session_id?: string;
+    scan_id?: string;
+    route?: string;
+    props?: Record<string, unknown>;
+  } = { event_type: eventType };
 
-  const safePayload: any = { event_type };
+  const sessionId = safeString(input.session_id, 80);
+  const scanId = safeString(input.scan_id, 80);
+  const route = safeString(input.route, 200);
+  if (sessionId) safePayload.session_id = sessionId;
+  if (scanId && scanId.length > 10) safePayload.scan_id = scanId;
+  if (route) safePayload.route = route;
 
-  if (typeof body.session_id === "string") safePayload.session_id = body.session_id;
-  if (typeof body.scan_id === "string" && body.scan_id.length > 10) {
-    safePayload.scan_id = body.scan_id;
-  }
-  if (typeof body.route === "string") safePayload.route = body.route;
-
+  const rawProps = input.props;
   if (
-    body.props &&
-    typeof body.props === "object" &&
-    !Array.isArray(body.props) &&
-    Object.getPrototypeOf(body.props) === Object.prototype
+    rawProps &&
+    typeof rawProps === "object" &&
+    !Array.isArray(rawProps) &&
+    Object.getPrototypeOf(rawProps) === Object.prototype
   ) {
-    const safeProps: Record<string, any> = {};
-    for (const key of ALLOWED_PROPS) {
-      if (key in body.props) safeProps[key] = body.props[key];
+    const safeProps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawProps as Record<string, unknown>)) {
+      if (!PROP_SET.has(key)) continue;
+      if (typeof value === "string") {
+        safeProps[key] = value.slice(0, 160);
+      } else if (
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        value === null
+      ) {
+        safeProps[key] = value;
+      }
     }
-    if (Object.keys(safeProps).length > 0) {
-      safePayload.props = safeProps;
-    }
+    if (Object.keys(safeProps).length > 0) safePayload.props = safeProps;
   }
 
   return safePayload;
 }
 
 export async function POST(req: Request) {
-  let body: any;
-
-  // 400 only on JSON parse failure
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
     return new Response(null, { status: 400 });
   }
 
-  // Hard reject on banned keys (but never break UX)
-  if (hasBannedKeys(body, BANNED_KEYS)) {
-    const session_id = typeof body.session_id === "string" ? body.session_id : null;
-    const route = typeof body.route === "string" ? body.route : null;
-
+  if (hasBannedKeys(body, TELEMETRY_BANNED_KEYS)) {
+    const input = body && typeof body === "object" && !Array.isArray(body)
+      ? body as Record<string, unknown>
+      : {};
     await logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
       reason: "banned_key",
-      session_id,
-      route,
+      session_id: safeString(input.session_id, 80) ?? null,
+      route: safeString(input.route, 200) ?? null,
     });
-
     return new Response(null, { status: 204 });
   }
 
   const safePayload = extractSafePayload(body);
   if (!safePayload) {
-    const received = body.event_type ?? body.event;
+    const input = body && typeof body === "object" && !Array.isArray(body)
+      ? body as Record<string, unknown>
+      : {};
+    const received = input.event_type ?? input.event;
     await logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
       reason: "invalid_event",
-      ...(typeof received === "string" && { received_event: received }),
-      ...(typeof body.session_id === "string" && { session_id: body.session_id }),
-      ...(typeof body.route === "string" && { route: body.route }),
+      ...(typeof received === "string" ? { received_event: received.slice(0, 100) } : {}),
+      ...(typeof input.session_id === "string" ? { session_id: input.session_id.slice(0, 80) } : {}),
+      ...(typeof input.route === "string" ? { route: input.route.slice(0, 200) } : {}),
     });
     return new Response(null, { status: 204 });
   }
 
-  // Enforce payload size cap
   const payloadString = JSON.stringify(safePayload);
   if (payloadString.length > 2000) {
     await logEvent("telemetry_rejected_payload", "warning", "telemetry_api", {
@@ -224,30 +131,37 @@ export async function POST(req: Request) {
       route: safePayload.route ?? null,
       size: payloadString.length,
     });
-
     return new Response(null, { status: 204 });
   }
 
   const canonicalEvent =
-    LEGACY_EVENT_MAP[safePayload.event_type] ?? safePayload.event_type;
-  const context: Record<string, any> = {
+    LEGACY_TELEMETRY_EVENT_MAP[safePayload.event_type] ?? safePayload.event_type;
+  const context: Record<string, unknown> = {
+    build_id: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 40) ?? null,
     session_id: safePayload.session_id ?? null,
     scan_id: safePayload.scan_id ?? null,
     route: safePayload.route ?? null,
     props: safePayload.props ?? null,
   };
-  const attrKeys = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid"];
+
+  const attrKeys = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "gclid",
+  ] as const;
   const props = safePayload.props;
-  if (props && typeof props === "object") {
-    for (const k of attrKeys) {
-      if (props[k] != null && typeof props[k] === "string") context[k] = props[k];
+  if (props) {
+    for (const key of attrKeys) {
+      if (typeof props[key] === "string") context[key] = props[key];
     }
   }
   if (canonicalEvent !== safePayload.event_type) {
     context.original_event = safePayload.event_type;
   }
 
-  await logEvent(canonicalEvent, "info", "telemetry_api", context);
-
+  after(() => logEvent(canonicalEvent, "info", "telemetry_api", context));
   return new Response(null, { status: 204 });
 }

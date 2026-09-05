@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { scanApiUserMessage, isSoftThrottleCode } from "@/lib/scan/scanApiUserMessage";
 import { passesScanTextAdmission, scanTextAdmissionErrorMessage } from "@/lib/scan/scanTextAdmission";
 import { logScanEvent } from "@/lib/telemetry/logScanEvent";
@@ -14,6 +14,7 @@ const copy = {
     uploadLabel: "📷 Upload a screenshot",
     button: "Scan",
     buttonLoading: "Analyzing…",
+    loadingStages: ["Reading…", "Checking patterns…", "Checking links…"],
     errorTextAdmission: scanTextAdmissionErrorMessage("en"),
   },
   fr: {
@@ -22,6 +23,7 @@ const copy = {
     uploadLabel: "📷 Téléverser une capture d'écran",
     button: "Analyser",
     buttonLoading: "Analyse en cours…",
+    loadingStages: ["Lecture…", "Vérification des motifs…", "Vérification des liens…"],
     errorTextAdmission: scanTextAdmissionErrorMessage("fr"),
   },
 };
@@ -30,6 +32,7 @@ type Props = {
   lang: "en" | "fr";
   onScanSuccess: (result: Record<string, unknown>) => void;
   partner?: PartnerConfig | null;
+  surface?: string;
   copyOverrides?: Partial<{
     placeholder: string;
     divider: string;
@@ -39,33 +42,50 @@ type Props = {
   }>;
 };
 
-export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
-  const [mounted, setMounted] = useState(false);
+export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOverrides }: Props) {
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [textareaFocused, setTextareaFocused] = useState(false);
   const [admissionError, setAdmissionError] = useState(false);
   const [softError, setSoftError] = useState(false);
+  const inFlightRef = useRef<{ attempt_id: string; started_at: number } | null>(null);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStage(0);
+      return;
+    }
+    const t1 = window.setTimeout(() => setLoadingStage(1), 650);
+    const t2 = window.setTimeout(() => setLoadingStage(2), 1650);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [loading]);
 
   useEffect(() => {
     captureAttribution();
-    setMounted(true);
+    const handlePageHide = () => {
+      const current = inFlightRef.current;
+      if (!current) return;
+      logScanEvent("scan_abandon_before_result", {
+        props: {
+          attempt_id: current.attempt_id,
+          latency_ms: Math.max(0, Math.round(performance.now() - current.started_at)),
+        },
+      });
+    };
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
   }, []);
 
   const t = {
     ...copy[lang],
     ...copyOverrides,
   };
-
-  const fileToBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
 
   const clearImage = () => {
     setImageFile(null);
@@ -88,11 +108,21 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
     if (attr.utm_content) attrProps.utm_content = attr.utm_content;
     if (attr.gclid) attrProps.gclid = attr.gclid;
 
+    logScanEvent("intent_selected", {
+      props: {
+        surface,
+        flow: "scan",
+        intent: "scan",
+        input_type: imageFile ? "screenshot" : "text",
+        lang,
+        ...attrProps,
+      },
+    });
     logScanEvent("scan_attempt", {
-      props: { input_length: text.length, attempt_id, ...attrProps },
+      props: { surface, input_length: text.length, attempt_id, ...attrProps },
     });
     setLoading(true);
-    logScanEvent("scan_processing", { props: { attempt_id } });
+    logScanEvent("scan_processing", { props: { surface, attempt_id } });
 
     const trimmedText = text.trim();
     if (!imageFile && !passesScanTextAdmission(trimmedText)) {
@@ -103,16 +133,28 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
     }
 
     try {
-      const payload: Record<string, unknown> = {
-        lang,
-        raw_opt_in: true,
-        referrer: attr.referrer || null,
-        landing_path: attr.landing_path || null,
-      };
-      Object.assign(payload, attrProps);
+      const requestStartedAt = performance.now();
+      inFlightRef.current = { attempt_id, started_at: requestStartedAt };
+      logScanEvent("scan_request_sent", {
+        props: {
+          attempt_id,
+          input_type: imageFile ? "screenshot" : "text",
+          input_length: imageFile ? 0 : trimmedText.length,
+          ...attrProps,
+        },
+      });
 
+      let res: Response;
       if (imageFile) {
-        payload.image = await fileToBase64(imageFile);
+        const formData = new FormData();
+        formData.append("image", imageFile);
+        formData.append("lang", lang);
+        formData.append("raw_opt_in", "true");
+        if (attr.referrer) formData.append("referrer", attr.referrer);
+        if (attr.landing_path) formData.append("landing_path", attr.landing_path);
+        for (const [key, value] of Object.entries(attrProps)) {
+          formData.append(key, value);
+        }
         sessionStorage.setItem(
           "scan_submission",
           JSON.stringify({
@@ -121,8 +163,19 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
             created_at: Date.now(),
           })
         );
+        res = await fetch("/api/scan", {
+          method: "POST",
+          body: formData,
+        });
       } else {
-        payload.text = trimmedText;
+        const payload: Record<string, unknown> = {
+          lang,
+          raw_opt_in: true,
+          referrer: attr.referrer || null,
+          landing_path: attr.landing_path || null,
+          text: trimmedText,
+          ...attrProps,
+        };
         sessionStorage.setItem(
           "scan_submission",
           JSON.stringify({
@@ -132,20 +185,21 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
             created_at: Date.now(),
           })
         );
+        res = await fetch("/api/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
       }
 
-      const res = await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
       const data = await res.json();
+      const clientLatencyMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
+      inFlightRef.current = null;
 
       if (!data.ok) {
         const code = (data?.code as string) ?? "api_error";
         logScanEvent("scan_error", {
-          props: { error_code: code },
+          props: { surface, error_code: code, attempt_id, latency_ms: clientLatencyMs },
         });
         setSoftError(isSoftThrottleCode(code));
         setError(
@@ -160,6 +214,16 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
       }
 
       const scanId = data.result?.scan_id;
+      logScanEvent("scan_result_received", {
+        scan_id: typeof scanId === "string" ? scanId : undefined,
+        props: {
+          surface,
+          attempt_id,
+          latency_ms: clientLatencyMs,
+          risk_tier: typeof data?.result?.risk_tier === "string" ? data.result.risk_tier : undefined,
+          result_source: imageFile ? "ocr" : "user_text",
+        },
+      });
       const persisted = data.result?.persisted === true;
       if (persisted && scanId) {
         logScanEvent("scan_created", {
@@ -170,13 +234,12 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
 
       onScanSuccess(data.result);
     } catch {
-      logScanEvent("scan_error", { props: { error_code: "network_error" } });
+      inFlightRef.current = null;
+      logScanEvent("scan_error", { props: { error_code: "network_error", attempt_id } });
       setError(scanApiUserMessage(lang, undefined, undefined));
       setLoading(false);
     }
   };
-
-  if (!mounted) return null;
 
   const textareaStyle: React.CSSProperties = {
     ...styles.textarea,
@@ -249,7 +312,7 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
           (!text.trim() && !imageFile)
         }
       >
-        {loading ? t.buttonLoading : t.button}
+        {loading ? (t.loadingStages?.[loadingStage] ?? t.buttonLoading) : t.button}
       </button>
     </>
   );

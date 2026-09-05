@@ -1,0 +1,825 @@
+[
+  {
+    "id": "gold-001",
+    "source": "gold",
+    "language": "en",
+    "text": "See you at 3pm for coffee.",
+    "tags": [
+      "benign"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-002",
+    "source": "gold",
+    "language": "fr",
+    "text": "On se voit à 15 h pour un café.",
+    "tags": [
+      "benign",
+      "fr"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-003",
+    "source": "gold",
+    "language": "en",
+    "text": "Can you send me $20 for lunch when you get a chance?",
+    "tags": [
+      "benign",
+      "money",
+      "near_miss"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-004",
+    "source": "gold",
+    "language": "fr",
+    "text": "Peux-tu m'envoyer 20 $ pour le lunch quand tu auras une minute?",
+    "tags": [
+      "benign",
+      "money",
+      "near_miss",
+      "fr"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-005",
+    "source": "gold",
+    "language": "en",
+    "text": "Urgent: the client moved the meeting to 2pm. Please call me when you see this.",
+    "tags": [
+      "benign",
+      "urgency",
+      "near_miss"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "call_number"
+    }
+  },
+  {
+    "id": "gold-006",
+    "source": "gold",
+    "language": "fr",
+    "text": "Urgent : le client a déplacé la réunion à 14 h. Appelle-moi quand tu vois ce message.",
+    "tags": [
+      "benign",
+      "urgency",
+      "near_miss",
+      "fr"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "call_number"
+    }
+  },
+  {
+    "id": "gold-007",
+    "source": "gold",
+    "language": "en",
+    "text": "send me moola",
+    "tags": [
+      "thin",
+      "insufficient"
+    ],
+    "expected": {
+      "risk": "insufficient_context",
+      "family": "unknown"
+    }
+  },
+  {
+    "id": "gold-008",
+    "source": "gold",
+    "language": "fr",
+    "text": "envoie-moi du cash",
+    "tags": [
+      "thin",
+      "insufficient",
+      "fr"
+    ],
+    "expected": {
+      "risk": "insufficient_context",
+      "family": "unknown"
+    }
+  },
+  {
+    "id": "gold-009",
+    "source": "gold",
+    "language": "en",
+    "text": "urgent",
+    "tags": [
+      "thin",
+      "insufficient"
+    ],
+    "expected": {
+      "risk": "insufficient_context",
+      "family": "unknown"
+    }
+  },
+  {
+    "id": "gold-010",
+    "source": "gold",
+    "language": "fr",
+    "text": "urgent",
+    "tags": [
+      "thin",
+      "insufficient",
+      "fr"
+    ],
+    "expected": {
+      "risk": "insufficient_context",
+      "family": "unknown"
+    }
+  },
+  {
+    "id": "gold-011",
+    "source": "gold",
+    "language": "en",
+    "text": "ServiceOntario: unpaid parking violation. Your plate renewal will be blocked. Pay today at https://bit.ly/pay-tkt",
+    "tags": [
+      "government",
+      "authority",
+      "payment",
+      "urgency"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "government_impersonation",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-012",
+    "source": "gold",
+    "language": "fr",
+    "text": "ServiceOntario : contravention de stationnement impayée. Le renouvellement de votre plaque sera bloqué. Payez aujourd'hui au https://bit.ly/pay-tkt",
+    "tags": [
+      "government",
+      "authority",
+      "payment",
+      "urgency",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "government_impersonation",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-013",
+    "source": "gold",
+    "language": "en",
+    "text": "CRA: your tax refund is ready. Confirm your banking login at https://refund-check.example",
+    "tags": [
+      "government",
+      "credentials"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "government_impersonation",
+      "requested_action": "submit_credentials"
+    }
+  },
+  {
+    "id": "gold-014",
+    "source": "gold",
+    "language": "fr",
+    "text": "ARC : votre remboursement d'impôt est prêt. Confirmez votre connexion bancaire au https://refund-check.example",
+    "tags": [
+      "government",
+      "credentials",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "government_impersonation",
+      "requested_action": "submit_credentials"
+    }
+  },
+  {
+    "id": "gold-015",
+    "source": "gold",
+    "language": "en",
+    "text": "Canada Post: we could not deliver your package. Update your address at https://parcel-update.example",
+    "tags": [
+      "delivery",
+      "link"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "delivery_scam",
+      "requested_action": "click_link"
+    }
+  },
+  {
+    "id": "gold-016",
+    "source": "gold",
+    "language": "fr",
+    "text": "Postes Canada : nous n'avons pas pu livrer votre colis. Mettez votre adresse à jour au https://parcel-update.example",
+    "tags": [
+      "delivery",
+      "link",
+      "fr"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "delivery_scam",
+      "requested_action": "click_link"
+    }
+  },
+  {
+    "id": "gold-017",
+    "source": "gold",
+    "language": "en",
+    "text": "Security alert: your bank account will be suspended in 30 minutes. Sign in now and enter the one-time code: https://secure-account.example",
+    "tags": [
+      "account",
+      "credentials",
+      "urgency",
+      "threat"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "account_verification",
+      "requested_action": "submit_credentials"
+    }
+  },
+  {
+    "id": "gold-018",
+    "source": "gold",
+    "language": "fr",
+    "text": "Alerte sécurité : votre compte bancaire sera suspendu dans 30 minutes. Ouvrez une session maintenant et entrez le code à usage unique : https://secure-account.example",
+    "tags": [
+      "account",
+      "credentials",
+      "urgency",
+      "threat",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "account_verification",
+      "requested_action": "submit_credentials"
+    }
+  },
+  {
+    "id": "gold-019",
+    "source": "gold",
+    "language": "en",
+    "text": "We can recover the cryptocurrency you lost. Pay a $250 activation fee before the recovered funds can be released.",
+    "tags": [
+      "recovery",
+      "crypto",
+      "payment"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "recovery_scam",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-020",
+    "source": "gold",
+    "language": "fr",
+    "text": "Nous pouvons récupérer la cryptomonnaie que vous avez perdue. Payez 250 $ de frais d'activation avant le déblocage des fonds.",
+    "tags": [
+      "recovery",
+      "crypto",
+      "payment",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "recovery_scam",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-021",
+    "source": "gold",
+    "language": "en",
+    "text": "Hey, did you get my last message?",
+    "tags": [
+      "opener",
+      "engagement"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "social_engineering_opener",
+      "requested_action": "reply"
+    }
+  },
+  {
+    "id": "gold-022",
+    "source": "gold",
+    "language": "fr",
+    "text": "Salut, as-tu reçu mon dernier message?",
+    "tags": [
+      "opener",
+      "engagement",
+      "fr"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "social_engineering_opener",
+      "requested_action": "reply"
+    }
+  },
+  {
+    "id": "gold-023",
+    "source": "gold",
+    "language": "en",
+    "text": "Congratulations! You won a $500 gift card. Claim it today at https://claim-now.example",
+    "tags": [
+      "reward",
+      "link"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "reward_claim",
+      "requested_action": "click_link"
+    }
+  },
+  {
+    "id": "gold-024",
+    "source": "gold",
+    "language": "fr",
+    "text": "Félicitations! Vous avez gagné une carte-cadeau de 500 $. Réclamez-la aujourd'hui au https://claim-now.example",
+    "tags": [
+      "reward",
+      "link",
+      "fr"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "reward_claim",
+      "requested_action": "click_link"
+    }
+  },
+  {
+    "id": "gold-025",
+    "source": "gold",
+    "language": "en",
+    "text": "Remote support: install AnyDesk so our technician can fix the security problem on your computer. Stay on the phone while you install it.",
+    "tags": [
+      "tech_support",
+      "remote_access"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "tech_support",
+      "requested_action": "remote_access"
+    }
+  },
+  {
+    "id": "gold-026",
+    "source": "gold",
+    "language": "fr",
+    "text": "Soutien technique : installez AnyDesk pour que notre technicien corrige le problème de sécurité. Restez au téléphone pendant l'installation.",
+    "tags": [
+      "tech_support",
+      "remote_access",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "tech_support",
+      "requested_action": "remote_access"
+    }
+  },
+  {
+    "id": "gold-027",
+    "source": "gold",
+    "language": "en",
+    "text": "Your bank is investigating fraud. Do not call the number on your card and do not tell anyone. Stay on this call and transfer the money to the safe account we provide.",
+    "tags": [
+      "verification_suppression",
+      "isolation",
+      "financial",
+      "payment"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "financial_phishing",
+      "requested_action": "pay_money",
+      "must_have_signals": [
+        "verification_suppression"
+      ]
+    }
+  },
+  {
+    "id": "gold-028",
+    "source": "gold",
+    "language": "fr",
+    "text": "Votre banque enquête sur une fraude. N'appelez pas le numéro sur votre carte et n'en parlez à personne. Restez en ligne et transférez l'argent vers le compte sécurisé indiqué.",
+    "tags": [
+      "verification_suppression",
+      "isolation",
+      "financial",
+      "payment",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "financial_phishing",
+      "requested_action": "pay_money",
+      "must_have_signals": [
+        "verification_suppression"
+      ]
+    }
+  },
+  {
+    "id": "gold-029",
+    "source": "gold",
+    "language": "en",
+    "text": "I found your profile here. Message me on Telegram instead, it's easier to talk there.",
+    "tags": [
+      "channel_migration",
+      "engagement"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "social_engineering_opener",
+      "requested_action": "move_channel",
+      "must_have_signals": [
+        "channel_migration"
+      ]
+    }
+  },
+  {
+    "id": "gold-030",
+    "source": "gold",
+    "language": "fr",
+    "text": "J'ai trouvé ton profil ici. Écris-moi plutôt sur Telegram, ce sera plus facile de parler là-bas.",
+    "tags": [
+      "channel_migration",
+      "engagement",
+      "fr"
+    ],
+    "expected": {
+      "risk": "medium",
+      "family": "social_engineering_opener",
+      "requested_action": "move_channel",
+      "must_have_signals": [
+        "channel_migration"
+      ]
+    }
+  },
+  {
+    "id": "gold-031",
+    "source": "gold",
+    "language": "en",
+    "text": "We have a flexible remote position. You will receive company cheques and use part of the funds to buy equipment from our approved vendor.",
+    "tags": [
+      "employment",
+      "payment"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "employment_scam",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-032",
+    "source": "gold",
+    "language": "fr",
+    "text": "Nous avons un poste à distance flexible. Vous recevrez des chèques de l'entreprise et utiliserez une partie des fonds pour acheter l'équipement auprès de notre fournisseur.",
+    "tags": [
+      "employment",
+      "payment",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "employment_scam",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-033",
+    "source": "gold",
+    "language": "en",
+    "text": "Guaranteed 15% weekly returns with our private crypto trading group. Deposit $500 today to activate your account.",
+    "tags": [
+      "investment",
+      "crypto",
+      "reward",
+      "payment"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "investment_fraud",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-034",
+    "source": "gold",
+    "language": "fr",
+    "text": "Rendement garanti de 15 % par semaine avec notre groupe privé de crypto. Déposez 500 $ aujourd'hui pour activer votre compte.",
+    "tags": [
+      "investment",
+      "crypto",
+      "reward",
+      "payment",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "investment_fraud",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-035",
+    "source": "gold",
+    "language": "en",
+    "text": "I know we've only been talking online for a few weeks, but I need help paying an emergency hospital bill. Please send $800 and don't mention it to anyone because I'm embarrassed.",
+    "tags": [
+      "romance",
+      "relationship",
+      "isolation",
+      "payment"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "romance_scam",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-036",
+    "source": "gold",
+    "language": "fr",
+    "text": "Je sais qu'on se parle en ligne depuis seulement quelques semaines, mais j'ai besoin d'aide pour une facture urgente d'hôpital. Envoie 800 $ et n'en parle à personne, j'ai honte.",
+    "tags": [
+      "romance",
+      "relationship",
+      "isolation",
+      "payment",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "romance_scam",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-037",
+    "source": "gold",
+    "language": "en",
+    "text": "Your manager asked me to tell you to buy five gift cards for the client event. Send me photos of the codes as soon as possible.",
+    "tags": [
+      "business_email_compromise",
+      "gift_card",
+      "authority"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "financial_phishing",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-038",
+    "source": "gold",
+    "language": "fr",
+    "text": "Votre gestionnaire m'a demandé de vous dire d'acheter cinq cartes-cadeaux pour l'événement client. Envoyez-moi les photos des codes dès que possible.",
+    "tags": [
+      "business_email_compromise",
+      "gift_card",
+      "authority",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "financial_phishing",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-039",
+    "source": "gold",
+    "language": "en",
+    "text": "Microsoft support here. Your computer is infected. Call 1-800-555-0199 immediately so we can secure it.",
+    "tags": [
+      "tech_support",
+      "call",
+      "urgency"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "tech_support",
+      "requested_action": "call_number"
+    }
+  },
+  {
+    "id": "gold-040",
+    "source": "gold",
+    "language": "fr",
+    "text": "Soutien Microsoft. Votre ordinateur est infecté. Appelez immédiatement le 1-800-555-0199 pour le sécuriser.",
+    "tags": [
+      "tech_support",
+      "call",
+      "urgency",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "tech_support",
+      "requested_action": "call_number"
+    }
+  },
+  {
+    "id": "gold-041",
+    "source": "gold",
+    "language": "en",
+    "text": "The hydro company says there is planned maintenance tonight from 11pm to 2am. No action is required.",
+    "tags": [
+      "benign",
+      "authority",
+      "near_miss"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-042",
+    "source": "gold",
+    "language": "fr",
+    "text": "La compagnie d'électricité annonce un entretien planifié cette nuit de 23 h à 2 h. Aucune action n'est requise.",
+    "tags": [
+      "benign",
+      "authority",
+      "near_miss",
+      "fr"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-043",
+    "source": "gold",
+    "language": "en",
+    "text": "Your pharmacy says your prescription is ready for pickup. Call the usual store number if you have questions.",
+    "tags": [
+      "benign",
+      "health",
+      "call",
+      "near_miss"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-044",
+    "source": "gold",
+    "language": "fr",
+    "text": "Votre pharmacie indique que votre ordonnance est prête. Appelez le numéro habituel de la pharmacie si vous avez des questions.",
+    "tags": [
+      "benign",
+      "health",
+      "call",
+      "near_miss",
+      "fr"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-045",
+    "source": "gold",
+    "language": "en",
+    "text": "https://bit.ly/4AbCd",
+    "tags": [
+      "link_only",
+      "insufficient"
+    ],
+    "expected": {
+      "risk": "insufficient_context",
+      "family": "unknown",
+      "requested_action": "unknown"
+    }
+  },
+  {
+    "id": "gold-046",
+    "source": "gold",
+    "language": "fr",
+    "text": "https://bit.ly/4AbCd",
+    "tags": [
+      "link_only",
+      "insufficient",
+      "fr"
+    ],
+    "expected": {
+      "risk": "insufficient_context",
+      "family": "unknown",
+      "requested_action": "unknown"
+    }
+  },
+  {
+    "id": "gold-047",
+    "source": "gold",
+    "language": "en",
+    "text": "Your invoice #4821 is attached. Payment terms are net 30 as agreed in our contract.",
+    "tags": [
+      "benign",
+      "invoice",
+      "payment",
+      "near_miss"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-048",
+    "source": "gold",
+    "language": "fr",
+    "text": "La facture no 4821 est jointe. Les modalités de paiement sont net 30, comme prévu au contrat.",
+    "tags": [
+      "benign",
+      "invoice",
+      "payment",
+      "near_miss",
+      "fr"
+    ],
+    "expected": {
+      "risk": "low",
+      "family": "unknown",
+      "requested_action": "none"
+    }
+  },
+  {
+    "id": "gold-049",
+    "source": "gold",
+    "language": "en",
+    "text": "Police notice: a warrant has been issued in your name. Pay the administrative fee now to avoid arrest.",
+    "tags": [
+      "law_enforcement",
+      "threat",
+      "payment"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "law_enforcement",
+      "requested_action": "pay_money"
+    }
+  },
+  {
+    "id": "gold-050",
+    "source": "gold",
+    "language": "fr",
+    "text": "Avis de police : un mandat a été émis à votre nom. Payez les frais administratifs maintenant pour éviter une arrestation.",
+    "tags": [
+      "law_enforcement",
+      "threat",
+      "payment",
+      "fr"
+    ],
+    "expected": {
+      "risk": "high",
+      "family": "law_enforcement",
+      "requested_action": "pay_money"
+    }
+  }
+]

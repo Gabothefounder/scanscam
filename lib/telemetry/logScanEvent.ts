@@ -1,56 +1,20 @@
 /**
- * Client-side telemetry logging for scan events.
- * Fire-and-forget: never blocks UI, never throws.
- * Strict payload: event, session_id, scan_id?, props?
+ * Client-side product telemetry.
+ * Fire-and-forget, privacy-bounded, and navigation-safe.
  */
 import { getSessionId } from "@/lib/telemetry/session";
+import type { TelemetryEvent, TelemetryProps } from "@/lib/telemetry/events";
 
 export function logScanEvent(
-  eventName:
-    | "scan_attempt"
-    | "scan_processing"
-    | "scan_shown"
-    | "scan_consent"
-    | "scan_error"
-    | "scan_created"
-    | "context_refinement_shown"
-    | "context_refinement_submitted"
-    | "context_refinement_completed_analysis"
-    | "cta_shown"
-    | "cta_clicked"
-    | "pro_preview_viewed"
-    | "pro_sales_viewed"
-    | "pro_unlock_clicked"
-    | "beta_unlock_started"
-    | "beta_unlock_completed"
-    | "report_feedback_submitted"
-    | "user_state_selected"
-    | "pro_useful_yes"
-    | "pro_useful_no"
-    | "user_research_cta_viewed"
-    | "user_research_cta_clicked"
-    | "user_research_started"
-    | "user_research_completed"
-    | "user_research_full_report_unlocked"
-    | "human_review_cta_viewed"
-    | "human_review_cta_clicked"
-    | "guide_report_cta_viewed"
-    | "guide_report_cta_clicked"
-    | "guide_report_optin_submitted"
-    | "guide_report_unlocked"
-    | "conversation_page_view"
-    | "conversation_booking_click"
-    | "conversation_email_click"
-    | "family_protect_page_view"
-    | "family_protect_cta_click"
-    | "family_protect_signup",
-  data?: { scan_id?: string; props?: Record<string, unknown> }
+  eventName: TelemetryEvent,
+  data?: { scan_id?: string; props?: TelemetryProps }
 ): void {
   if (typeof window === "undefined") return;
 
   const payload: Record<string, unknown> = {
     event: eventName,
     session_id: getSessionId(),
+    route: window.location.pathname,
   };
   if (data?.scan_id && typeof data.scan_id === "string") {
     payload.scan_id = data.scan_id;
@@ -63,7 +27,8 @@ export function logScanEvent(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    keepalive: true,
   }).catch(() => {
-    // Silent failure - telemetry must never break the app
+    // Telemetry must never break product UX.
   });
 }

@@ -8,7 +8,7 @@ import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
-import { PostResultReportCTA } from "@/components/PostResultReportCTA";
+import { PostScanRecoveryGate } from "@/components/PostScanRecoveryGate";
 import {
   parseAbuseInterpretationForSurface,
   type InterpretationSurfaceConcept,
@@ -49,6 +49,25 @@ const copy = {
       medium: "This message looks suspicious. Take a moment before you act.",
       high: "This message looks very similar to common scams. Be careful.",
     },
+    insufficientContext: {
+      title: "Not enough context",
+      statusLabel: "Result status:",
+      statusValue: "More context needed",
+      helper: "There isn't enough information here to distinguish a scam from an ordinary message reliably.",
+      summary: "Paste the full message, add what they asked you to do, or upload a screenshot for a more useful answer.",
+    },
+    insufficientRefinement: {
+      collapsedTitle: "Add context",
+      collapsedHint: "One sentence can change the result.",
+      expandLink: "Add context →",
+      collapseLink: "← Hide",
+      fieldLabel: "What else happened?",
+      fieldHint: "Add who sent it, why they contacted you, or what they asked you to do.",
+      examplesLabel: "Example",
+      placeholder: "e.g. “They said they were my bank and asked for a verification code.”",
+      submitLabel: "Analyze again",
+      loadingLabel: "Updating…",
+    } satisfies ContextRefinementStrings,
     analysisUnavailable: {
       title: "Analysis unavailable",
       banner:
@@ -162,6 +181,45 @@ const copy = {
     mspPromotedSupporting: "Your IT provider will receive the message and review it securely.",
     mspCloseForm: "Close",
     actionTitle: "What to do next",
+    actionEyebrow: {
+      low: "If you're unsure",
+      medium: "Best next step",
+      high: "Do this now",
+    },
+    resultPatternFallback: {
+      low: "No strong scam pattern detected",
+      medium: "Suspicious message",
+      high: "Likely scam",
+    },
+    patternLabels: {
+      delivery_scam: "Delivery scam",
+      government_impersonation: "Government impersonation scam",
+      law_enforcement: "Law-enforcement impersonation scam",
+      account_verification: "Account verification scam",
+      employment_scam: "Employment scam",
+      recovery_scam: "Recovery scam",
+      reward_claim: "Prize or reward scam",
+      social_engineering_opener: "Possible social-engineering opener",
+      investment_fraud: "Investment scam",
+      romance_scam: "Romance scam",
+      financial_phishing: "Financial phishing",
+      tech_support: "Tech-support scam",
+    } as Record<string,string>,
+    continueTitle: "Go one step further",
+    continueLead: "Your scan can help you recognize the pattern next time — and help strengthen the network.",
+    atlasNextTitle: {
+      low: "Learn what scam patterns look like",
+      medium: "See how this pattern works",
+      high: "See how this pattern works",
+    },
+    atlasNextBody: {
+      low: "Explore the Atlas and learn the tactics that repeat across scams.",
+      medium: "Find this scan in the Atlas, learn the tactics, and explore related patterns.",
+      high: "Find this scan in the Atlas, learn the tactics, and explore related patterns.",
+    },
+    networkCta: "Help the network",
+    networkHint: "Walk through what happened and choose whether to add the anonymous pattern.",
+    protectHint: "Give someone you care about an easier way to check before acting.",
     freeVerifyHint: "When in doubt, verify through the official source.",
     guidance: [
       { action: "Pause before responding", explanation: "Legitimate services don't require immediate action." },
@@ -195,9 +253,15 @@ const copy = {
       ],
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
-    scanAnother: "Scan another message",
-    journeyCta: "Understand what this message was trying to make you do",
-    journeyCtaNote: "Walk through the pressure, your reactions, and the next safe step.",
+    scanAnother: "Scan another",
+    moreTitle: "More",
+    whyTitle: "Why this result",
+    wantLabel: "Likely goal",
+    pressureLabel: "How they're pushing you",
+    detailsTitle: "Technical details",
+    atlasCta: "Explore this pattern",
+    journeyCta: "Help the network",
+    protectCta: "Protect someone",
     partnerScannerTitle: "Security Message Scanner",
     poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
@@ -335,6 +399,25 @@ const copy = {
       medium: "Ce message semble suspect. Prenez un moment avant d’agir.",
       high: "Ce message ressemble beaucoup à des arnaques courantes. Soyez prudent.",
     },
+    insufficientContext: {
+      title: "Pas assez de contexte",
+      statusLabel: "État du résultat :",
+      statusValue: "Plus de contexte requis",
+      helper: "Il n’y a pas assez d’information pour distinguer de façon fiable une arnaque d’un message ordinaire.",
+      summary: "Collez le message complet, ajoutez ce qu’on vous demande de faire ou téléversez une capture d’écran.",
+    },
+    insufficientRefinement: {
+      collapsedTitle: "Ajouter du contexte",
+      collapsedHint: "Une phrase peut changer le résultat.",
+      expandLink: "Ajouter du contexte →",
+      collapseLink: "← Masquer",
+      fieldLabel: "Que s’est-il passé d’autre?",
+      fieldHint: "Ajoutez qui vous a contacté, pourquoi, ou ce qu’on vous a demandé de faire.",
+      examplesLabel: "Exemple",
+      placeholder: "ex. « Ils disaient être ma banque et demandaient un code de vérification. »",
+      submitLabel: "Analyser de nouveau",
+      loadingLabel: "Mise à jour…",
+    } satisfies ContextRefinementStrings,
     analysisUnavailable: {
       title: "Analyse indisponible",
       banner:
@@ -453,6 +536,45 @@ const copy = {
       "Votre fournisseur TI recevra le message et l’examinera de façon sécurisée.",
     mspCloseForm: "Fermer",
     actionTitle: "Que faire maintenant",
+    actionEyebrow: {
+      low: "Si vous avez un doute",
+      medium: "Meilleur prochain geste",
+      high: "Faites ceci maintenant",
+    },
+    resultPatternFallback: {
+      low: "Aucun motif d’arnaque fort détecté",
+      medium: "Message suspect",
+      high: "Arnaque probable",
+    },
+    patternLabels: {
+      delivery_scam: "Arnaque de livraison",
+      government_impersonation: "Usurpation d’une autorité gouvernementale",
+      law_enforcement: "Usurpation des forces de l’ordre",
+      account_verification: "Arnaque de vérification de compte",
+      employment_scam: "Arnaque à l’emploi",
+      recovery_scam: "Arnaque de récupération",
+      reward_claim: "Arnaque de prix ou récompense",
+      social_engineering_opener: "Début possible d’ingénierie sociale",
+      investment_fraud: "Arnaque d’investissement",
+      romance_scam: "Arnaque sentimentale",
+      financial_phishing: "Hameçonnage financier",
+      tech_support: "Arnaque de soutien technique",
+    } as Record<string,string>,
+    continueTitle: "Allez un peu plus loin",
+    continueLead: "Votre analyse peut vous aider à reconnaître le motif la prochaine fois — et renforcer le réseau.",
+    atlasNextTitle: {
+      low: "Apprenez à reconnaître les motifs d’arnaque",
+      medium: "Voyez comment ce motif fonctionne",
+      high: "Voyez comment ce motif fonctionne",
+    },
+    atlasNextBody: {
+      low: "Explorez l’Atlas et apprenez les tactiques qui se répètent d’une arnaque à l’autre.",
+      medium: "Retrouvez cette analyse dans l’Atlas, apprenez les tactiques et explorez des motifs connexes.",
+      high: "Retrouvez cette analyse dans l’Atlas, apprenez les tactiques et explorez des motifs connexes.",
+    },
+    networkCta: "Aider le réseau",
+    networkHint: "Parcourez ce qui s’est passé et choisissez si vous voulez ajouter le motif anonyme.",
+    protectHint: "Donnez à un proche une façon plus simple de vérifier avant d’agir.",
     freeVerifyHint: "En cas de doute, vérifiez via la source officielle.",
     guidance: [
       { action: "Prenez un moment avant de répondre", explanation: "Les services légitimes n'exigent pas d'action immédiate." },
@@ -486,9 +608,15 @@ const copy = {
       ],
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
-    scanAnother: "Analyser un autre message",
-    journeyCta: "Comprendre ce que ce message essayait de vous faire faire",
-    journeyCtaNote: "Parcourez la pression, vos réactions et le prochain geste sûr.",
+    scanAnother: "Analyser autre chose",
+    moreTitle: "Plus",
+    whyTitle: "Pourquoi ce résultat",
+    wantLabel: "Objectif probable",
+    pressureLabel: "Comment on vous pousse",
+    detailsTitle: "Détails techniques",
+    atlasCta: "Explorer ce motif",
+    journeyCta: "Aider le réseau",
+    protectCta: "Protéger un proche",
     partnerScannerTitle: "Analyseur de messages suspects",
     poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
@@ -1266,6 +1394,131 @@ function buildPlainSummaryFromIntel(
   return coreFr;
 }
 
+type QuickIntel = {
+  wants: string[];
+  pressure: string[];
+};
+
+function getResultPatternTitle(
+  intel: Record<string, unknown>,
+  risk: "low" | "medium" | "high",
+  lang: "en" | "fr"
+): string {
+  const family = String(intel.narrative_family ?? "").trim();
+  const t = copy[lang];
+  return t.patternLabels[family] || t.resultPatternFallback[risk];
+}
+
+function getQuickIntel(intel: Record<string, unknown>, lang: "en" | "fr"): QuickIntel {
+  const semantic =
+    intel.semantic_v1 && typeof intel.semantic_v1 === "object"
+      ? intel.semantic_v1 as Record<string, unknown>
+      : {};
+
+  const rawAssets = Array.isArray(semantic.requested_assets)
+    ? semantic.requested_assets.filter((x): x is string => typeof x === "string")
+    : Array.isArray(intel.requested_assets)
+      ? intel.requested_assets.filter((x): x is string => typeof x === "string")
+      : [];
+
+  const assetLabelsEn: Record<string,string> = {
+    money: "Money",
+    password: "Password",
+    otp_or_mfa_code: "Verification code",
+    bank_login: "Bank login",
+    card_data: "Card details",
+    identity_data: "Identity information",
+    crypto: "Crypto",
+    gift_card: "Gift cards",
+    remote_device_access: "Device access",
+    conversation_engagement: "A reply",
+  };
+  const assetLabelsFr: Record<string,string> = {
+    money: "Argent",
+    password: "Mot de passe",
+    otp_or_mfa_code: "Code de vérification",
+    bank_login: "Accès bancaire",
+    card_data: "Données de carte",
+    identity_data: "Informations d’identité",
+    crypto: "Crypto",
+    gift_card: "Cartes-cadeaux",
+    remote_device_access: "Accès à l’appareil",
+    conversation_engagement: "Une réponse",
+  };
+
+  const tacticLabelsEn: Record<string,string> = {
+    urgency: "Urgency",
+    authority: "Authority",
+    fear: "Fear",
+    threat: "Threat",
+    false_trust: "False trust",
+    helpfulness: "Helpfulness",
+    secrecy: "Secrecy",
+    isolation: "Isolation",
+    scarcity: "Scarcity",
+    reward: "Reward",
+    verification_suppression: "Stops verification",
+    channel_migration: "Moves channels",
+    credential_request: "Credential request",
+    financial_pressure: "Financial pressure",
+  };
+  const tacticLabelsFr: Record<string,string> = {
+    urgency: "Urgence",
+    authority: "Autorité",
+    fear: "Peur",
+    threat: "Menace",
+    false_trust: "Fausse confiance",
+    helpfulness: "Aide apparente",
+    secrecy: "Secret",
+    isolation: "Isolement",
+    scarcity: "Rareté",
+    reward: "Récompense",
+    verification_suppression: "Empêche la vérification",
+    channel_migration: "Change de canal",
+    credential_request: "Demande d’identifiants",
+    financial_pressure: "Pression financière",
+  };
+
+  const rawTactics = Array.isArray(semantic.tactics)
+    ? semantic.tactics
+        .map((x) => x && typeof x === "object" ? String((x as Record<string,unknown>).type ?? "") : "")
+        .filter(Boolean)
+    : Array.isArray(intel.semantic_tactics)
+      ? intel.semantic_tactics.filter((x): x is string => typeof x === "string")
+      : [];
+
+  const assetMap = lang === "fr" ? assetLabelsFr : assetLabelsEn;
+  const tacticMap = lang === "fr" ? tacticLabelsFr : tacticLabelsEn;
+
+  const wants = [...new Set(rawAssets.map((x) => assetMap[x]).filter(Boolean))].slice(0, 3);
+  const pressure = [...new Set(rawTactics.map((x) => tacticMap[x]).filter(Boolean))].slice(0, 4);
+
+  return { wants, pressure };
+}
+
+function buildGroundedReasonLines(
+  intel: Record<string, unknown>,
+  lang: "en" | "fr"
+): string[] {
+  const t = copy[lang].groundedReasons;
+  const out: string[] = [];
+  const add = (line?: string) => {
+    if (line && !out.includes(line)) out.push(line);
+  };
+
+  const family = String(intel.narrative_family ?? "");
+  const entity = String(intel.impersonation_entity ?? "");
+  const action = String(intel.requested_action ?? "");
+  const threat = String(intel.threat_stage ?? "");
+
+  add(t.narrative[family]);
+  add(t.entity[entity]);
+  add(t.action[action]);
+  add(t.threat[threat]);
+
+  return out.slice(0, 3);
+}
+
 function highRiskLinkLine(
   link: ParsedLinkArtifact,
   intel: Record<string, unknown>,
@@ -1572,6 +1825,8 @@ export default function ResultView() {
   const fragmentaryContext = ["thin", "fragment", "unknown"].includes(contextQuality);
   const explicitInsufficient =
     intelState === "insufficient_context" || submissionRoute === "insufficient_context";
+  const insufficientContextState =
+    result?.result_state === "insufficient_context" || explicitInsufficient;
   const weakMetadataGate =
     (intelState === "weak_signal" || explicitInsufficient) && fragmentaryContext;
 
@@ -1837,11 +2092,15 @@ export default function ResultView() {
     return out;
   };
   const riskCardInterpretationLines = consumeInterpretation(interpretationUi.riskCard, 2);
+  const groundedReasonLines = buildGroundedReasonLines(intel as Record<string, unknown>, lang);
+  const whyLines = [...groundedReasonLines, ...riskCardInterpretationLines]
+    .filter((line, index, arr) => arr.indexOf(line) === index)
+    .slice(0, 3);
+  const quickIntel = getQuickIntel(intel as Record<string, unknown>, lang);
+  const resultPatternTitle = getResultPatternTitle(intel as Record<string, unknown>, risk, lang);
   const whatToDoNextItems = getWhatToDoNextItems(lang, intel as Record<string, unknown>, interpretationUi);
-  const analysisModeForTelemetry =
-    String((intel as Record<string, unknown>).analysis_mode ?? "").trim() ||
-    (wasRefined ? "refined" : "initial");
-
+  const primaryAction = whatToDoNextItems[0] ?? null;
+  const secondaryActionItems = whatToDoNextItems.slice(1, 3);
   const summaryRaw = analysisUnavailable
     ? result.summary_sentence || t.analysisUnavailable.banner
     : result.summary_sentence || t.defaultSummary[risk];
@@ -1849,7 +2108,9 @@ export default function ResultView() {
   const plainSummary = analysisUnavailable
     ? null
     : buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
-  let summary = plainSummary ?? apiSummary;
+  let summary = insufficientContextState
+    ? t.insufficientContext.summary
+    : (plainSummary ?? apiSummary);
   const hasMediumLinkInterpretation =
     risk === "medium" &&
     Boolean(abuseInterpretation) &&
@@ -1884,32 +2145,44 @@ export default function ResultView() {
 
   const riskBlockStyle = {
     ...styles.riskBlock,
-    backgroundColor: unavailableWithoutElevatedCaution
-      ? UNAVAILABLE_CONFIG.bgColor
-      : RISK_CONFIG[risk].bgColor,
+    backgroundColor: insufficientContextState
+      ? "#F5F5F4"
+      : unavailableWithoutElevatedCaution
+        ? UNAVAILABLE_CONFIG.bgColor
+        : "#FFFFFF",
     border: "1px solid #D1D5DB",
   };
 
-  const tierColor = unavailableWithoutElevatedCaution
-    ? UNAVAILABLE_CONFIG.color
-    : risk === "low"
+  const tierColor = insufficientContextState
+    ? "#57534E"
+    : unavailableWithoutElevatedCaution
+      ? UNAVAILABLE_CONFIG.color
+      : risk === "low"
       ? "#15803D"
       : risk === "medium"
         ? "#B45309"
         : "#B91C1C";
 
-  const riskTitle = unavailableWithoutElevatedCaution
-    ? t.analysisUnavailable.title
-    : t.tier[risk];
-  const riskConfidenceLabel = analysisUnavailable
-    ? t.analysisUnavailable.confidenceLabel
-    : t.confidenceLabel;
-  const riskConfidenceText = analysisUnavailable
-    ? t.analysisUnavailable.confidenceValue
-    : confidenceText;
-  const riskConfidenceHelper = analysisUnavailable
-    ? t.analysisUnavailable.confidenceHelper
-    : confidenceHelperText;
+  const riskTitle = insufficientContextState
+    ? t.insufficientContext.title
+    : unavailableWithoutElevatedCaution
+      ? t.analysisUnavailable.title
+      : t.tier[risk];
+  const riskConfidenceLabel = insufficientContextState
+    ? t.insufficientContext.statusLabel
+    : analysisUnavailable
+      ? t.analysisUnavailable.confidenceLabel
+      : t.confidenceLabel;
+  const riskConfidenceText = insufficientContextState
+    ? t.insufficientContext.statusValue
+    : analysisUnavailable
+      ? t.analysisUnavailable.confidenceValue
+      : confidenceText;
+  const riskConfidenceHelper = insufficientContextState
+    ? t.insufficientContext.helper
+    : analysisUnavailable
+      ? t.analysisUnavailable.confidenceHelper
+      : confidenceHelperText;
   const riskMeterLabel = unavailableWithoutElevatedCaution
     ? t.analysisUnavailable.title
     : t.tier[risk];
@@ -1928,9 +2201,11 @@ export default function ResultView() {
     Boolean(phoneSnippet) &&
     (inputType === "phone_only" || Boolean(intel.callback_number_present));
 
-  const contextRefinementDisplay: ContextRefinementStrings = partner
-    ? t.contextRefinementPartner
-    : t.contextRefinement;
+  const contextRefinementDisplay: ContextRefinementStrings = insufficientContextState
+    ? t.insufficientRefinement
+    : partner
+      ? t.contextRefinementPartner
+      : t.contextRefinement;
 
   const weakGateRefinementStrings: ContextRefinementStrings = {
     ...contextRefinementDisplay,
@@ -2230,45 +2505,98 @@ export default function ResultView() {
           </div>
         ) : (
           <>
-            {/* ---------- A) Risk Block ---------- */}
-            <div style={riskBlockStyle} className="gap-2">
+            {/* ---------- Decision surface ---------- */}
+            <div style={riskBlockStyle}>
               {analysisUnavailable && (
                 <p
                   className="text-center text-xs font-medium text-stone-700"
-                  style={{ margin: "0 0 4px", lineHeight: 1.4 }}
+                  style={{ margin: "0 0 8px", lineHeight: 1.4 }}
                   role="status"
                 >
                   {unavailableBannerText}
                 </p>
               )}
-              <div className="text-center text-xl font-semibold" style={{ color: tierColor }}>
-                {riskTitle}
+
+              <div style={styles.resultHero}>
+                <div style={{ ...styles.riskBadge, color: tierColor }}>{riskTitle}</div>
+                <h1 style={styles.patternHeadline}>{resultPatternTitle}</h1>
+                <p className="text-base text-gray-900" style={styles.summaryPrimary}>
+                  {summary}
+                </p>
               </div>
-              <p className="text-center text-sm font-medium text-gray-700" style={styles.systemConfidenceLine}>
-                {riskConfidenceLabel} {riskConfidenceText}
-              </p>
-              <p className="text-center text-xs text-gray-500" style={styles.systemConfidenceHelper}>
-                {riskConfidenceHelper}
-              </p>
-              <RiskMeter
-                risk={risk}
-                label={riskMeterLabel}
-                levelText={riskMeterLevelText}
-                unavailable={unavailableWithoutElevatedCaution}
-              />
+
+              {(quickIntel.wants.length > 0 || quickIntel.pressure.length > 0) && !insufficientContextState && (
+                <div style={styles.quickIntel}>
+                  {quickIntel.wants.length > 0 && (
+                    <div style={styles.quickIntelRow}>
+                      <span style={styles.quickIntelLabel}>{t.wantLabel}</span>
+                      <span style={styles.quickIntelValue}>{quickIntel.wants.join(" · ")}</span>
+                    </div>
+                  )}
+                  {quickIntel.pressure.length > 0 && (
+                    <div style={styles.quickIntelRow}>
+                      <span style={styles.quickIntelLabel}>{t.pressureLabel}</span>
+                      <span style={styles.quickIntelValue}>{quickIntel.pressure.join(" · ")}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!insufficientContextState && primaryAction && (
+                <div style={styles.immediateActionBlock}>
+                  <div style={styles.actionEyebrow}>{t.actionEyebrow[risk]}</div>
+                  <div style={styles.primaryActionTitle}>{primaryAction.action}</div>
+                  {primaryAction.explanation ? (
+                    <p style={styles.primaryActionExplanation}>{primaryAction.explanation}</p>
+                  ) : null}
+                  {secondaryActionItems.length > 0 && (
+                    <ul style={styles.secondaryActionList}>
+                      {secondaryActionItems.map((item) => (
+                        <li key={item.action}>
+                          <strong>{item.action}</strong>
+                          {item.explanation ? <span> — {item.explanation}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {whyLines.length > 0 && !insufficientContextState && (
+                <details style={styles.whyDetails}>
+                  <summary style={styles.whySummary}>{t.whyTitle}</summary>
+                  <ul style={styles.whyList}>
+                    {whyLines.map((line, i) => <li key={`why-${i}`}>{line}</li>)}
+                  </ul>
+                  <div style={styles.confidenceInside}>
+                    {riskConfidenceLabel} {riskConfidenceText}
+                  </div>
+                </details>
+              )}
+
               {hasRefinementParent && (
-                <p
-                  className="text-center text-xs text-gray-500"
-                  style={styles.refinementLineage}
-                >
+                <p className="text-center text-xs text-gray-500" style={styles.refinementLineage}>
                   {t.refinementLineage}
                 </p>
               )}
-              <p className="text-sm text-gray-900" style={styles.summary}>
-                {summary}
-              </p>
-              {linkArtifact && (
-                <div className="mt-3 text-sm leading-normal text-gray-900">
+
+              <div style={styles.resultMeta}>
+                <span>{t.freeVerifyHint}</span>
+              </div>
+            </div>
+
+            {!partner && !insufficientContextState && risk !== "low" && (
+              <PostScanRecoveryGate
+                lang={lang}
+                scanId={scanIdForContext || undefined}
+                riskTier={risk}
+              />
+            )}
+
+            {linkArtifact && (
+              <details style={styles.technicalDetails}>
+                <summary style={styles.technicalSummary}>{t.detailsTitle}</summary>
+                <div style={styles.technicalBody}>
                   {(() => {
                     const ls = linkSurfaceLines(linkArtifact, lang);
                     const highRiskLine = highRiskLinkLine(
@@ -2280,9 +2608,7 @@ export default function ResultView() {
                     return (
                       <>
                         <p className="text-sm leading-normal text-gray-900">{highRiskLine ?? ls.line1}</p>
-                        {ls.line2 ? (
-                          <p className="mt-1 text-sm leading-normal text-gray-900">{ls.line2}</p>
-                        ) : null}
+                        {ls.line2 ? <p className="mt-1 text-sm leading-normal text-gray-700">{ls.line2}</p> : null}
                         <LinkIntelligenceFreeBlock
                           intel={intel as Record<string, unknown>}
                           link={linkArtifact}
@@ -2301,47 +2627,8 @@ export default function ResultView() {
                     </ul>
                   )}
                 </div>
-              )}
-              {riskCardInterpretationLines.length > 0 && (
-                <ul className="mt-2 list-disc space-y-1 pl-[18px] text-xs leading-normal text-gray-700">
-                  {riskCardInterpretationLines.map((line, i) => (
-                    <li key={`risk-ai-${i}`}>{line}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div style={styles.sectionDivider} className="rounded-lg border border-gray-200/90 bg-gray-50/60 px-3 py-2.5">
-              <p className="text-center text-xs leading-relaxed text-gray-600">{t.freeVerifyHint}</p>
-            </div>
-
-            {!weakInputGateActive && whatToDoNextItems.length > 0 ? (
-              <div style={styles.sectionDivider}>
-                <h3 className="text-base font-semibold text-gray-950">{t.actionTitle}</h3>
-                <ul className="mt-3 list-disc space-y-2.5 pl-5 text-sm leading-relaxed text-gray-800">
-                  {whatToDoNextItems.map((item) => (
-                    <li key={item.action}>
-                      <span className="font-medium text-gray-900">{item.action}</span>
-                      {item.explanation ? (
-                        <p className="mt-0.5 text-gray-600">{item.explanation}</p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {!partner && !weakInputGateActive ? (
-              <div style={styles.sectionDivider}>
-                <PostResultReportCTA
-                  lang={lang}
-                  riskTier={risk}
-                  scanId={scanIdForContext}
-                  source="post_scan_result"
-                  analysisMode={analysisModeForTelemetry}
-                />
-              </div>
-            ) : null}
+              </details>
+            )}
 
             {partner ? (
               <>
@@ -2403,17 +2690,83 @@ export default function ResultView() {
 
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
-        {!weakInputGateActive && !partner && (
-          <a href={`/atlas?mode=scan&lang=${lang}`} style={styles.journeyCta}>
-            <strong>{t.journeyCta}</strong>
-            <span>{t.journeyCtaNote}</span>
-          </a>
+        {!weakInputGateActive && !partner && !insufficientContextState && (
+          <section style={styles.continueCard}>
+            <div style={styles.continueHeader}>
+              <span style={styles.continueEyebrow}>{t.continueTitle}</span>
+              <p style={styles.continueLead}>{t.continueLead}</p>
+            </div>
+
+            <a
+              href={risk === "low"
+                ? `/atlas?source=post_scan&lang=${lang}`
+                : `/atlas?find=scan&source=post_scan&lang=${lang}`}
+              style={styles.atlasPrimary}
+              onClick={() => logScanEvent("post_scan_action_selected", {
+                scan_id: scanIdForContext || undefined,
+                props: {
+                  surface: "result",
+                  intent: "atlas",
+                  action: "learn_pattern",
+                  risk_tier: risk,
+                  input_type: inputType,
+                  lang,
+                },
+              })}
+            >
+              <span style={styles.atlasPrimaryTitle}>{t.atlasNextTitle[risk]} →</span>
+              <span style={styles.atlasPrimaryBody}>{t.atlasNextBody[risk]}</span>
+            </a>
+
+            <div style={styles.networkActions}>
+              <a
+                href={`/atlas?mode=scan&source=post_scan_network&lang=${lang}`}
+                style={styles.networkAction}
+                onClick={() => logScanEvent("post_scan_action_selected", {
+                  scan_id: scanIdForContext || undefined,
+                  props: {
+                    surface: "result",
+                    intent: "journey",
+                    action: "help_network",
+                    risk_tier: risk,
+                    input_type: inputType,
+                    lang,
+                  },
+                })}
+              >
+                <strong>{t.networkCta}</strong>
+                <span>{t.networkHint}</span>
+              </a>
+              <a
+                href={lang === "fr" ? "/fr/protect-family?source=post_scan" : "/protect-family?source=post_scan"}
+                style={styles.networkAction}
+                onClick={() => logScanEvent("post_scan_action_selected", {
+                  scan_id: scanIdForContext || undefined,
+                  props: {
+                    surface: "result",
+                    intent: "protect_family",
+                    action: "protect_someone",
+                    risk_tier: risk,
+                    input_type: inputType,
+                    lang,
+                  },
+                })}
+              >
+                <strong>{t.protectCta}</strong>
+                <span>{t.protectHint}</span>
+              </a>
+            </div>
+          </section>
         )}
         {!weakInputGateActive && (
           <a
             href={partner ? `/partner/${partner.slug}?lang=${lang}` : `/scan?lang=${lang}`}
             className="text-sm font-medium"
             style={styles.scanAnotherQuiet}
+            onClick={() => logScanEvent("post_scan_action_selected", {
+              scan_id: scanIdForContext || undefined,
+              props: { surface: "result", intent: "scan_another", risk_tier: risk, input_type: inputType, lang },
+            })}
           >
             {t.scanAnother}
           </a>
@@ -2450,16 +2803,270 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: 14,
   },
-  journeyCta: {
-    display: "block",
-    maxWidth: 620,
-    margin: "0 auto 18px",
-    padding: "16px 18px",
-    border: "1px solid #B7791F",
-    background: "#FFF8E7",
-    color: "#173746",
-    textDecoration: "none",
+  resultHero: {
     textAlign: "left",
+  },
+  riskBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 9px",
+    borderRadius: 999,
+    background: "#F4F4F5",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase",
+  },
+  patternHeadline: {
+    margin: "10px 0 0",
+    color: "#171A1F",
+    fontSize: "clamp(24px, 5vw, 32px)",
+    lineHeight: 1.1,
+    fontWeight: 760,
+    letterSpacing: "-0.025em",
+  },
+  actionEyebrow: {
+    marginBottom: 5,
+    color: "#6B7280",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase",
+  },
+  primaryActionTitle: {
+    color: "#171A1F",
+    fontSize: 19,
+    lineHeight: 1.25,
+    fontWeight: 760,
+  },
+  primaryActionExplanation: {
+    margin: "5px 0 0",
+    color: "#4B5563",
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+  secondaryActionList: {
+    margin: "12px 0 0",
+    paddingTop: 10,
+    paddingLeft: 20,
+    borderTop: "1px solid #E5E7EB",
+    color: "#4B5563",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+  whyDetails: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTop: "1px solid #E5E7EB",
+  },
+  whySummary: {
+    cursor: "pointer",
+    color: "#4B5563",
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  confidenceInside: {
+    marginTop: 9,
+    color: "#7A8089",
+    fontSize: 11,
+  },
+  continueCard: {
+    width: "100%",
+    padding: 16,
+    borderRadius: 14,
+    border: "1px solid #C9CED6",
+    background: "#FFFFFF",
+    boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+    boxSizing: "border-box",
+  },
+  continueHeader: {
+    marginBottom: 12,
+  },
+  continueEyebrow: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: 760,
+  },
+  continueLead: {
+    margin: "4px 0 0",
+    color: "#6B7280",
+    fontSize: 13,
+    lineHeight: 1.45,
+  },
+  atlasPrimary: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "14px 15px",
+    borderRadius: 11,
+    background: "#1F2937",
+    color: "#FFFFFF",
+    textDecoration: "none",
+  },
+  atlasPrimaryTitle: {
+    fontSize: 15,
+    fontWeight: 760,
+  },
+  atlasPrimaryBody: {
+    color: "#D1D5DB",
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
+  networkActions: {
+    marginTop: 9,
+    display: "flex",
+    gap: 9,
+    flexWrap: "wrap",
+  },
+  networkAction: {
+    flex: "1 1 220px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    padding: "11px 12px",
+    border: "1px solid #D4D7DC",
+    borderRadius: 10,
+    background: "#F8F9FA",
+    color: "#303841",
+    textDecoration: "none",
+    fontSize: 13,
+    lineHeight: 1.35,
+  },
+
+  moreBlock: {
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    alignItems: "center",
+  },
+  moreLabel: {
+    color: "#7A8089",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  },
+  secondaryActions: {
+    width: "100%",
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 8,
+  },
+  secondaryAction: {
+    minHeight: 42,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "9px 10px",
+    border: "1px solid #CDD1D7",
+    borderRadius: 10,
+    background: "#F8F9FA",
+    color: "#3B444D",
+    textDecoration: "none",
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: 650,
+    lineHeight: 1.25,
+  },
+  summaryPrimary: {
+    margin: "9px 0 0",
+    maxWidth: 520,
+    lineHeight: 1.5,
+  },
+  quickIntel: {
+    marginTop: 14,
+    padding: "10px 12px",
+    borderRadius: 10,
+    background: "rgba(255,255,255,0.52)",
+    border: "1px solid rgba(120,120,120,0.16)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 7,
+  },
+  quickIntelRow: {
+    display: "grid",
+    gridTemplateColumns: "132px 1fr",
+    gap: 10,
+    alignItems: "baseline",
+    fontSize: 13,
+    lineHeight: 1.35,
+  },
+  quickIntelLabel: {
+    color: "#687078",
+    fontWeight: 600,
+  },
+  quickIntelValue: {
+    color: "#252B31",
+    fontWeight: 650,
+  },
+  whyBlock: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTop: "1px solid rgba(90,90,90,0.16)",
+  },
+  whyTitle: {
+    marginBottom: 6,
+    color: "#4D555D",
+    fontSize: 12,
+    fontWeight: 750,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  },
+  whyList: {
+    margin: 0,
+    paddingLeft: 19,
+    color: "#363D44",
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+  immediateActionBlock: {
+    marginTop: 15,
+    padding: "14px",
+    borderRadius: 11,
+    background: "#FFFFFF",
+    border: "1px solid rgba(70,70,70,0.14)",
+  },
+  immediateActionTitle: {
+    margin: "0 0 9px",
+    color: "#20262C",
+    fontSize: 15,
+    fontWeight: 750,
+  },
+  immediateActionList: {
+    margin: 0,
+    paddingLeft: 20,
+    color: "#343A40",
+    fontSize: 14,
+    lineHeight: 1.45,
+  },
+  resultMeta: {
+    marginTop: 13,
+    paddingTop: 9,
+    borderTop: "1px solid rgba(90,90,90,0.13)",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+    color: "#717780",
+    fontSize: 11,
+    lineHeight: 1.35,
+  },
+  technicalDetails: {
+    border: "1px solid #D4D7DC",
+    borderRadius: 10,
+    background: "#ECEEF1",
+    overflow: "hidden",
+  },
+  technicalSummary: {
+    padding: "11px 13px",
+    cursor: "pointer",
+    color: "#525A63",
+    fontSize: 13,
+    fontWeight: 650,
+  },
+  technicalBody: {
+    padding: "0 13px 13px",
   },
   mspBelowCardHint: {
     margin: 0,

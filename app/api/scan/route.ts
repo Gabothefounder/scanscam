@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,11 +11,9 @@ import { buildScanPersistOutcome } from "@/lib/scan/scanPersistOutcome";
 import { buildScanEnrichment } from "@/lib/scan-analysis";
 import { harmonizeNarratives } from "@/lib/scan-analysis/harmonizeNarratives";
 import { mapIntelFields } from "@/lib/scan-analysis/mapIntelFields";
-import { extractLinkArtifacts, type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
-import { expandUrl } from "@/lib/scan-analysis/expandUrl";
-import { lookupWebRisk } from "@/lib/scan-analysis/webRiskLookup";
-import { lookupDomainRegistration } from "@/lib/scan-analysis/rdapLookup";
-import { linkArtifactFromLinkIntel, linkIntelFromArtifact } from "@/lib/scan-analysis/linkIntel";
+import { type LinkArtifact } from "@/lib/scan-analysis/extractLinkArtifacts";
+import { linkArtifactFromLinkIntel } from "@/lib/scan-analysis/linkIntel";
+import { enrichLinkIntel } from "@/lib/scan-analysis/enrichLinkIntel";
 import { buildAbuseInterpretation } from "@/lib/scan-analysis/abuseInterpretation";
 import { applyArchetypeOverrides } from "@/lib/scan-analysis/applyArchetypeOverrides";
 import { validateArchetypeOverrideConsistency } from "@/lib/scan-analysis/validateArchetypeOverrideConsistency";
@@ -25,6 +23,11 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
 import { logEvent } from "@/lib/observability";
+import { applySemanticSensor } from "@/lib/scan-v3/applySemanticSensor";
+import { buildSignalLedgerV1 } from "@/lib/scan-v3/signalLedger";
+import { publicResultState, resolveInsufficientContext } from "@/lib/scan-v3/resultState";
+import { buildPatternSignatureV1 } from "@/lib/scan-v3/patternSignature";
+import { buildDisagreementV1 } from "@/lib/scan-v3/disagreement";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
@@ -1583,6 +1586,11 @@ function deriveInputType(
 -------------------------------------------------- */
 
 export async function POST(req: Request) {
+  const requestStartedAt = Date.now();
+  let ocrMs = 0;
+  let aiMs = 0;
+  let linkIntelMs = 0;
+  let persistMs = 0;
   let body: any;
 
   /* ---------- IP extraction (ephemeral) ---------- */
@@ -1759,7 +1767,9 @@ export async function POST(req: Request) {
     }
 
     try {
+      const ocrStartedAt = Date.now();
       contentText = await ocrImage(image);
+      ocrMs = Date.now() - ocrStartedAt;
       source = "ocr";
     } catch {
       recordOCRResult(ip, "failure");
@@ -1838,80 +1848,39 @@ export async function POST(req: Request) {
 
   /* ---------- AI analysis ---------- */
   try {
-    const { result, usedFallback, ai_parse_fallback } = await analyzeScan({
+    const aiStartedAt = Date.now();
+    const aiPromise = analyzeScan({
       messageText: analysisText,
       language,
       source,
+    }).then((value) => {
+      aiMs = Date.now() - aiStartedAt;
+      return value;
     });
+
+    const linkStartedAt = Date.now();
+    const linkIntelPromise = enrichLinkIntel(contentText).then((value) => {
+      linkIntelMs = Date.now() - linkStartedAt;
+      return value;
+    });
+
+    // Model analysis and independent URL intelligence run concurrently.
+    const [
+      {
+        result,
+        usedFallback,
+        ai_parse_fallback,
+        model: analysisModel,
+        analysis_path: analysisPath,
+        input_tokens: analysisInputTokens,
+        output_tokens: analysisOutputTokens,
+      },
+      link_intel,
+    ] = await Promise.all([aiPromise, linkIntelPromise]);
 
     /* ---------- Input quality classification ---------- */
     const inputQuality = classifyInputQuality(analysisText);
     const riskTier = result.risk_tier ?? "low";
-    const linkExtracted = extractLinkArtifacts(contentText);
-    const link_intel = linkExtracted ? linkIntelFromArtifact(linkExtracted) : null;
-    if (link_intel) {
-      if (link_intel.primary.flags.shortened) {
-        try {
-          const expansion = await expandUrl(link_intel.primary.url);
-          link_intel.expansion = expansion;
-        } catch {
-          link_intel.expansion = { status: "failed" };
-        }
-      } else {
-        link_intel.expansion = { status: "skipped" };
-      }
-
-      let urlForWebRisk: string | null = null;
-      let webRiskCheckedType: "expanded" | "primary" | null = null;
-      if (link_intel.primary.flags.shortened) {
-        const exp = link_intel.expansion;
-        if (
-          exp &&
-          exp.status === "expanded" &&
-          typeof exp.final_url === "string" &&
-          exp.final_url.trim().length > 0
-        ) {
-          urlForWebRisk = exp.final_url.trim();
-          webRiskCheckedType = "expanded";
-        }
-      } else {
-        urlForWebRisk =
-          typeof link_intel.primary.url === "string" ? link_intel.primary.url.trim() : null;
-        if (urlForWebRisk) webRiskCheckedType = "primary";
-      }
-
-      if (urlForWebRisk && webRiskCheckedType) {
-        const webRisk = await lookupWebRisk(urlForWebRisk);
-        link_intel.web_risk = {
-          status: webRisk.status,
-          checked_url_type: webRiskCheckedType,
-          checked_at: new Date().toISOString(),
-          ...(webRisk.threat_types && webRisk.threat_types.length > 0
-            ? { threat_types: webRisk.threat_types }
-            : {}),
-          ...(webRisk.status === "error"
-            ? {
-                ...(webRisk.error_reason ? { error_reason: webRisk.error_reason } : {}),
-                ...(typeof webRisk.http_status === "number" ? { http_status: webRisk.http_status } : {}),
-                ...(webRisk.api_error_message ? { api_error_message: webRisk.api_error_message } : {}),
-              }
-            : {}),
-        };
-      } else {
-        link_intel.web_risk = {
-          status: "skipped",
-          checked_at: new Date().toISOString(),
-        };
-      }
-
-      const rdapDomainRaw =
-        (typeof link_intel.primary.root_domain === "string" && link_intel.primary.root_domain.trim()) ||
-        (typeof link_intel.primary.domain === "string" && link_intel.primary.domain.trim()) ||
-        "";
-      if (rdapDomainRaw) {
-        link_intel.domain_registration = await lookupDomainRegistration(rdapDomainRaw);
-      }
-    }
     const linkArtifact = link_intel ? linkArtifactFromLinkIntel(link_intel) : null;
     const refinementSemanticsBoost = isRefinedAnalysis && hasMeaningfulContext;
     const semanticPrimary =
@@ -1991,6 +1960,21 @@ export async function POST(req: Request) {
       mapIntelRawText
     );
 
+    Object.assign(
+      intel_features as Record<string, unknown>,
+      applySemanticSensor(
+        intel_features as Record<string, unknown>,
+        result.semantic,
+        { model: analysisModel, analysisPath }
+      )
+    );
+
+    // Re-harmonize after semantic fill-missing so existing downstream taxonomy stays coherent.
+    Object.assign(
+      intel_features as Record<string, unknown>,
+      harmonizeNarratives(intel_features as Record<string, unknown>)
+    );
+
     if (refinementSemanticsBoost) {
       applyRefinedContextCueBoost(intel_features as Record<string, unknown>, contextText.toLowerCase());
     }
@@ -2017,11 +2001,12 @@ export async function POST(req: Request) {
     let finalRiskTier = riskTier as "low" | "medium" | "high";
     let finalSummary: string | null = result.summary_sentence ?? null;
 
-    const skipInsufficientTrustFloor = refinementSemanticsBoost;
-    const isInsufficientContext =
-      !skipInsufficientTrustFloor &&
-      (enrichment.submissionRoute === "insufficient_context" ||
-        enrichment.contextQuality === "fragment");
+    const isInsufficientContext = resolveInsufficientContext({
+      refined: refinementSemanticsBoost,
+      submissionRoute: enrichment.submissionRoute,
+      contextQuality: String(enrichment.contextQuality ?? "unknown"),
+      semanticSufficiency: result.semantic?.context_sufficiency,
+    });
 
     if (isInsufficientContext) {
       finalRiskTier = riskTier === "high" ? "medium" : (riskTier as "low" | "medium");
@@ -2205,6 +2190,41 @@ export async function POST(req: Request) {
       intel_features as Record<string, unknown>
     );
 
+    (intel_features as Record<string, unknown>).signal_ledger_v1 = buildSignalLedgerV1({
+      semantic: result.semantic,
+      model: analysisModel,
+      enrichment: {
+        narrativeFamily: enrichment.narrativeFamily,
+        requestedAction: enrichment.requestedAction,
+        threatStage: enrichment.threatStage,
+        confidenceLevel: enrichment.confidenceLevel,
+        contextQuality: enrichment.contextQuality,
+      },
+      linkIntel: link_intel as Record<string, any> | null,
+      source,
+    });
+
+    (intel_features as Record<string, unknown>).analysis_usage_v1 = {
+      model: analysisModel,
+      path: analysisPath,
+      input_tokens: typeof analysisInputTokens === "number" ? analysisInputTokens : null,
+      output_tokens: typeof analysisOutputTokens === "number" ? analysisOutputTokens : null,
+    };
+
+    (intel_features as Record<string, unknown>).pattern_signature_v1 =
+      buildPatternSignatureV1(intel_features as Record<string, unknown>);
+
+    (intel_features as Record<string, unknown>).disagreement_v1 = buildDisagreementV1({
+      semantic: result.semantic,
+      deterministic: {
+        contextQuality: enrichment.contextQuality,
+        submissionRoute: enrichment.submissionRoute,
+        narrativeFamily: enrichment.narrativeFamily,
+        requestedAction: enrichment.requestedAction,
+        threatStage: enrichment.threatStage,
+      },
+    });
+
     /* ---------- Hard AI fallback: analysis_status ≠ risk_tier (never fake "medium") ---------- */
     const hardFallback = applyHardFallbackPresentation({
       usedFallback,
@@ -2215,7 +2235,7 @@ export async function POST(req: Request) {
     finalRiskTier = hardFallback.risk_tier;
     finalSummary = hardFallback.summary_sentence;
     (intel_features as Record<string, unknown>).analysis_status = hardFallback.analysis_status;
-    const userVerdict = hardFallback.user_verdict;
+    const userVerdict = isInsufficientContext ? "uncertain" : hardFallback.user_verdict;
 
     /* ---------- Insert into scans (ALWAYS) ---------- */
     const scanRow: Record<string, any> = {
@@ -2263,6 +2283,7 @@ export async function POST(req: Request) {
      * - `raw_persisted` = temporary `raw_messages` row when requested.
      * Raw failure must NOT delete or invalidate a successful scans row.
      */
+    const persistStartedAt = Date.now();
     const { data: scanData, error: scanError } = await supabase
       .from("scans")
       .insert(scanRow)
@@ -2328,6 +2349,27 @@ export async function POST(req: Request) {
     scanId = persistOutcome.scan_id;
     const persisted = persistOutcome.persisted;
     const raw_persisted = persistOutcome.raw_persisted;
+    persistMs = Date.now() - persistStartedAt;
+
+    after(() =>
+      logEvent("scan_stage_timing", "info", "scan_api", {
+        build_id: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 40) ?? null,
+        scan_id: scanId,
+        total_ms: Date.now() - requestStartedAt,
+        ai_ms: aiMs,
+        ocr_ms: ocrMs,
+        link_intel_ms: linkIntelMs,
+        persist_ms: persistMs,
+        risk_tier: finalRiskTier,
+        input_type: String(intel_features.input_type ?? "unknown"),
+        context_quality: String(intel_features.context_quality ?? "unknown"),
+        analysis_mode: isRefinedAnalysis ? "refined" : "initial",
+        model: analysisModel,
+        analysis_path: analysisPath,
+        input_tokens: typeof analysisInputTokens === "number" ? analysisInputTokens : null,
+        output_tokens: typeof analysisOutputTokens === "number" ? analysisOutputTokens : null,
+      })
+    );
 
     /**
      * 🔑 CANONICAL RESPONSE
@@ -2337,7 +2379,7 @@ export async function POST(req: Request) {
      * - persisted = canonical scans SoT write; raw_persisted = optional temporary raw
      */
 
-    const { data_quality: _aiDataQuality, ...restResult } = result;
+    const { data_quality: _aiDataQuality, semantic: _privateSemantic, ...restResult } = result;
     return NextResponse.json({
       ok: true,
       result: {
@@ -2370,6 +2412,7 @@ export async function POST(req: Request) {
         user_verdict: userVerdict,
         used_fallback: hardFallback.used_fallback,
         analysis_status: hardFallback.analysis_status,
+        result_state: publicResultState(isInsufficientContext),
         intel_features,
       },
     });

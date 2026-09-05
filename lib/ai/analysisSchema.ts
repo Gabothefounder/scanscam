@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SemanticExtractionSchema } from "./semanticSchema";
 
 /**
  * MVP Analysis Schema
@@ -19,7 +20,7 @@ export const AnalysisSchema = z.object({
 
   risk_tier: z.enum(["low", "medium", "high"]),
 
-  summary_sentence: z.string().max(200).optional(),
+  summary_sentence: z.string().max(200).nullable().optional(),
 
   /* ---------- signals shown to user ---------- */
 
@@ -67,6 +68,10 @@ export const AnalysisSchema = z.object({
       pii_types: z.array(z.string()),
     })
     .optional(),
+
+  /* ---------- V3 semantic sensor (normalized; evidence is ephemeral) ---------- */
+
+  semantic: SemanticExtractionSchema.optional(),
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisSchema>;
