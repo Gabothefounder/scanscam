@@ -155,7 +155,7 @@ export default function CinematicJourney() {
       mode &&
       mode !== "learn" &&
       scene?.key === "return" &&
-      selected.includes("share") &&
+      (answers[scene?.key] || []).includes("share") &&
       !contributionPromptLoggedRef.current
     ) {
       contributionPromptLoggedRef.current = true;
@@ -164,7 +164,7 @@ export default function CinematicJourney() {
         props: { surface: "journey_return", entry_mode: mode, lang },
       });
     }
-  }, [answers, evidence, message, mode, step, words, scene?.key, scanId, lang, selected]);
+  }, [answers, evidence, message, mode, step, words, scene?.key, scanId, lang]);
 
   const selected = answers[scene?.key] || [];
   const labelFor = (key: string) => {
