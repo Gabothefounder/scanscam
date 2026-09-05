@@ -85,7 +85,7 @@ export default function Home() {
           <p style={styles.subtext}>{t.subtext}</p>
 
           <div style={styles.scannerShell}>
-            <ScannerForm lang={lang} onScanSuccess={handleScanSuccess} />
+            <ScannerForm lang={lang} onScanSuccess={handleScanSuccess} surface="home" />
           </div>
 
           <p style={styles.reassurance}>{t.reassurance}</p>
