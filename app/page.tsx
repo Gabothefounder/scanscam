@@ -14,19 +14,9 @@ const copy = {
     reassurance: "Free · No account required · Clear next steps",
     policy:
       "Messages may be stored securely for up to 30 days to improve detection. No personal profile is created.",
-    other: "What else can ScanScam help with?",
-    atlasTitle: "Explore what people are seeing",
-    atlasBody: "See real scam and manipulation patterns gathering in the Atlas.",
     atlasCta: "Explore the Atlas",
-    happenedTitle: "Something happened to me or someone I know",
-    happenedBody: "Make sense of what happened and leave with clear next steps.",
-    happenedCta: "Walk through it",
-    familyTitle: "Protect a family member",
-    familyBody: "Help someone you care about check suspicious situations before they act.",
+    happenedCta: "Something happened?",
     familyCta: "Protect someone",
-    learnTitle: "Learn how manipulation works",
-    learnBody: "Understand urgency, authority, false trust, and the defenses that interrupt them.",
-    learnCta: "Learn Cognitive Defense",
     howItWorks: "How it works",
     privacyLink: "Privacy & Data Use",
   },
@@ -36,19 +26,9 @@ const copy = {
     reassurance: "Gratuit · Aucun compte requis · Prochaines étapes claires",
     policy:
       "Les messages peuvent être conservés de façon sécurisée jusqu’à 30 jours afin d’améliorer la détection. Aucun profil personnel n’est créé.",
-    other: "Comment ScanScam peut-il aussi vous aider?",
-    atlasTitle: "Voyez ce que les gens rencontrent",
-    atlasBody: "Explorez les motifs réels d’arnaque et de manipulation qui se regroupent dans l’Atlas.",
     atlasCta: "Explorer l’Atlas",
-    happenedTitle: "Quelque chose m’est arrivé ou est arrivé à un proche",
-    happenedBody: "Comprenez ce qui s’est passé et repartez avec des prochaines étapes claires.",
-    happenedCta: "Parcourir l’expérience",
-    familyTitle: "Protéger un proche",
-    familyBody: "Aidez une personne qui compte pour vous à vérifier une situation suspecte avant d’agir.",
-    familyCta: "Protéger quelqu’un",
-    learnTitle: "Comprendre comment la manipulation fonctionne",
-    learnBody: "Découvrez l’urgence, l’autorité, la fausse confiance et les défenses qui les interrompent.",
-    learnCta: "Apprendre la défense cognitive",
+    happenedCta: "Quelque chose est arrivé?",
+    familyCta: "Protéger un proche",
     howItWorks: "Comment ça marche",
     privacyLink: "Confidentialité et utilisation des données",
   },
@@ -102,55 +82,28 @@ export default function Home() {
         </div>
       </section>
 
-      <section style={styles.intentSection} aria-labelledby="home-intents">
-        <div style={styles.intentHeader}>
-          <p style={styles.intentEyebrow}>Beyond the scan</p>
-          <h2 id="home-intents" style={styles.intentTitle}>{t.other}</h2>
-        </div>
-
-        <div style={styles.intentGrid}>
+      <section style={styles.quickLinksSection} aria-label={lang === "fr" ? "Autres options" : "Other options"}>
+        <div style={styles.quickLinks}>
           <Link
             href={`/atlas?source=home_intent&lang=${lang}`}
-            style={styles.intentCard}
+            style={styles.quickLink}
             onClick={() => trackIntent("explore_atlas", "/atlas")}
           >
-            <span style={styles.intentNumber}>01</span>
-            <strong style={styles.cardTitle}>{t.atlasTitle}</strong>
-            <span style={styles.cardBody}>{t.atlasBody}</span>
-            <b style={styles.cardCta}>{t.atlasCta} →</b>
+            {t.atlasCta}
           </Link>
-
           <Link
             href={`/atlas?journey=1&source=home_intent&lang=${lang}`}
-            style={styles.intentCard}
+            style={styles.quickLink}
             onClick={() => trackIntent("something_happened", "/atlas?journey=1")}
           >
-            <span style={styles.intentNumber}>02</span>
-            <strong style={styles.cardTitle}>{t.happenedTitle}</strong>
-            <span style={styles.cardBody}>{t.happenedBody}</span>
-            <b style={styles.cardCta}>{t.happenedCta} →</b>
+            {t.happenedCta}
           </Link>
-
           <Link
             href={lang === "fr" ? "/fr/protect-family?source=home_intent" : "/protect-family?source=home_intent"}
-            style={styles.intentCard}
+            style={styles.quickLink}
             onClick={() => trackIntent("protect_family", "/protect-family")}
           >
-            <span style={styles.intentNumber}>03</span>
-            <strong style={styles.cardTitle}>{t.familyTitle}</strong>
-            <span style={styles.cardBody}>{t.familyBody}</span>
-            <b style={styles.cardCta}>{t.familyCta} →</b>
-          </Link>
-
-          <Link
-            href={`/atlas?journey=1&mode=learn&source=home_intent&lang=${lang}`}
-            style={styles.intentCard}
-            onClick={() => trackIntent("learn", "/atlas?journey=1&mode=learn")}
-          >
-            <span style={styles.intentNumber}>04</span>
-            <strong style={styles.cardTitle}>{t.learnTitle}</strong>
-            <span style={styles.cardBody}>{t.learnBody}</span>
-            <b style={styles.cardCta}>{t.learnCta} →</b>
+            {t.familyCta}
           </Link>
         </div>
       </section>
@@ -238,75 +191,26 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#4F6EA8",
     textDecoration: "none",
   },
-  intentSection: {
-    padding: "70px 20px 92px",
-    background: "#F7F5F1",
+  quickLinksSection: {
+    padding: "0 16px 44px",
+    background: "#E2E4E9",
   },
-  intentHeader: {
-    maxWidth: 1100,
-    margin: "0 auto 24px",
-  },
-  intentEyebrow: {
-    margin: "0 0 8px",
-    color: "#9A6958",
-    fontSize: 11,
-    fontWeight: 800,
-    letterSpacing: "0.15em",
-    textTransform: "uppercase",
-  },
-  intentTitle: {
-    maxWidth: 720,
-    margin: 0,
-    color: "#192128",
-    fontFamily: "Georgia, serif",
-    fontSize: "clamp(30px, 4vw, 46px)",
-    lineHeight: 1.08,
-    fontWeight: 400,
-    letterSpacing: "-0.035em",
-  },
-  intentGrid: {
-    maxWidth: 1100,
-    margin: "28px auto 0",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-    gap: 12,
-  },
-  intentCard: {
-    minHeight: 235,
-    padding: "22px 20px",
+  quickLinks: {
+    maxWidth: 700,
+    margin: "0 auto",
     display: "flex",
-    flexDirection: "column",
-    border: "1px solid #D9D5CD",
-    borderRadius: 16,
-    background: "#FFFDFC",
-    color: "#182027",
-    textDecoration: "none",
-    boxShadow: "0 8px 24px rgba(30,32,36,0.045)",
+    justifyContent: "center",
+    gap: 8,
+    flexWrap: "wrap",
   },
-  intentNumber: {
-    color: "#B78773",
-    fontSize: 11,
-    fontWeight: 800,
-    letterSpacing: "0.14em",
-  },
-  cardTitle: {
-    marginTop: 30,
-    fontFamily: "Georgia, serif",
-    fontSize: 22,
-    lineHeight: 1.12,
-    fontWeight: 400,
-  },
-  cardBody: {
-    marginTop: 10,
-    color: "#667078",
-    fontSize: 14,
-    lineHeight: 1.52,
-  },
-  cardCta: {
-    marginTop: "auto",
-    paddingTop: 24,
-    color: "#985F49",
+  quickLink: {
+    padding: "9px 12px",
+    borderRadius: 999,
+    border: "1px solid #C8CDD5",
+    background: "rgba(255,255,255,0.58)",
+    color: "#4B5563",
     fontSize: 13,
-    fontWeight: 750,
+    fontWeight: 650,
+    textDecoration: "none",
   },
 };
