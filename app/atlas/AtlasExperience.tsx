@@ -9,7 +9,7 @@ export default function AtlasExperience() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("mode") === "scan" || params.get("journey") === "1") {
+    if (params.get("mode") === "scan" || params.get("mode") === "learn" || params.get("journey") === "1") {
       setView("journey");
     }
   }, []);
