@@ -1383,6 +1383,16 @@ type QuickIntel = {
   pressure: string[];
 };
 
+function getResultPatternTitle(
+  intel: Record<string, unknown>,
+  risk: "low" | "medium" | "high",
+  lang: "en" | "fr"
+): string {
+  const family = String(intel.narrative_family ?? "").trim();
+  const t = copy[lang];
+  return t.patternLabels[family] || t.resultPatternFallback[risk];
+}
+
 function getQuickIntel(intel: Record<string, unknown>, lang: "en" | "fr"): QuickIntel {
   const semantic =
     intel.semantic_v1 && typeof intel.semantic_v1 === "object"
@@ -2071,7 +2081,10 @@ export default function ResultView() {
     .filter((line, index, arr) => arr.indexOf(line) === index)
     .slice(0, 3);
   const quickIntel = getQuickIntel(intel as Record<string, unknown>, lang);
+  const resultPatternTitle = getResultPatternTitle(intel as Record<string, unknown>, risk, lang);
   const whatToDoNextItems = getWhatToDoNextItems(lang, intel as Record<string, unknown>, interpretationUi);
+  const primaryAction = whatToDoNextItems[0] ?? null;
+  const secondaryActionItems = whatToDoNextItems.slice(1, 3);
   const summaryRaw = analysisUnavailable
     ? result.summary_sentence || t.analysisUnavailable.banner
     : result.summary_sentence || t.defaultSummary[risk];
