@@ -14,6 +14,7 @@ const copy = {
     uploadLabel: "📷 Upload a screenshot",
     button: "Scan",
     buttonLoading: "Analyzing…",
+    loadingStages: ["Reading…", "Checking patterns…", "Checking links…"],
     errorTextAdmission: scanTextAdmissionErrorMessage("en"),
   },
   fr: {
@@ -22,6 +23,7 @@ const copy = {
     uploadLabel: "📷 Téléverser une capture d'écran",
     button: "Analyser",
     buttonLoading: "Analyse en cours…",
+    loadingStages: ["Lecture…", "Vérification des motifs…", "Vérification des liens…"],
     errorTextAdmission: scanTextAdmissionErrorMessage("fr"),
   },
 };
@@ -45,10 +47,24 @@ export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOver
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [textareaFocused, setTextareaFocused] = useState(false);
   const [admissionError, setAdmissionError] = useState(false);
   const [softError, setSoftError] = useState(false);
   const inFlightRef = useRef<{ attempt_id: string; started_at: number } | null>(null);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStage(0);
+      return;
+    }
+    const t1 = window.setTimeout(() => setLoadingStage(1), 650);
+    const t2 = window.setTimeout(() => setLoadingStage(2), 1650);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [loading]);
 
   useEffect(() => {
     captureAttribution();
@@ -296,7 +312,7 @@ export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOver
           (!text.trim() && !imageFile)
         }
       >
-        {loading ? t.buttonLoading : t.button}
+        {loading ? (t.loadingStages?.[loadingStage] ?? t.buttonLoading) : t.button}
       </button>
     </>
   );
