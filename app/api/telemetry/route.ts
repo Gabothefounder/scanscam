@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 
+import { after } from "next/server";
 import { logEvent } from "@/lib/observability";
 import {
   LEGACY_TELEMETRY_EVENT_MAP,
@@ -161,6 +162,6 @@ export async function POST(req: Request) {
     context.original_event = safePayload.event_type;
   }
 
-  await logEvent(canonicalEvent, "info", "telemetry_api", context);
+  after(() => logEvent(canonicalEvent, "info", "telemetry_api", context));
   return new Response(null, { status: 204 });
 }
