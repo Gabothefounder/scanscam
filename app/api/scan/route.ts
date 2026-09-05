@@ -25,6 +25,7 @@ import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
 import { logEvent } from "@/lib/observability";
 import { applySemanticSensor } from "@/lib/scan-v3/applySemanticSensor";
 import { buildSignalLedgerV1 } from "@/lib/scan-v3/signalLedger";
+import { publicResultState, resolveInsufficientContext } from "@/lib/scan-v3/resultState";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
@@ -1998,15 +1999,12 @@ export async function POST(req: Request) {
     let finalRiskTier = riskTier as "low" | "medium" | "high";
     let finalSummary: string | null = result.summary_sentence ?? null;
 
-    const skipInsufficientTrustFloor = refinementSemanticsBoost;
-    const semanticInsufficient =
-      result.semantic?.context_sufficiency === "insufficient" &&
-      ["thin", "fragment", "unknown"].includes(String(enrichment.contextQuality ?? "unknown"));
-    const isInsufficientContext =
-      !skipInsufficientTrustFloor &&
-      (enrichment.submissionRoute === "insufficient_context" ||
-        enrichment.contextQuality === "fragment" ||
-        semanticInsufficient);
+    const isInsufficientContext = resolveInsufficientContext({
+      refined: refinementSemanticsBoost,
+      submissionRoute: enrichment.submissionRoute,
+      contextQuality: String(enrichment.contextQuality ?? "unknown"),
+      semanticSufficiency: result.semantic?.context_sufficiency,
+    });
 
     if (isInsufficientContext) {
       finalRiskTier = riskTier === "high" ? "medium" : (riskTier as "low" | "medium");
@@ -2398,7 +2396,7 @@ export async function POST(req: Request) {
         user_verdict: userVerdict,
         used_fallback: hardFallback.used_fallback,
         analysis_status: hardFallback.analysis_status,
-        result_state: isInsufficientContext ? "insufficient_context" : "classified",
+        result_state: publicResultState(isInsufficientContext),
         intel_features,
       },
     });
