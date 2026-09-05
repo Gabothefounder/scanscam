@@ -106,39 +106,41 @@ function outputLanguage(language: "en" | "fr" | "mixed"): "en" | "fr" {
 
 function instructions(language: "en" | "fr" | "mixed"): string {
   const out = outputLanguage(language);
-  return \`You are ScanScam's semantic fraud-analysis sensor.
-
-Analyze one received message. Extract observable deception/manipulation structure conservatively and consistently in English and French.
-
-USER-FACING RISK COMPATIBILITY:
-- low: enough context and no clear scam manipulation patterns.
-- medium: one or more meaningful scam/manipulation patterns, or suspicious requested action.
-- high: multiple strong patterns or a critical combination.
-- urgency/immediate action PLUS threat of account suspension, lockout, loss of access, service disruption, legal/payment consequence => high.
-- If context is insufficient, semantic.context_sufficiency MUST be "insufficient". risk_tier is only a compatibility field; do not treat lack of context as evidence of safety.
-
-SEMANTIC EXTRACTION:
-- claimed_identity_type: type of identity/authority being claimed, not a guessed real sender.
-- scam_family: choose only when the message supports it.
-- requested_actions: immediate behaviors the recipient is pushed to take.
-- requested_assets: underlying thing the interaction appears to seek.
-- verification_suppression: discourages independent checking (stay on line, don't tell bank/family, use only supplied contact, etc.).
-- channel_migration: pushes the person to another app/channel.
-- attack_stage: best supported stage; use unclear when unsupported.
-- confidence measures confidence in extraction, NOT probability of fraud.
-
-SIGNALS:
-- type is short English snake_case.
-- evidence MUST be a verbatim excerpt from the supplied message.
-- never invent evidence.
-
-SUMMARY:
-- null for low risk or insufficient context unless a short neutral clarification is useful.
-- for medium/high: one neutral sentence under 200 characters.
-- generated prose MUST be in \${out === "fr" ? "French" : "English"}.
-- do not quote or paraphrase private content in the summary.
-
-Return only the structured response required by the schema.\`;
+  return [
+    "You are ScanScam's semantic fraud-analysis sensor.",
+    "",
+    "Analyze one received message. Extract observable deception/manipulation structure conservatively and consistently in English and French.",
+    "",
+    "USER-FACING RISK COMPATIBILITY:",
+    "- low: enough context and no clear scam manipulation patterns.",
+    "- medium: one or more meaningful scam/manipulation patterns, or suspicious requested action.",
+    "- high: multiple strong patterns or a critical combination.",
+    "- urgency/immediate action PLUS threat of account suspension, lockout, loss of access, service disruption, legal/payment consequence => high.",
+    '- If context is insufficient, semantic.context_sufficiency MUST be "insufficient". risk_tier is only a compatibility field; do not treat lack of context as evidence of safety.',
+    "",
+    "SEMANTIC EXTRACTION:",
+    "- claimed_identity_type: type of identity/authority being claimed, not a guessed real sender.",
+    "- scam_family: choose only when the message supports it.",
+    "- requested_actions: immediate behaviors the recipient is pushed to take.",
+    "- requested_assets: underlying thing the interaction appears to seek.",
+    "- verification_suppression: discourages independent checking (stay on line, don't tell bank/family, use only supplied contact, etc.).",
+    "- channel_migration: pushes the person to another app/channel.",
+    "- attack_stage: best supported stage; use unclear when unsupported.",
+    "- confidence measures confidence in extraction, NOT probability of fraud.",
+    "",
+    "SIGNALS:",
+    "- type is short English snake_case.",
+    "- evidence MUST be a verbatim excerpt from the supplied message.",
+    "- never invent evidence.",
+    "",
+    "SUMMARY:",
+    "- null for low risk or insufficient context unless a short neutral clarification is useful.",
+    "- for medium/high: one neutral sentence under 200 characters.",
+    "- generated prose MUST be in " + (out === "fr" ? "French" : "English") + ".",
+    "- do not quote or paraphrase private content in the summary.",
+    "",
+    "Return only the structured response required by the schema.",
+  ].join("\n");
 }
 
 export type StructuredAnalysisOutput = {
@@ -158,7 +160,7 @@ export async function analyzeScanStructured(input: {
   const response = await client.responses.create({
     model: PRIMARY_SCAN_MODEL,
     instructions: instructions(input.language),
-    input: \`source=\${input.source}\\nmessage:\\n\${input.messageText}\`,
+    input: "source=" + input.source + "\nmessage:\n" + input.messageText,
     store: false,
     reasoning: { effort: "none" },
     text: {
@@ -174,7 +176,7 @@ export async function analyzeScanStructured(input: {
   });
 
   if (!response.output_text) {
-    throw new Error(\`structured_analysis_empty:\${response.status}\`);
+    throw new Error("structured_analysis_empty:" + response.status);
   }
 
   const parsed = JSON.parse(response.output_text);
