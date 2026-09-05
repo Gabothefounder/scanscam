@@ -144,7 +144,7 @@ const ACTION_RULES: { id: RequestedAction; test: RegExp }[] = [
   {
     id: "click_link",
     test:
-      /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+link\b|cliquez|cliquer|appuyez\s+sur|ouvrez\s+le\s+lien|suivez\s+le\s+lien|(?:avec|via)\s+(?:ce|le)\s+lien/i,
+      /\b(click|tap|open\s+link|visit\s+link|follow\s+link|use\s+the\s+link|click\s+here|access\s+the\s+secure\s+portal)\b|https?:\/\/|\bat\s+(?:this\s+)?link\b|cliquez|cliquer|appuyez\s+sur|ouvrez\s+le\s+lien|suivez\s+le\s+lien|(?:avec|via)\s+(?:ce|le)\s+lien/i,
   },
   {
     id: "call_number",
