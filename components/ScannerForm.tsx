@@ -30,6 +30,7 @@ type Props = {
   lang: "en" | "fr";
   onScanSuccess: (result: Record<string, unknown>) => void;
   partner?: PartnerConfig | null;
+  surface?: string;
   copyOverrides?: Partial<{
     placeholder: string;
     divider: string;
@@ -39,7 +40,7 @@ type Props = {
   }>;
 };
 
-export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
+export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOverrides }: Props) {
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,8 +92,18 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
     if (attr.utm_content) attrProps.utm_content = attr.utm_content;
     if (attr.gclid) attrProps.gclid = attr.gclid;
 
+    logScanEvent("intent_selected", {
+      props: {
+        surface,
+        flow: "scan",
+        intent: "scan",
+        input_type: imageFile ? "screenshot" : "text",
+        lang,
+        ...attrProps,
+      },
+    });
     logScanEvent("scan_attempt", {
-      props: { input_length: text.length, attempt_id, ...attrProps },
+      props: { surface, input_length: text.length, attempt_id, ...attrProps },
     });
     setLoading(true);
     logScanEvent("scan_processing", { props: { attempt_id } });
