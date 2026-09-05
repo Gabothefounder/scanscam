@@ -29,3 +29,6 @@ create index if not exists atlas_contributions_created_at_idx
 
 create index if not exists atlas_contributions_signals_gin_idx
   on public.atlas_contributions using gin (selected_signals);
+
+create index if not exists atlas_contributions_scan_id_idx
+  on public.atlas_contributions (scan_id);
