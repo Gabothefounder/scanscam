@@ -1999,10 +1999,14 @@ export async function POST(req: Request) {
     let finalSummary: string | null = result.summary_sentence ?? null;
 
     const skipInsufficientTrustFloor = refinementSemanticsBoost;
+    const semanticInsufficient =
+      result.semantic?.context_sufficiency === "insufficient" &&
+      ["thin", "fragment", "unknown"].includes(String(enrichment.contextQuality ?? "unknown"));
     const isInsufficientContext =
       !skipInsufficientTrustFloor &&
       (enrichment.submissionRoute === "insufficient_context" ||
-        enrichment.contextQuality === "fragment");
+        enrichment.contextQuality === "fragment" ||
+        semanticInsufficient);
 
     if (isInsufficientContext) {
       finalRiskTier = riskTier === "high" ? "medium" : (riskTier as "low" | "medium");
@@ -2217,7 +2221,7 @@ export async function POST(req: Request) {
     finalRiskTier = hardFallback.risk_tier;
     finalSummary = hardFallback.summary_sentence;
     (intel_features as Record<string, unknown>).analysis_status = hardFallback.analysis_status;
-    const userVerdict = hardFallback.user_verdict;
+    const userVerdict = isInsufficientContext ? "uncertain" : hardFallback.user_verdict;
 
     /* ---------- Insert into scans (ALWAYS) ---------- */
     const scanRow: Record<string, any> = {
@@ -2361,7 +2365,7 @@ export async function POST(req: Request) {
      * - persisted = canonical scans SoT write; raw_persisted = optional temporary raw
      */
 
-    const { data_quality: _aiDataQuality, ...restResult } = result;
+    const { data_quality: _aiDataQuality, semantic: _privateSemantic, ...restResult } = result;
     return NextResponse.json({
       ok: true,
       result: {
@@ -2394,6 +2398,7 @@ export async function POST(req: Request) {
         user_verdict: userVerdict,
         used_fallback: hardFallback.used_fallback,
         analysis_status: hardFallback.analysis_status,
+        result_state: isInsufficientContext ? "insufficient_context" : "classified",
         intel_features,
       },
     });
