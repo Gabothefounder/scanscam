@@ -56,6 +56,18 @@ const copy = {
       helper: "There isn't enough information here to distinguish a scam from an ordinary message reliably.",
       summary: "Paste the full message, add what they asked you to do, or upload a screenshot for a more useful answer.",
     },
+    insufficientRefinement: {
+      collapsedTitle: "Add context",
+      collapsedHint: "One sentence can change the result.",
+      expandLink: "Add context →",
+      collapseLink: "← Hide",
+      fieldLabel: "What else happened?",
+      fieldHint: "Add who sent it, why they contacted you, or what they asked you to do.",
+      examplesLabel: "Example",
+      placeholder: "e.g. “They said they were my bank and asked for a verification code.”",
+      submitLabel: "Analyze again",
+      loadingLabel: "Updating…",
+    } satisfies ContextRefinementStrings,
     analysisUnavailable: {
       title: "Analysis unavailable",
       banner:
@@ -355,6 +367,18 @@ const copy = {
       helper: "Il n’y a pas assez d’information pour distinguer de façon fiable une arnaque d’un message ordinaire.",
       summary: "Collez le message complet, ajoutez ce qu’on vous demande de faire ou téléversez une capture d’écran.",
     },
+    insufficientRefinement: {
+      collapsedTitle: "Ajouter du contexte",
+      collapsedHint: "Une phrase peut changer le résultat.",
+      expandLink: "Ajouter du contexte →",
+      collapseLink: "← Masquer",
+      fieldLabel: "Que s’est-il passé d’autre?",
+      fieldHint: "Ajoutez qui vous a contacté, pourquoi, ou ce qu’on vous a demandé de faire.",
+      examplesLabel: "Exemple",
+      placeholder: "ex. « Ils disaient être ma banque et demandaient un code de vérification. »",
+      submitLabel: "Analyser de nouveau",
+      loadingLabel: "Mise à jour…",
+    } satisfies ContextRefinementStrings,
     analysisUnavailable: {
       title: "Analyse indisponible",
       banner:
@@ -2086,9 +2110,11 @@ export default function ResultView() {
     Boolean(phoneSnippet) &&
     (inputType === "phone_only" || Boolean(intel.callback_number_present));
 
-  const contextRefinementDisplay: ContextRefinementStrings = partner
-    ? t.contextRefinementPartner
-    : t.contextRefinement;
+  const contextRefinementDisplay: ContextRefinementStrings = insufficientContextState
+    ? t.insufficientRefinement
+    : partner
+      ? t.contextRefinementPartner
+      : t.contextRefinement;
 
   const weakGateRefinementStrings: ContextRefinementStrings = {
     ...contextRefinementDisplay,
