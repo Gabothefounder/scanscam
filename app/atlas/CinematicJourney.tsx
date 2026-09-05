@@ -13,28 +13,28 @@ const imageFor = (name: string) => `/atlas/poetic-folk/${name}.webp`;
 
 const ui = {
   en: {
-    atlas: "Atlas of Deception", prompt: "Something happened. Let’s make it clear.", promise: "In about two minutes, retrace what happened, see the pressure that was used, and leave with a private record you can share with your bank, someone you trust, or official help.", reassurance: "You don’t need perfect words. Choose only what feels true.", lived: "It happened to me", helping: "I’m helping someone", learn: "I’m just exploring",
+    atlas: "Atlas of Deception", prompt: "Something happened. Let’s make it clear.", promise: "In about two minutes, leave with a private record and a clear next-step plan.", reassurance: "Choose only what feels true.", lived: "It happened to me", helping: "I’m helping someone", learn: "I’m just exploring",
     livedLead: "Walk gently through something you experienced.", helpingLead: "Help someone you care about make sense of what happened.", learnLead: "See how a fictional bank impersonation unfolds.",
     scanContext: "This is the message you brought. Let’s look at what happened around it.", livedContext: "Start with the first thing you remember.", helpingContext: "Begin with what they told you. You do not need every detail.", learnContext: "Follow a fictional example. Nothing you choose creates a report.",
-    continue: "Continue", back: "Back", skip: "I’m not ready to answer", own: "In your own words (optional)", ownPlaceholder: "Add anything that feels important. This can be a memory, detail, question, or simply what this felt like.", yourWords: "Your own words",
+    continue: "Continue", back: "Back", skip: "I’m not ready to answer", own: "Anything else? (optional)", ownPlaceholder: "Write it here.", yourWords: "Your own words",
     help: "This is happening now", helpTitle: "Pause here.", helpBody: "Stop contact. Don’t send money, codes or access. Reach your bank or the claimed person using a number you find independently.", close: "Return to the journey",
     message: "Suspicious message", messagePlaceholder: "Paste the message here—or continue without it.", example: "A message says your bank account is in danger. Act now or it will be frozen.",
     detailsTitle: "Make the record more useful", detailsLead: "Optional. Never enter passwords, complete card numbers, government ID numbers or intimate material.", addDetails: "Add precise details", hideDetails: "Close details",
     when: "When", contact: "Phone, email or website", organization: "Claimed organization", amount: "Amount and currency", payment: "Payment method", reference: "Transaction reference",
     path: "What happened", pressure: "Pressure used", feelings: "What I felt", asked: "What they asked for", nextStep: "My next step", private: "This record stays in this browser unless you copy, print or save it.",
-    copy: "Copy summary", copied: "Copied", print: "Print or save", report: "Find where to report it", restart: "Begin again", actionPlan: "Your action plan", actionLead: "Start with the first step. You do not need to do everything at once.", shareConsent: "Share only the anonymous pattern with the Atlas. Your pasted message, private notes and ledger details are not included.", shareNow: "Add my anonymous pattern", sharing: "Adding your light…", shared: "Your light joined the Atlas.", shareError: "We could not add the pattern right now. Your private record is unchanged.", done: "You’re done.", doneBody: "You have a record and a next step. That is enough for now.", protectPrompt: "Who would you hate to see go through this?", protectCta: "Protect someone you love", exploreAtlas: "Explore the Atlas",
+    copy: "Copy summary", copied: "Copied", print: "Print or save", report: "Find where to report it", restart: "Begin again", actionPlan: "Your action plan", actionLead: "Start with the first step.", shareConsent: "Share only the anonymous pattern with the Atlas. Your pasted message, private notes and ledger details are not included.", shareNow: "Add my anonymous pattern", sharing: "Adding your light…", shared: "Your light joined the Atlas.", shareError: "We could not add the pattern right now. Your private record is unchanged.", done: "You’re done.", doneBody: "You have a record and a next step. That is enough for now.", protectPrompt: "Who would you hate to see go through this?", protectCta: "Protect someone you love", exploreAtlas: "Explore the Atlas",
   },
   fr: {
-    atlas: "Atlas de la tromperie", prompt: "Quelque chose s’est passé. Clarifions-le ensemble.", promise: "En environ deux minutes, retracez ce qui s’est passé, voyez la pression utilisée et repartez avec un registre privé à partager avec votre banque, une personne de confiance ou un service officiel.", reassurance: "Vous n’avez pas besoin des mots parfaits. Choisissez seulement ce qui semble vrai.", lived: "Ça m’est arrivé", helping: "J’aide quelqu’un", learn: "Je veux simplement explorer",
+    atlas: "Atlas de la tromperie", prompt: "Quelque chose s’est passé. Clarifions-le ensemble.", promise: "En environ deux minutes, repartez avec un registre privé et un plan clair pour la suite.", reassurance: "Choisissez seulement ce qui semble vrai.", lived: "Ça m’est arrivé", helping: "J’aide quelqu’un", learn: "Je veux simplement explorer",
     livedLead: "Parcourez doucement une expérience vécue.", helpingLead: "Aidez une personne qui vous est chère à comprendre ce qui s’est passé.", learnLead: "Voyez comment une fausse banque construit sa tromperie.",
     scanContext: "Voici le message que vous avez apporté. Regardons ce qui s’est construit autour.", livedContext: "Commencez par la première chose dont vous vous souvenez.", helpingContext: "Commencez par ce que la personne vous a raconté. Tous les détails ne sont pas nécessaires.", learnContext: "Suivez un exemple fictif. Aucun de vos choix ne crée un signalement.",
-    continue: "Continuer", back: "Retour", skip: "Je ne suis pas prêt·e à répondre", own: "Dans vos propres mots (facultatif)", ownPlaceholder: "Ajoutez ce qui vous semble important : un souvenir, un détail, une question ou simplement ce que vous avez ressenti.", yourWords: "Vos propres mots",
+    continue: "Continuer", back: "Retour", skip: "Je ne suis pas prêt·e à répondre", own: "Autre chose? (facultatif)", ownPlaceholder: "Écrivez-le ici.", yourWords: "Vos propres mots",
     help: "Ça se passe maintenant", helpTitle: "Faites une pause ici.", helpBody: "Coupez le contact. N’envoyez ni argent, ni code, ni accès. Joignez votre banque ou la personne prétendue avec un numéro trouvé indépendamment.", close: "Revenir au parcours",
     message: "Message suspect", messagePlaceholder: "Collez le message ici—ou continuez sans le faire.", example: "Un message affirme que votre compte bancaire est en danger. Agissez maintenant ou il sera bloqué.",
     detailsTitle: "Rendre le registre plus utile", detailsLead: "Facultatif. N’inscrivez aucun mot de passe, numéro de carte complet, numéro d’identité gouvernemental ou contenu intime.", addDetails: "Ajouter des détails précis", hideDetails: "Fermer les détails",
     when: "Quand", contact: "Téléphone, courriel ou site", organization: "Organisation prétendue", amount: "Montant et devise", payment: "Mode de paiement", reference: "Référence de transaction",
     path: "Ce qui s’est passé", pressure: "Pression utilisée", feelings: "Ce que j’ai ressenti", asked: "Ce qu’on m’a demandé", nextStep: "Mon prochain pas", private: "Ce registre reste dans ce navigateur à moins que vous le copiiez, l’imprimiez ou le sauvegardiez.",
-    copy: "Copier le résumé", copied: "Copié", print: "Imprimer ou sauvegarder", report: "Trouver où le signaler", restart: "Recommencer", actionPlan: "Votre plan d’action", actionLead: "Commencez par la première étape. Vous n’avez pas à tout faire d’un coup.", shareConsent: "Partagez uniquement le motif anonyme avec l’Atlas. Votre message collé, vos notes privées et les détails du registre ne sont pas inclus.", shareNow: "Ajouter mon motif anonyme", sharing: "Votre lumière rejoint l’Atlas…", shared: "Votre lumière a rejoint l’Atlas.", shareError: "Impossible d’ajouter le motif pour le moment. Votre registre privé demeure inchangé.", done: "C’est terminé.", doneBody: "Vous avez un registre et une prochaine étape. C’est suffisant pour aujourd’hui.", protectPrompt: "Qui voudriez-vous protéger d’une expérience comme celle-ci?", protectCta: "Protéger une personne que vous aimez", exploreAtlas: "Explorer l’Atlas",
+    copy: "Copier le résumé", copied: "Copié", print: "Imprimer ou sauvegarder", report: "Trouver où le signaler", restart: "Recommencer", actionPlan: "Votre plan d’action", actionLead: "Commencez par la première étape.", shareConsent: "Partagez uniquement le motif anonyme avec l’Atlas. Votre message collé, vos notes privées et les détails du registre ne sont pas inclus.", shareNow: "Ajouter mon motif anonyme", sharing: "Votre lumière rejoint l’Atlas…", shared: "Votre lumière a rejoint l’Atlas.", shareError: "Impossible d’ajouter le motif pour le moment. Votre registre privé demeure inchangé.", done: "C’est terminé.", doneBody: "Vous avez un registre et une prochaine étape. C’est suffisant pour aujourd’hui.", protectPrompt: "Qui voudriez-vous protéger d’une expérience comme celle-ci?", protectCta: "Protéger une personne que vous aimez", exploreAtlas: "Explorer l’Atlas",
   },
 };
 
@@ -49,32 +49,32 @@ function buildActionPlan(answers: Answers, lang: Lang): ActionItem[] {
     {
       id: "stop_contact",
       title: en ? "Stop contact and slow the situation down." : "Coupez le contact et ralentissez la situation.",
-      detail: en ? "Do not send more money, codes, information or device access." : "N’envoyez plus d’argent, de codes, d’informations ni d’accès à votre appareil.",
+      detail: en ? "No more money, codes, information or device access." : "N’envoyez plus d’argent, de codes, d’informations ni d’accès.",
     },
   ];
 
   if (requested.has("money")) items.push({
     id: "contact_financial_institution",
     title: en ? "Contact your bank or payment provider using a number you find independently." : "Communiquez avec votre institution financière ou votre fournisseur de paiement avec un numéro trouvé indépendamment.",
-    detail: en ? "Ask whether a payment, transfer or card transaction can be stopped, recalled or disputed." : "Demandez si un paiement, un transfert ou une transaction peut être arrêté, rappelé ou contesté.",
+    detail: en ? "Ask what can still be stopped or disputed." : "Demandez ce qui peut encore être arrêté ou contesté.",
   });
 
   if (requested.has("code") || requested.has("personal")) items.push({
     id: "secure_accounts",
     title: en ? "Secure the affected accounts." : "Sécurisez les comptes touchés.",
-    detail: en ? "Change affected passwords, review recovery information and sign out other sessions where possible." : "Changez les mots de passe concernés, vérifiez les options de récupération et déconnectez les autres sessions si possible.",
+    detail: en ? "Change affected passwords and sign out other sessions." : "Changez les mots de passe concernés et déconnectez les autres sessions.",
   });
 
   if (requested.has("device")) items.push({
     id: "disconnect_device_access",
     title: en ? "Remove remote access and secure the device." : "Retirez l’accès à distance et sécurisez l’appareil.",
-    detail: en ? "Disconnect remote-control tools and use a trusted device to change important credentials." : "Déconnectez les outils de contrôle à distance et utilisez un appareil fiable pour changer les identifiants importants.",
+    detail: en ? "Remove remote access and change important credentials." : "Retirez l’accès à distance et changez les identifiants importants.",
   });
 
   items.push({
     id: "preserve_evidence",
     title: en ? "Keep the evidence." : "Conservez les preuves.",
-    detail: en ? "Save messages, phone numbers, websites, receipts and transaction references. Do not delete them yet." : "Conservez les messages, numéros, sites, reçus et références de transaction. Ne les supprimez pas pour l’instant.",
+    detail: en ? "Keep messages, numbers, receipts and transaction references." : "Conservez les messages, numéros, reçus et références de transaction.",
   });
 
   if (next.has("tell")) items.push({
@@ -85,7 +85,7 @@ function buildActionPlan(answers: Answers, lang: Lang): ActionItem[] {
   items.push({
     id: "report_officially",
     title: en ? "Report it when you are ready." : "Signalez la situation lorsque vous serez prêt·e.",
-    detail: en ? "Your ledger can help you explain what happened without reconstructing everything from memory." : "Votre registre peut vous aider à expliquer ce qui s’est passé sans devoir tout reconstruire de mémoire.",
+    detail: en ? "Use your ledger when you report it." : "Utilisez votre registre pour le signalement.",
   });
 
   return items.slice(0, 6);
@@ -175,7 +175,7 @@ export default function CinematicJourney() {
     setAnswers({ ...answers, [scene.key]: next });
     if (scene.key === "emotion" && !removing) {
       setEmotionPulse(id);
-      window.setTimeout(() => setEmotionPulse((value) => value === id ? null : value), 650);
+      window.setTimeout(() => setEmotionPulse((value) => value === id ? null : value), 1800);
     }
   };
   const advance = () => {
