@@ -164,9 +164,14 @@ export default function CinematicJourney() {
   }, [answers, evidence, lang, words]);
 
   const choose = (id: string) => {
+    if (scene.key === "return" && atlasStatus === "shared") return;
     const current = answers[scene.key] || [];
     const removing = current.includes(id);
     const next = scene.multi ? (removing ? current.filter((x) => x !== id) : [...current, id]) : [id];
+    if (scene.key === "return" && id !== "share") {
+      setAtlasConsent(false);
+      setAtlasStatus("idle");
+    }
     setAnswers({ ...answers, [scene.key]: next });
     if (scene.key === "emotion" && !removing) {
       setEmotionPulse(id);
