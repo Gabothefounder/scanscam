@@ -122,6 +122,7 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
   const [data, setData] = useState<AtlasPayload | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mineStatus, setMineStatus] = useState<"idle" | "looking" | "missing">("idle");
+  const [autoFindAttempted, setAutoFindAttempted] = useState(false);
 
   useEffect(() => {
     logScanEvent("atlas_viewed", { props: { surface: "atlas", flow: "atlas" } });
@@ -182,6 +183,14 @@ export default function AtlasWorld({ onJourney }: { onJourney: () => void }) {
       setMineStatus("missing");
     }
   };
+
+  useEffect(() => {
+    if (!data || autoFindAttempted) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("find") !== "scan") return;
+    setAutoFindAttempted(true);
+    void findMine();
+  }, [data, autoFindAttempted]);
 
   return (
     <main className={styles.world}>
