@@ -55,7 +55,6 @@ const copy = {
 };
 
 export default function Home() {
-  const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
   useEffect(() => {
@@ -66,12 +65,9 @@ export default function Home() {
     logScanEvent("page_view", {
       props: { surface: "home", flow: "public_home", lang: currentLang },
     });
-    setMounted(true);
   }, []);
 
   const handleScanSuccess = useScanSuccessNavigation(lang);
-
-  if (!mounted) return null;
 
   const t = copy[lang];
   const trackIntent = (intent: string, target: string) => {
