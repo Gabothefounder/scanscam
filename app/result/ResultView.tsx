@@ -207,8 +207,16 @@ const copy = {
     } as Record<string,string>,
     continueTitle: "Go one step further",
     continueLead: "Your scan can help you recognize the pattern next time — and help strengthen the network.",
-    atlasNextTitle: "See how this pattern works",
-    atlasNextBody: "Find this scan in the Atlas, learn the tactics, and explore related patterns.",
+    atlasNextTitle: {
+      low: "Learn what scam patterns look like",
+      medium: "See how this pattern works",
+      high: "See how this pattern works",
+    },
+    atlasNextBody: {
+      low: "Explore the Atlas and learn the tactics that repeat across scams.",
+      medium: "Find this scan in the Atlas, learn the tactics, and explore related patterns.",
+      high: "Find this scan in the Atlas, learn the tactics, and explore related patterns.",
+    },
     networkCta: "Help the network",
     networkHint: "Walk through what happened and choose whether to add the anonymous pattern.",
     protectHint: "Give someone you care about an easier way to check before acting.",
@@ -554,8 +562,16 @@ const copy = {
     } as Record<string,string>,
     continueTitle: "Allez un peu plus loin",
     continueLead: "Votre analyse peut vous aider à reconnaître le motif la prochaine fois — et renforcer le réseau.",
-    atlasNextTitle: "Voyez comment ce motif fonctionne",
-    atlasNextBody: "Retrouvez cette analyse dans l’Atlas, apprenez les tactiques et explorez des motifs connexes.",
+    atlasNextTitle: {
+      low: "Apprenez à reconnaître les motifs d’arnaque",
+      medium: "Voyez comment ce motif fonctionne",
+      high: "Voyez comment ce motif fonctionne",
+    },
+    atlasNextBody: {
+      low: "Explorez l’Atlas et apprenez les tactiques qui se répètent d’une arnaque à l’autre.",
+      medium: "Retrouvez cette analyse dans l’Atlas, apprenez les tactiques et explorez des motifs connexes.",
+      high: "Retrouvez cette analyse dans l’Atlas, apprenez les tactiques et explorez des motifs connexes.",
+    },
     networkCta: "Aider le réseau",
     networkHint: "Parcourez ce qui s’est passé et choisissez si vous voulez ajouter le motif anonyme.",
     protectHint: "Donnez à un proche une façon plus simple de vérifier avant d’agir.",
@@ -2569,6 +2585,14 @@ export default function ResultView() {
               </div>
             </div>
 
+            {!partner && !insufficientContextState && risk !== "low" && (
+              <PostScanRecoveryGate
+                lang={lang}
+                scanId={scanIdForContext || undefined}
+                riskTier={risk}
+              />
+            )}
+
             {linkArtifact && (
               <details style={styles.technicalDetails}>
                 <summary style={styles.technicalSummary}>{t.detailsTitle}</summary>
@@ -2604,14 +2628,6 @@ export default function ResultView() {
                   )}
                 </div>
               </details>
-            )}
-
-            {!partner && !insufficientContextState && (
-              <PostScanRecoveryGate
-                lang={lang}
-                scanId={scanIdForContext || undefined}
-                riskTier={risk}
-              />
             )}
 
             {partner ? (
@@ -2682,7 +2698,9 @@ export default function ResultView() {
             </div>
 
             <a
-              href={`/atlas?find=scan&source=post_scan&lang=${lang}`}
+              href={risk === "low"
+                ? `/atlas?source=post_scan&lang=${lang}`
+                : `/atlas?find=scan&source=post_scan&lang=${lang}`}
               style={styles.atlasPrimary}
               onClick={() => logScanEvent("post_scan_action_selected", {
                 scan_id: scanIdForContext || undefined,
@@ -2696,8 +2714,8 @@ export default function ResultView() {
                 },
               })}
             >
-              <span style={styles.atlasPrimaryTitle}>{t.atlasNextTitle} →</span>
-              <span style={styles.atlasPrimaryBody}>{t.atlasNextBody}</span>
+              <span style={styles.atlasPrimaryTitle}>{t.atlasNextTitle[risk]} →</span>
+              <span style={styles.atlasPrimaryBody}>{t.atlasNextBody[risk]}</span>
             </a>
 
             <div style={styles.networkActions}>
