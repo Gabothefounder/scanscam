@@ -2288,6 +2288,7 @@ export async function POST(req: Request) {
     persistMs = Date.now() - persistStartedAt;
 
     void logEvent("scan_stage_timing", "info", "scan_api", {
+      build_id: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 40) ?? null,
       scan_id: scanId,
       total_ms: Date.now() - requestStartedAt,
       ai_ms: aiMs,
