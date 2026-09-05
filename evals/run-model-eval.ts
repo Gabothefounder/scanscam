@@ -159,7 +159,7 @@ async function runModel(model: string, c: EvalCase): Promise<EvalOutput> {
     if (model.startsWith("gpt-5.6") || model.startsWith("gpt-5.5") || model.startsWith("gpt-5.4") || model.startsWith("gpt-5")) {
       (params as any).reasoning = { effort: "none" };
     }
-    const response = await client.responses.create(params);
+    const response: any = await client.responses.create({ ...params, stream: false });
     const extraction = JSON.parse(response.output_text) as ModelExtraction;
     return {
       case_id:c.id, engine:model,
