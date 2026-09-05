@@ -176,7 +176,7 @@ export default function CinematicJourney() {
     setAnswers({ ...answers, [scene.key]: next });
     if (scene.key === "emotion" && !removing) {
       setEmotionPulse(id);
-      window.setTimeout(() => setEmotionPulse((value) => value === id ? null : value), 3600);
+      window.setTimeout(() => setEmotionPulse((value) => value === id ? null : value), 4200);
     }
   };
   const advance = () => {
