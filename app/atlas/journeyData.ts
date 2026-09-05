@@ -58,12 +58,12 @@ export const scenes: JourneyScene[] = [
     image: "ordinary-day",
     eyebrow: ["Chapter one · The arrival", "Chapitre un · L’arrivée"],
     title: [
-      "Something entered an ordinary day.",
-      "Quelque chose est entré dans une journée ordinaire.",
+      "Where did it start?",
+      "Où est-ce que ça a commencé?",
     ],
     lead: [
-      "Where did the story first reach you?",
-      "Par où l’histoire vous a-t-elle rejoint?",
+      "How did they reach you?",
+      "Comment vous ont-ils rejoint?",
     ],
     choices: [
       ["text", "A text", "Un texto"],
@@ -82,10 +82,10 @@ export const scenes: JourneyScene[] = [
       "Chapitre deux · Le visage emprunté",
     ],
     title: [
-      "It wore the face of trust.",
-      "Cela portait le visage de la confiance.",
+      "Who did you think it was?",
+      "Qui pensiez-vous avoir devant vous?",
     ],
-    lead: ["Who did it seem to be?", "Qui semblait vous contacter?"],
+    lead: ["Choose the closest match.", "Choisissez ce qui s’en rapproche le plus."],
     choices: [
       ["bank", "My bank", "Ma banque"],
       ["authority", "Government or police", "Le gouvernement ou la police"],
@@ -94,8 +94,8 @@ export const scenes: JourneyScene[] = [
       ["unsure", "I’m not sure", "Je ne sais pas"],
     ],
     reflection: [
-      "A familiar symbol can borrow trust. It does not prove identity.",
-      "Un symbole familier peut emprunter la confiance. Il ne prouve pas l’identité.",
+      "Familiar does not mean verified.",
+      "Familier ne veut pas dire vérifié.",
     ],
   },
   {
@@ -106,12 +106,12 @@ export const scenes: JourneyScene[] = [
       "Chapitre trois · Le monde qui rétrécit",
     ],
     title: [
-      "Then the room began to close.",
-      "Puis la pièce a commencé à se refermer.",
+      "What created the pressure?",
+      "Qu’est-ce qui a créé la pression?",
     ],
     lead: [
-      "What made it difficult to stop and check? Choose everything that feels true.",
-      "Qu’est-ce qui rendait difficile le fait d’arrêter et de vérifier? Choisissez ce qui vous ressemble.",
+      "Choose what was used on you.",
+      "Choisissez ce qui a été utilisé contre vous.",
     ],
     choices: [
       [
@@ -139,8 +139,8 @@ export const scenes: JourneyScene[] = [
     ],
     multi: true,
     reflection: [
-      "Urgency and isolation remove the space where judgment lives. That pressure was built around you.",
-      "L’urgence et l’isolement enlèvent l’espace où vit le jugement. Cette pression a été construite autour de vous.",
+      "That pressure was part of the mechanism.",
+      "Cette pression faisait partie du mécanisme.",
     ],
   },
   {
@@ -151,12 +151,12 @@ export const scenes: JourneyScene[] = [
       "Chapitre quatre · À l’intérieur de soi",
     ],
     title: [
-      "The pressure left a feeling behind.",
-      "La pression a laissé une émotion derrière elle.",
+      "What did it leave you feeling?",
+      "Qu’est-ce que ça vous a fait ressentir?",
     ],
     lead: [
-      "Touch what you felt. Each one can be held without judgment.",
-      "Touchez ce que vous avez ressenti. Chaque émotion peut être accueillie sans jugement.",
+      "Choose as many as you need.",
+      "Choisissez-en autant qu’il le faut.",
     ],
     choices: [
       ["shame", "Shame", "Honte"],
@@ -177,12 +177,12 @@ export const scenes: JourneyScene[] = [
       "Chapitre cinq · La demande",
     ],
     title: [
-      "Now we can see what they were trying to get.",
-      "Nous pouvons maintenant voir ce qu’on essayait d’obtenir.",
+      "What did they want?",
+      "Qu’est-ce qu’ils voulaient?",
     ],
     lead: [
-      "What were they asking from you?",
-      "Qu’est-ce qu’on vous demandait?",
+      "Choose the closest answer.",
+      "Choisissez la réponse la plus proche.",
     ],
     choices: [
       ["money", "Money", "De l’argent"],
@@ -195,8 +195,8 @@ export const scenes: JourneyScene[] = [
     multi: true,
     ownWords: true,
     reflection: [
-      "These techniques are practised and refined. They work because trust, fear, hope and care are human—not because you were foolish.",
-      "Ces techniques sont pratiquées et raffinées. Elles fonctionnent parce que la confiance, la peur, l’espoir et la bienveillance sont humains—pas parce que vous étiez naïf·ve.",
+      "This was a technique, not a character flaw.",
+      "C’était une technique, pas un défaut chez vous.",
     ],
   },
   {
@@ -206,10 +206,10 @@ export const scenes: JourneyScene[] = [
       "Chapter six · The interruption",
       "Chapitre six · L’interruption",
     ],
-    title: ["The clock stops here.", "L’horloge s’arrête ici."],
+    title: ["What is your next move?", "Quel est votre prochain geste?"],
     lead: [
-      "The room is open again. Choose one small action—nothing more is required today.",
-      "La pièce est ouverte de nouveau. Choisissez un petit geste—rien de plus n’est nécessaire aujourd’hui.",
+      "Choose one. That is enough for now.",
+      "Choisissez-en un. C’est suffisant pour l’instant.",
     ],
     choices: [
       ["tell", "Tell someone I trust", "En parler à une personne de confiance"],
@@ -220,8 +220,8 @@ export const scenes: JourneyScene[] = [
     ],
     multi: false,
     reflection: [
-      "You have your time back. You can verify through a number or website you find independently.",
-      "Votre temps vous appartient de nouveau. Vous pouvez vérifier avec un numéro ou un site trouvé indépendamment.",
+      "You have your time back.",
+      "Votre temps vous appartient de nouveau.",
     ],
   },
   {
@@ -229,12 +229,12 @@ export const scenes: JourneyScene[] = [
     image: "community",
     eyebrow: ["Chapter seven · The return", "Chapitre sept · Le retour"],
     title: [
-      "Your experience becomes a path.",
-      "Votre expérience devient un chemin.",
+      "Here is what you know now.",
+      "Voici ce que vous savez maintenant.",
     ],
     lead: [
-      "Keep your private record. If you choose, let its anonymous pattern become a light for someone else.",
-      "Gardez votre registre privé. Si vous le souhaitez, laissez son motif anonyme devenir une lumière pour quelqu’un d’autre.",
+      "Keep your record. Share only the pattern if you want to help others.",
+      "Gardez votre registre. Partagez seulement le motif si vous voulez aider les autres.",
     ],
     choices: [
       [
