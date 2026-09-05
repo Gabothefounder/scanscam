@@ -136,6 +136,7 @@ export async function POST(req: Request) {
   const canonicalEvent =
     LEGACY_TELEMETRY_EVENT_MAP[safePayload.event_type] ?? safePayload.event_type;
   const context: Record<string, unknown> = {
+    build_id: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 40) ?? null,
     session_id: safePayload.session_id ?? null,
     scan_id: safePayload.scan_id ?? null,
     route: safePayload.route ?? null,
