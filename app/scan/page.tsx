@@ -33,21 +33,17 @@ const copy = {
 };
 
 export default function ScanPage() {
-  const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
   useEffect(() => {
     captureAttribution();
     const params = new URLSearchParams(window.location.search);
     const currentLang = params.get("lang") === "fr" ? "fr" : "en";
     setLang(currentLang);
-    setMounted(true);
   }, []);
 
   const t = copy[lang];
 
   const handleScanSuccess = useScanSuccessNavigation(lang);
-
-  if (!mounted) return null;
 
   return (
     <main style={styles.page}>
