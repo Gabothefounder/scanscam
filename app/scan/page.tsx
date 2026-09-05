@@ -54,7 +54,7 @@ export default function ScanPage() {
           <p style={styles.helperText}>{t.helperText}</p>
         </div>
 
-        <ScannerForm lang={lang} onScanSuccess={handleScanSuccess} />
+        <ScannerForm lang={lang} onScanSuccess={handleScanSuccess} surface="scan_page" />
 
         <p style={styles.reassurance}>{t.reassurance}</p>
         <p style={styles.disclaimer}>{t.disclaimer}</p>
