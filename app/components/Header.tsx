@@ -25,7 +25,6 @@ export default function Header() {
   const hideLangToggle = pathname === "/parking-ticket-text";
   const pathLocale = pathname ? PATH_LOCALE[pathname] : undefined;
 
-  const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<"en" | "fr">("en");
 
   /* --- ensure stable first render (hydration-safe) --- */
@@ -37,12 +36,7 @@ export default function Header() {
       const currentLang = params.get("lang") === "fr" ? "fr" : "en";
       setLang(currentLang);
     }
-    setMounted(true);
   }, [pathLocale, pathname]);
-
-  if (!mounted) {
-    return null;
-  }
 
   const switchLang = () => {
     if (pathLocale) {
