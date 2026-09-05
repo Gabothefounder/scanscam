@@ -46,6 +46,7 @@ Normalized event stream. Common fields:
 
 - `created_at`
 - `event_type`
+- `build_id` (Vercel Git commit SHA when available)
 - `session_id`
 - `scan_id`
 - `route`
@@ -191,5 +192,5 @@ order by day desc;
 3. Event counts can exceed people because a person may act more than once.
 4. Do not infer conversion from unrelated historical event names without checking their instrumentation dates.
 5. State when sample sizes are small.
-6. Compare before/after product changes by deployment or date window when possible.
+6. Compare before/after product changes by `build_id` when available; otherwise use a precise date window.
 7. Never query raw message/story tables for ordinary product analytics.
