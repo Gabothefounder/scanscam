@@ -97,64 +97,13 @@ export async function lookupWebRisk(url: string): Promise<WebRiskLookupResult> {
           signal: controller.signal,
         }
       );
-
-      // #region agent log
-      fetch("http://127.0.0.1:7734/ingest/9a4a7ed5-6302-4c3d-bdd7-3d71ad69b815", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e4f600" },
-        body: JSON.stringify({
-          sessionId: "e4f600",
-          runId: "webrisk",
-          hypothesisId: "H1_invalid_threat_or_400",
-          location: "webRiskLookup.ts:after_fetch",
-          message: "Web Risk HTTP response",
-          data: { ok: res.ok, http_status: res.status },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-
-      if (!res.ok) {
+if (!res.ok) {
         let api_error_message: string | undefined;
         try {
           const errBody = await res.json();
           api_error_message = parseGoogleApiErrorMessage(errBody);
-          // #region agent log
-          fetch("http://127.0.0.1:7734/ingest/9a4a7ed5-6302-4c3d-bdd7-3d71ad69b815", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e4f600" },
-            body: JSON.stringify({
-              sessionId: "e4f600",
-              runId: "webrisk",
-              hypothesisId: "H1_invalid_threat_or_400",
-              location: "webRiskLookup.ts:api_error_body",
-              message: "Web Risk error JSON parsed",
-              data: {
-                http_status: res.status,
-                has_api_message: Boolean(api_error_message),
-                api_message_snippet: api_error_message?.slice(0, 120) ?? null,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
-        } catch {
-          // #region agent log
-          fetch("http://127.0.0.1:7734/ingest/9a4a7ed5-6302-4c3d-bdd7-3d71ad69b815", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e4f600" },
-            body: JSON.stringify({
-              sessionId: "e4f600",
-              runId: "webrisk",
-              hypothesisId: "H2_nonjson_error_body",
-              location: "webRiskLookup.ts:error_body_parse_fail",
-              message: "Web Risk error body not JSON",
-              data: { http_status: res.status },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
-        }
+} catch {
+}
         return {
           status: "error",
           error_reason: "api_http_error",
@@ -172,42 +121,12 @@ export async function lookupWebRisk(url: string): Promise<WebRiskLookupResult> {
 
       if (responseIndicatesThreat(data)) {
         const threat_types = collectThreatTypes(data);
-        // #region agent log
-        fetch("http://127.0.0.1:7734/ingest/9a4a7ed5-6302-4c3d-bdd7-3d71ad69b815", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e4f600" },
-          body: JSON.stringify({
-            sessionId: "e4f600",
-            runId: "webrisk",
-            hypothesisId: "H3_success_unsafe",
-            location: "webRiskLookup.ts:unsafe",
-            message: "Web Risk match",
-            data: { threat_count: threat_types.length },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
-        return {
+return {
           status: "unsafe",
           ...(threat_types.length > 0 ? { threat_types } : {}),
         };
       }
-      // #region agent log
-      fetch("http://127.0.0.1:7734/ingest/9a4a7ed5-6302-4c3d-bdd7-3d71ad69b815", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e4f600" },
-        body: JSON.stringify({
-          sessionId: "e4f600",
-          runId: "webrisk",
-          hypothesisId: "H4_success_clean",
-          location: "webRiskLookup.ts:clean",
-          message: "Web Risk no threat",
-          data: {},
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-      return { status: "clean" };
+return { status: "clean" };
     } catch {
       return { status: "error", error_reason: "network_or_timeout" };
     } finally {
