@@ -8,7 +8,6 @@ import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
-import { PostResultReportCTA } from "@/components/PostResultReportCTA";
 import {
   parseAbuseInterpretationForSurface,
   type InterpretationSurfaceConcept,
@@ -1842,10 +1841,6 @@ export default function ResultView() {
   };
   const riskCardInterpretationLines = consumeInterpretation(interpretationUi.riskCard, 2);
   const whatToDoNextItems = getWhatToDoNextItems(lang, intel as Record<string, unknown>, interpretationUi);
-  const analysisModeForTelemetry =
-    String((intel as Record<string, unknown>).analysis_mode ?? "").trim() ||
-    (wasRefined ? "refined" : "initial");
-
   const summaryRaw = analysisUnavailable
     ? result.summary_sentence || t.analysisUnavailable.banner
     : result.summary_sentence || t.defaultSummary[risk];
@@ -2332,18 +2327,6 @@ export default function ResultView() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            ) : null}
-
-            {!partner && !weakInputGateActive ? (
-              <div style={styles.sectionDivider}>
-                <PostResultReportCTA
-                  lang={lang}
-                  riskTier={risk}
-                  scanId={scanIdForContext}
-                  source="post_scan_result"
-                  analysisMode={analysisModeForTelemetry}
-                />
               </div>
             ) : null}
 
