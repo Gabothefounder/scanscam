@@ -60,7 +60,7 @@ const NARRATIVE_RULES: { id: NarrativeFamily; test: RegExp }[] = [
   {
     id: "account_verification",
     test:
-      /\bverify\s+(your\s+)?account\b|account\s+suspend|unusual\s+activity|confirm\s+identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b|vérifier\s+(votre\s+)?compte|compte\s+(?:sera\s+)?suspendu|activité\s+inhabituelle|confirmer\s+(votre\s+)?identité|confirmer\s+vos\s+coordonnées|éviter\s+(?:la\s+)?suspension|sécuriser\s+votre\s+compte|connexion\s+requise|ouvrir\s+(?:une\s+)?session/i,
+      /\bverify\s+(your\s+)?account\b|account\s+(?:will\s+be\s+|is\s+|has\s+been\s+)?suspend(?:ed|ed\s+soon|)|unusual\s+activity|confirm\s+(?:your\s+)?identity\b|verify\s+(?:your\s+)?identity\b|confirm\s+your\s+details\b|continue\s+using\s+the\s+service\b|avoid\s+suspension\b|secure\s+your\s+account\b|confirm\s+your\s+account\b|vérifier\s+(votre\s+)?compte|compte\s+(?:sera\s+)?suspendu|activité\s+inhabituelle|confirmer\s+(votre\s+)?identité|confirmer\s+vos\s+coordonnées|éviter\s+(?:la\s+)?suspension|sécuriser\s+votre\s+compte|connexion\s+requise|ouvrir\s+(?:une\s+)?session/i,
   },
   {
     id: "delivery_scam",
@@ -134,7 +134,7 @@ const ACTION_RULES: { id: RequestedAction; test: RegExp }[] = [
   {
     id: "submit_credentials",
     test:
-      /\b(password|otp|verification\s+code|enter\s+code|verify\s+identity)\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b|mot\s+de\s+passe|code\s+de\s+vérification|confirmer\s+(votre\s+)?identité|connexion|ouvrir\s+(?:une\s+)?session|valider\s+votre\s+compte/i,
+      /\b(password|otp|verification\s+code|enter\s+code)\b|\bverify\s+(?:your\s+)?identity\b|(verify\s+now|verify\s+your\s+account|confirm\s+identity|confirm\s+your\s+details|log\s*in|login|sign\s*in|secure\s+your\s+account|update\s+account|validate\s+account)\b|mot\s+de\s+passe|code\s+de\s+vérification|confirmer\s+(votre\s+)?identité|connexion|ouvrir\s+(?:une\s+)?session|valider\s+votre\s+compte/i,
   },
   {
     id: "pay_money",
