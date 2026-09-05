@@ -143,9 +143,9 @@ export default function Home() {
           </Link>
 
           <Link
-            href={`/atlas?intent=learn&source=home_intent&lang=${lang}`}
+            href={`/atlas?journey=1&mode=learn&source=home_intent&lang=${lang}`}
             style={styles.intentCard}
-            onClick={() => trackIntent("learn", "/atlas?intent=learn")}
+            onClick={() => trackIntent("learn", "/atlas?journey=1&mode=learn")}
           >
             <span style={styles.intentNumber}>04</span>
             <strong style={styles.cardTitle}>{t.learnTitle}</strong>
