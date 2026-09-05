@@ -123,7 +123,13 @@ export default function CinematicJourney() {
     setJourneySessionId(journeyId);
     const incoming = params.get("message");
     if (incoming) setMessage(incoming.slice(0, 4000));
-    if (params.get("mode") === "scan") {
+    if (params.get("mode") === "learn") {
+      setMode("learn");
+      setMessage(ui[params.get("lang") === "fr" ? "fr" : "en"].example);
+      logScanEvent("journey_started", {
+        props: { surface: "home_learn", entry_mode: "learn" },
+      });
+    } else if (params.get("mode") === "scan") {
       setMode("scan");
       logScanEvent("journey_started", {
         props: { surface: "post_scan", entry_mode: "scan" },
