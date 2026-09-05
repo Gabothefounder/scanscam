@@ -40,7 +40,6 @@ type Props = {
 };
 
 export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
-  const [mounted, setMounted] = useState(false);
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +51,6 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
 
   useEffect(() => {
     captureAttribution();
-    setMounted(true);
-
     const handlePageHide = () => {
       const current = inFlightRef.current;
       if (!current) return;
@@ -215,8 +212,6 @@ export function ScannerForm({ lang, onScanSuccess, copyOverrides }: Props) {
       setLoading(false);
     }
   };
-
-  if (!mounted) return null;
 
   const textareaStyle: React.CSSProperties = {
     ...styles.textarea,
