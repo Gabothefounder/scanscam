@@ -106,7 +106,7 @@ export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOver
       props: { surface, input_length: text.length, attempt_id, ...attrProps },
     });
     setLoading(true);
-    logScanEvent("scan_processing", { props: { attempt_id } });
+    logScanEvent("scan_processing", { props: { surface, attempt_id } });
 
     const trimmedText = text.trim();
     if (!imageFile && !passesScanTextAdmission(trimmedText)) {
@@ -179,20 +179,11 @@ export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOver
       const data = await res.json();
       const clientLatencyMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
       inFlightRef.current = null;
-      logScanEvent("scan_result_received", {
-        scan_id: typeof data?.result?.scan_id === "string" ? data.result.scan_id : undefined,
-        props: {
-          attempt_id,
-          latency_ms: clientLatencyMs,
-          risk_tier: typeof data?.result?.risk_tier === "string" ? data.result.risk_tier : undefined,
-          result_source: imageFile ? "ocr" : "user_text",
-        },
-      });
 
       if (!data.ok) {
         const code = (data?.code as string) ?? "api_error";
         logScanEvent("scan_error", {
-          props: { error_code: code },
+          props: { surface, error_code: code, attempt_id, latency_ms: clientLatencyMs },
         });
         setSoftError(isSoftThrottleCode(code));
         setError(
@@ -207,6 +198,16 @@ export function ScannerForm({ lang, onScanSuccess, surface = "scanner", copyOver
       }
 
       const scanId = data.result?.scan_id;
+      logScanEvent("scan_result_received", {
+        scan_id: typeof scanId === "string" ? scanId : undefined,
+        props: {
+          surface,
+          attempt_id,
+          latency_ms: clientLatencyMs,
+          risk_tier: typeof data?.result?.risk_tier === "string" ? data.result.risk_tier : undefined,
+          result_source: imageFile ? "ocr" : "user_text",
+        },
+      });
       const persisted = data.result?.persisted === true;
       if (persisted && scanId) {
         logScanEvent("scan_created", {
