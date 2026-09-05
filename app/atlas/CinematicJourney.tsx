@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { emotionReflections, EntryMode, Lang, scenes, tx } from "./journeyData";
 import styles from "./cinematicJourney.module.css";
+import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 
 type Answers = Record<string, string[]>;
 type Evidence = Record<"when" | "contact" | "organization" | "amount" | "payment" | "reference", string>;
@@ -109,6 +110,8 @@ export default function CinematicJourney() {
   const [atlasStatus, setAtlasStatus] = useState<"idle" | "sending" | "shared" | "error">("idle");
   const [journeySessionId, setJourneySessionId] = useState<string | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
+  const completedLoggedRef = useRef(false);
+  const contributionPromptLoggedRef = useRef(false);
   const t = ui[lang];
   const scene = scenes[step];
 
@@ -122,6 +125,9 @@ export default function CinematicJourney() {
     if (incoming) setMessage(incoming.slice(0, 4000));
     if (params.get("mode") === "scan") {
       setMode("scan");
+      logScanEvent("journey_started", {
+        props: { surface: "post_scan", entry_mode: "scan" },
+      });
       if (!incoming) {
         try {
           const result = JSON.parse(window.sessionStorage.getItem("scanResult") || "{}") as Record<string, unknown>;
@@ -136,7 +142,29 @@ export default function CinematicJourney() {
 
   useEffect(() => {
     window.sessionStorage.setItem("scanscam-atlas-draft", JSON.stringify({ mode, step, answers, words, evidence, message }));
-  }, [answers, evidence, message, mode, step, words]);
+
+    if (mode && scene?.key === "return" && !completedLoggedRef.current) {
+      completedLoggedRef.current = true;
+      logScanEvent("journey_completed", {
+        scan_id: scanId || undefined,
+        props: { surface: "journey", entry_mode: mode, lang },
+      });
+    }
+
+    if (
+      mode &&
+      mode !== "learn" &&
+      scene?.key === "return" &&
+      selected.includes("share") &&
+      !contributionPromptLoggedRef.current
+    ) {
+      contributionPromptLoggedRef.current = true;
+      logScanEvent("contribution_prompt_viewed", {
+        scan_id: scanId || undefined,
+        props: { surface: "journey_return", entry_mode: mode, lang },
+      });
+    }
+  }, [answers, evidence, message, mode, step, words, scene?.key, scanId, lang, selected]);
 
   const selected = answers[scene?.key] || [];
   const labelFor = (key: string) => {
@@ -188,8 +216,20 @@ export default function CinematicJourney() {
     window.sessionStorage.removeItem("scanscam-atlas-draft");
     window.sessionStorage.removeItem("scanscam-atlas-session-id");
     setAtlasConsent(false); setAtlasStatus("idle"); setJourneySessionId(null); setScanId(null);
+    completedLoggedRef.current = false;
+    contributionPromptLoggedRef.current = false;
   };
-  const begin = (entry: EntryMode) => { setMode(entry); setStep(0); if (entry === "learn") setMessage(t.example); };
+  const begin = (entry: EntryMode) => {
+    completedLoggedRef.current = false;
+    contributionPromptLoggedRef.current = false;
+    logScanEvent("journey_started", {
+      scan_id: scanId || undefined,
+      props: { surface: "journey_entry", entry_mode: entry, lang },
+    });
+    setMode(entry);
+    setStep(0);
+    if (entry === "learn") setMessage(t.example);
+  };
   const contextLine = mode === "scan" ? t.scanContext : mode === "helping" ? t.helpingContext : mode === "learn" ? t.learnContext : t.livedContext;
   const copySummary = async () => { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1800); };
   const contributeToAtlas = async () => {
@@ -219,6 +259,15 @@ export default function CinematicJourney() {
       });
       if (!response.ok) throw new Error("atlas_contribution_failed");
       setAtlasStatus("shared");
+      logScanEvent("contribution_submitted", {
+        scan_id: scanId || undefined,
+        props: {
+          surface: "journey_return",
+          entry_mode: mode,
+          lang,
+          consented: true,
+        },
+      });
     } catch {
       setAtlasStatus("error");
     }
