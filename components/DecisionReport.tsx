@@ -966,7 +966,6 @@ export function DecisionReport({
         props: {
           flow: "shared_report",
           report_useful: reportUseful,
-          report_rating: reportUseful,
         },
       });
     } catch {
