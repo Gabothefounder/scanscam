@@ -23,6 +23,8 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { isRepeatedScan } from "@/lib/repeatGuard";
 import { isOCRBlocked, recordOCRResult } from "@/lib/ocrGuard";
 import { logEvent } from "@/lib/observability";
+import { applySemanticSensor } from "@/lib/scan-v3/applySemanticSensor";
+import { buildSignalLedgerV1 } from "@/lib/scan-v3/signalLedger";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
@@ -1861,7 +1863,15 @@ export async function POST(req: Request) {
 
     // Model analysis and independent URL intelligence run concurrently.
     const [
-      { result, usedFallback, ai_parse_fallback },
+      {
+        result,
+        usedFallback,
+        ai_parse_fallback,
+        model: analysisModel,
+        analysis_path: analysisPath,
+        input_tokens: analysisInputTokens,
+        output_tokens: analysisOutputTokens,
+      },
       link_intel,
     ] = await Promise.all([aiPromise, linkIntelPromise]);
 
@@ -1945,6 +1955,21 @@ export async function POST(req: Request) {
         context_quality: enrichment.contextQuality ?? legacyIntel.context_quality,
       }),
       mapIntelRawText
+    );
+
+    Object.assign(
+      intel_features as Record<string, unknown>,
+      applySemanticSensor(
+        intel_features as Record<string, unknown>,
+        result.semantic,
+        { model: analysisModel, analysisPath }
+      )
+    );
+
+    // Re-harmonize after semantic fill-missing so existing downstream taxonomy stays coherent.
+    Object.assign(
+      intel_features as Record<string, unknown>,
+      harmonizeNarratives(intel_features as Record<string, unknown>)
     );
 
     if (refinementSemanticsBoost) {
@@ -2161,6 +2186,27 @@ export async function POST(req: Request) {
       intel_features as Record<string, unknown>
     );
 
+    (intel_features as Record<string, unknown>).signal_ledger_v1 = buildSignalLedgerV1({
+      semantic: result.semantic,
+      model: analysisModel,
+      enrichment: {
+        narrativeFamily: enrichment.narrativeFamily,
+        requestedAction: enrichment.requestedAction,
+        threatStage: enrichment.threatStage,
+        confidenceLevel: enrichment.confidenceLevel,
+        contextQuality: enrichment.contextQuality,
+      },
+      linkIntel: link_intel as Record<string, any> | null,
+      source,
+    });
+
+    (intel_features as Record<string, unknown>).analysis_usage_v1 = {
+      model: analysisModel,
+      path: analysisPath,
+      input_tokens: typeof analysisInputTokens === "number" ? analysisInputTokens : null,
+      output_tokens: typeof analysisOutputTokens === "number" ? analysisOutputTokens : null,
+    };
+
     /* ---------- Hard AI fallback: analysis_status ≠ risk_tier (never fake "medium") ---------- */
     const hardFallback = applyHardFallbackPresentation({
       usedFallback,
@@ -2300,6 +2346,10 @@ export async function POST(req: Request) {
         input_type: String(intel_features.input_type ?? "unknown"),
         context_quality: String(intel_features.context_quality ?? "unknown"),
         analysis_mode: isRefinedAnalysis ? "refined" : "initial",
+        model: analysisModel,
+        analysis_path: analysisPath,
+        input_tokens: typeof analysisInputTokens === "number" ? analysisInputTokens : null,
+        output_tokens: typeof analysisOutputTokens === "number" ? analysisOutputTokens : null,
       })
     );
 
