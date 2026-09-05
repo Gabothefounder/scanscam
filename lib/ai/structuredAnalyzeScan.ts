@@ -156,15 +156,16 @@ export async function analyzeScanStructured(input: {
   messageText: string;
   language: "en" | "fr" | "mixed";
   source: "user_text" | "ocr";
+  modelOverride?: string;
 }): Promise<StructuredAnalysisOutput> {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not set");
 
-  const response = await client.responses.create({
-    model: PRIMARY_SCAN_MODEL,
+  const model = input.modelOverride || PRIMARY_SCAN_MODEL;
+  const params: any = {
+    model,
     instructions: instructions(input.language),
     input: "source=" + input.source + "\nmessage:\n" + input.messageText,
     store: false,
-    reasoning: { effort: "none" },
     text: {
       verbosity: "low",
       format: {
@@ -175,7 +176,12 @@ export async function analyzeScanStructured(input: {
       },
     },
     max_output_tokens: 900,
-  });
+  };
+  if (model.startsWith("gpt-5")) {
+    params.reasoning = { effort: "none" };
+  }
+
+  const response: any = await client.responses.create(params);
 
   if (!response.output_text) {
     throw new Error("structured_analysis_empty:" + response.status);
@@ -186,7 +192,7 @@ export async function analyzeScanStructured(input: {
 
   return {
     result: validated,
-    model: PRIMARY_SCAN_MODEL,
+    model,
     input_tokens: response.usage?.input_tokens,
     output_tokens: response.usage?.output_tokens,
   };
