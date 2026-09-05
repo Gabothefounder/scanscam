@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
@@ -2287,19 +2287,21 @@ export async function POST(req: Request) {
     const raw_persisted = persistOutcome.raw_persisted;
     persistMs = Date.now() - persistStartedAt;
 
-    void logEvent("scan_stage_timing", "info", "scan_api", {
-      build_id: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 40) ?? null,
-      scan_id: scanId,
-      total_ms: Date.now() - requestStartedAt,
-      ai_ms: aiMs,
-      ocr_ms: ocrMs,
-      link_intel_ms: linkIntelMs,
-      persist_ms: persistMs,
-      risk_tier: finalRiskTier,
-      input_type: String(intel_features.input_type ?? "unknown"),
-      context_quality: String(intel_features.context_quality ?? "unknown"),
-      analysis_mode: isRefinedAnalysis ? "refined" : "initial",
-    });
+    after(() =>
+      logEvent("scan_stage_timing", "info", "scan_api", {
+        build_id: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 40) ?? null,
+        scan_id: scanId,
+        total_ms: Date.now() - requestStartedAt,
+        ai_ms: aiMs,
+        ocr_ms: ocrMs,
+        link_intel_ms: linkIntelMs,
+        persist_ms: persistMs,
+        risk_tier: finalRiskTier,
+        input_type: String(intel_features.input_type ?? "unknown"),
+        context_quality: String(intel_features.context_quality ?? "unknown"),
+        analysis_mode: isRefinedAnalysis ? "refined" : "initial",
+      })
+    );
 
     /**
      * 🔑 CANONICAL RESPONSE
