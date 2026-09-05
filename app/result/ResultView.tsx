@@ -8,6 +8,7 @@ import { logScanEvent } from "@/lib/telemetry/logScanEvent";
 import { trackConversion } from "@/lib/gtag";
 import { getPartnerBySlug } from "@/lib/partners";
 import { ContextRefinementCard, type ContextRefinementStrings } from "@/components/ContextRefinementCard";
+import { PostScanRecoveryGate } from "@/components/PostScanRecoveryGate";
 import {
   parseAbuseInterpretationForSurface,
   type InterpretationSurfaceConcept,
@@ -201,13 +202,15 @@ const copy = {
       ],
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
-    scanAnother: "Scan another message",
-    atlasCta: "See this scan in the Atlas",
-    atlasCtaNote: "Compare it with anonymous scans that share similar scam and deception signals.",
-    journeyCta: "Understand what happened",
-    journeyCtaNote: "Walk through the pressure tactics, what they wanted, and your safest next step.",
-    protectCta: "Protect someone you care about",
-    protectCtaNote: "Explore a simple way to help a family member check suspicious situations before acting.",
+    scanAnother: "Scan another",
+    moreTitle: "More",
+    whyTitle: "Why",
+    wantLabel: "What they want",
+    pressureLabel: "Pressure",
+    detailsTitle: "Technical details",
+    atlasCta: "See in Atlas",
+    journeyCta: "Understand this",
+    protectCta: "Protect someone",
     partnerScannerTitle: "Security Message Scanner",
     poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
@@ -503,13 +506,15 @@ const copy = {
       ],
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
-    scanAnother: "Analyser un autre message",
-    atlasCta: "Voir cette analyse dans l’Atlas",
-    atlasCtaNote: "Comparez-la à des analyses anonymes qui partagent des signaux d’arnaque et de tromperie semblables.",
-    journeyCta: "Comprendre ce qui s’est passé",
-    journeyCtaNote: "Parcourez les tactiques de pression, ce qu’on voulait obtenir et votre prochain geste le plus sûr.",
-    protectCta: "Protéger quelqu’un qui compte pour vous",
-    protectCtaNote: "Découvrez une façon simple d’aider un proche à vérifier une situation suspecte avant d’agir.",
+    scanAnother: "Analyser autre chose",
+    moreTitle: "Plus",
+    whyTitle: "Pourquoi",
+    wantLabel: "Ce qu’on cherche à obtenir",
+    pressureLabel: "Pression",
+    detailsTitle: "Détails techniques",
+    atlasCta: "Voir dans l’Atlas",
+    journeyCta: "Comprendre ceci",
+    protectCta: "Protéger un proche",
     partnerScannerTitle: "Analyseur de messages suspects",
     poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
@@ -1285,6 +1290,121 @@ function buildPlainSummaryFromIntel(
     coreFr = coreFr.replace(/\.$/, "") + ` Il ou elle ${entMap[entity]}.`;
   }
   return coreFr;
+}
+
+type QuickIntel = {
+  wants: string[];
+  pressure: string[];
+};
+
+function getQuickIntel(intel: Record<string, unknown>, lang: "en" | "fr"): QuickIntel {
+  const semantic =
+    intel.semantic_v1 && typeof intel.semantic_v1 === "object"
+      ? intel.semantic_v1 as Record<string, unknown>
+      : {};
+
+  const rawAssets = Array.isArray(semantic.requested_assets)
+    ? semantic.requested_assets.filter((x): x is string => typeof x === "string")
+    : Array.isArray(intel.requested_assets)
+      ? intel.requested_assets.filter((x): x is string => typeof x === "string")
+      : [];
+
+  const assetLabelsEn: Record<string,string> = {
+    money: "Money",
+    password: "Password",
+    otp_or_mfa_code: "Verification code",
+    bank_login: "Bank login",
+    card_data: "Card details",
+    identity_data: "Identity information",
+    crypto: "Crypto",
+    gift_card: "Gift cards",
+    remote_device_access: "Device access",
+    conversation_engagement: "A reply",
+  };
+  const assetLabelsFr: Record<string,string> = {
+    money: "Argent",
+    password: "Mot de passe",
+    otp_or_mfa_code: "Code de vérification",
+    bank_login: "Accès bancaire",
+    card_data: "Données de carte",
+    identity_data: "Informations d’identité",
+    crypto: "Crypto",
+    gift_card: "Cartes-cadeaux",
+    remote_device_access: "Accès à l’appareil",
+    conversation_engagement: "Une réponse",
+  };
+
+  const tacticLabelsEn: Record<string,string> = {
+    urgency: "Urgency",
+    authority: "Authority",
+    fear: "Fear",
+    threat: "Threat",
+    false_trust: "False trust",
+    helpfulness: "Helpfulness",
+    secrecy: "Secrecy",
+    isolation: "Isolation",
+    scarcity: "Scarcity",
+    reward: "Reward",
+    verification_suppression: "Stops verification",
+    channel_migration: "Moves channels",
+    credential_request: "Credential request",
+    financial_pressure: "Financial pressure",
+  };
+  const tacticLabelsFr: Record<string,string> = {
+    urgency: "Urgence",
+    authority: "Autorité",
+    fear: "Peur",
+    threat: "Menace",
+    false_trust: "Fausse confiance",
+    helpfulness: "Aide apparente",
+    secrecy: "Secret",
+    isolation: "Isolement",
+    scarcity: "Rareté",
+    reward: "Récompense",
+    verification_suppression: "Empêche la vérification",
+    channel_migration: "Change de canal",
+    credential_request: "Demande d’identifiants",
+    financial_pressure: "Pression financière",
+  };
+
+  const rawTactics = Array.isArray(semantic.tactics)
+    ? semantic.tactics
+        .map((x) => x && typeof x === "object" ? String((x as Record<string,unknown>).type ?? "") : "")
+        .filter(Boolean)
+    : Array.isArray(intel.semantic_tactics)
+      ? intel.semantic_tactics.filter((x): x is string => typeof x === "string")
+      : [];
+
+  const assetMap = lang === "fr" ? assetLabelsFr : assetLabelsEn;
+  const tacticMap = lang === "fr" ? tacticLabelsFr : tacticLabelsEn;
+
+  const wants = [...new Set(rawAssets.map((x) => assetMap[x]).filter(Boolean))].slice(0, 3);
+  const pressure = [...new Set(rawTactics.map((x) => tacticMap[x]).filter(Boolean))].slice(0, 4);
+
+  return { wants, pressure };
+}
+
+function buildGroundedReasonLines(
+  intel: Record<string, unknown>,
+  lang: "en" | "fr"
+): string[] {
+  const t = copy[lang].groundedReasons;
+  const out: string[] = [];
+  const add = (line?: string) => {
+    if (line && !out.includes(line)) out.push(line);
+  };
+
+  const family = String(intel.narrative_family ?? "");
+  const entity = String(intel.impersonation_entity ?? "");
+  const action = String(intel.requested_action ?? "");
+  const threat = String(intel.threat_stage ?? "");
+
+  add(t.narrative[family]);
+  add(t.entity[entity]);
+  add(t.action[action]);
+  add(t.threat[threat]);
+
+  return out.slice(0, 3);
 }
 
 function highRiskLinkLine(
