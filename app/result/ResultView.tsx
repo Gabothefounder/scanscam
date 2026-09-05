@@ -48,6 +48,13 @@ const copy = {
       medium: "This message looks suspicious. Take a moment before you act.",
       high: "This message looks very similar to common scams. Be careful.",
     },
+    insufficientContext: {
+      title: "Not enough context",
+      statusLabel: "Result status:",
+      statusValue: "More context needed",
+      helper: "There isn't enough information here to distinguish a scam from an ordinary message reliably.",
+      summary: "Paste the full message, add what they asked you to do, or upload a screenshot for a more useful answer.",
+    },
     analysisUnavailable: {
       title: "Analysis unavailable",
       banner:
@@ -337,6 +344,13 @@ const copy = {
       low: "D’après ce qu’on voit, ce message ne ressemble pas à une arnaque typique.",
       medium: "Ce message semble suspect. Prenez un moment avant d’agir.",
       high: "Ce message ressemble beaucoup à des arnaques courantes. Soyez prudent.",
+    },
+    insufficientContext: {
+      title: "Pas assez de contexte",
+      statusLabel: "État du résultat :",
+      statusValue: "Plus de contexte requis",
+      helper: "Il n’y a pas assez d’information pour distinguer de façon fiable une arnaque d’un message ordinaire.",
+      summary: "Collez le message complet, ajoutez ce qu’on vous demande de faire ou téléversez une capture d’écran.",
     },
     analysisUnavailable: {
       title: "Analyse indisponible",
@@ -1579,6 +1593,8 @@ export default function ResultView() {
   const fragmentaryContext = ["thin", "fragment", "unknown"].includes(contextQuality);
   const explicitInsufficient =
     intelState === "insufficient_context" || submissionRoute === "insufficient_context";
+  const insufficientContextState =
+    result?.result_state === "insufficient_context" || explicitInsufficient;
   const weakMetadataGate =
     (intelState === "weak_signal" || explicitInsufficient) && fragmentaryContext;
 
@@ -1852,7 +1868,9 @@ export default function ResultView() {
   const plainSummary = analysisUnavailable
     ? null
     : buildPlainSummaryFromIntel(intel as Record<string, unknown>, lang, risk);
-  let summary = plainSummary ?? apiSummary;
+  let summary = insufficientContextState
+    ? t.insufficientContext.summary
+    : (plainSummary ?? apiSummary);
   const hasMediumLinkInterpretation =
     risk === "medium" &&
     Boolean(abuseInterpretation) &&
@@ -1887,32 +1905,44 @@ export default function ResultView() {
 
   const riskBlockStyle = {
     ...styles.riskBlock,
-    backgroundColor: unavailableWithoutElevatedCaution
-      ? UNAVAILABLE_CONFIG.bgColor
-      : RISK_CONFIG[risk].bgColor,
+    backgroundColor: insufficientContextState
+      ? "#F5F5F4"
+      : unavailableWithoutElevatedCaution
+        ? UNAVAILABLE_CONFIG.bgColor
+        : RISK_CONFIG[risk].bgColor,
     border: "1px solid #D1D5DB",
   };
 
-  const tierColor = unavailableWithoutElevatedCaution
-    ? UNAVAILABLE_CONFIG.color
-    : risk === "low"
+  const tierColor = insufficientContextState
+    ? "#57534E"
+    : unavailableWithoutElevatedCaution
+      ? UNAVAILABLE_CONFIG.color
+      : risk === "low"
       ? "#15803D"
       : risk === "medium"
         ? "#B45309"
         : "#B91C1C";
 
-  const riskTitle = unavailableWithoutElevatedCaution
-    ? t.analysisUnavailable.title
-    : t.tier[risk];
-  const riskConfidenceLabel = analysisUnavailable
-    ? t.analysisUnavailable.confidenceLabel
-    : t.confidenceLabel;
-  const riskConfidenceText = analysisUnavailable
-    ? t.analysisUnavailable.confidenceValue
-    : confidenceText;
-  const riskConfidenceHelper = analysisUnavailable
-    ? t.analysisUnavailable.confidenceHelper
-    : confidenceHelperText;
+  const riskTitle = insufficientContextState
+    ? t.insufficientContext.title
+    : unavailableWithoutElevatedCaution
+      ? t.analysisUnavailable.title
+      : t.tier[risk];
+  const riskConfidenceLabel = insufficientContextState
+    ? t.insufficientContext.statusLabel
+    : analysisUnavailable
+      ? t.analysisUnavailable.confidenceLabel
+      : t.confidenceLabel;
+  const riskConfidenceText = insufficientContextState
+    ? t.insufficientContext.statusValue
+    : analysisUnavailable
+      ? t.analysisUnavailable.confidenceValue
+      : confidenceText;
+  const riskConfidenceHelper = insufficientContextState
+    ? t.insufficientContext.helper
+    : analysisUnavailable
+      ? t.analysisUnavailable.confidenceHelper
+      : confidenceHelperText;
   const riskMeterLabel = unavailableWithoutElevatedCaution
     ? t.analysisUnavailable.title
     : t.tier[risk];
@@ -2253,12 +2283,14 @@ export default function ResultView() {
               <p className="text-center text-xs text-gray-500" style={styles.systemConfidenceHelper}>
                 {riskConfidenceHelper}
               </p>
-              <RiskMeter
-                risk={risk}
-                label={riskMeterLabel}
-                levelText={riskMeterLevelText}
-                unavailable={unavailableWithoutElevatedCaution}
-              />
+              {!insufficientContextState && (
+                <RiskMeter
+                  risk={risk}
+                  label={riskMeterLabel}
+                  levelText={riskMeterLevelText}
+                  unavailable={unavailableWithoutElevatedCaution}
+                />
+              )}
               {hasRefinementParent && (
                 <p
                   className="text-center text-xs text-gray-500"
