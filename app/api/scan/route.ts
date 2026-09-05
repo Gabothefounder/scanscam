@@ -27,6 +27,7 @@ import { applySemanticSensor } from "@/lib/scan-v3/applySemanticSensor";
 import { buildSignalLedgerV1 } from "@/lib/scan-v3/signalLedger";
 import { publicResultState, resolveInsufficientContext } from "@/lib/scan-v3/resultState";
 import { buildPatternSignatureV1 } from "@/lib/scan-v3/patternSignature";
+import { buildDisagreementV1 } from "@/lib/scan-v3/disagreement";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
@@ -2212,6 +2213,17 @@ export async function POST(req: Request) {
 
     (intel_features as Record<string, unknown>).pattern_signature_v1 =
       buildPatternSignatureV1(intel_features as Record<string, unknown>);
+
+    (intel_features as Record<string, unknown>).disagreement_v1 = buildDisagreementV1({
+      semantic: result.semantic,
+      deterministic: {
+        contextQuality: enrichment.contextQuality,
+        submissionRoute: enrichment.submissionRoute,
+        narrativeFamily: enrichment.narrativeFamily,
+        requestedAction: enrichment.requestedAction,
+        threatStage: enrichment.threatStage,
+      },
+    });
 
     /* ---------- Hard AI fallback: analysis_status ≠ risk_tier (never fake "medium") ---------- */
     const hardFallback = applyHardFallbackPresentation({
