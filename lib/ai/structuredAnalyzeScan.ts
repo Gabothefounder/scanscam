@@ -167,7 +167,7 @@ export async function analyzeScanStructured(input: {
     input: "source=" + input.source + "\nmessage:\n" + input.messageText,
     store: false,
     text: {
-      verbosity: "low",
+      verbosity: model === "gpt-4o-mini" ? "medium" : "low",
       format: {
         type: "json_schema",
         name: "scanscam_analysis_v3",
