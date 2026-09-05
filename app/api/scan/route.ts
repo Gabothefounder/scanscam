@@ -26,6 +26,7 @@ import { logEvent } from "@/lib/observability";
 import { applySemanticSensor } from "@/lib/scan-v3/applySemanticSensor";
 import { buildSignalLedgerV1 } from "@/lib/scan-v3/signalLedger";
 import { publicResultState, resolveInsufficientContext } from "@/lib/scan-v3/resultState";
+import { buildPatternSignatureV1 } from "@/lib/scan-v3/patternSignature";
 
 /* -------------------------------------------------
    Supabase client — SERVER ONLY
@@ -2208,6 +2209,9 @@ export async function POST(req: Request) {
       input_tokens: typeof analysisInputTokens === "number" ? analysisInputTokens : null,
       output_tokens: typeof analysisOutputTokens === "number" ? analysisOutputTokens : null,
     };
+
+    (intel_features as Record<string, unknown>).pattern_signature_v1 =
+      buildPatternSignatureV1(intel_features as Record<string, unknown>);
 
     /* ---------- Hard AI fallback: analysis_status ≠ risk_tier (never fake "medium") ---------- */
     const hardFallback = applyHardFallbackPresentation({
