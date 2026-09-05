@@ -176,7 +176,7 @@ export default function CinematicJourney() {
     setAnswers({ ...answers, [scene.key]: next });
     if (scene.key === "emotion" && !removing) {
       setEmotionPulse(id);
-      window.setTimeout(() => setEmotionPulse((value) => value === id ? null : value), 1800);
+      window.setTimeout(() => setEmotionPulse((value) => value === id ? null : value), 3600);
     }
   };
   const advance = () => {
@@ -245,7 +245,7 @@ export default function CinematicJourney() {
             <header><p>{tx(scene.eyebrow, lang)}</p><h1>{tx(scene.title, lang)}</h1><span>{tx(scene.lead, lang)}</span></header>
             {scene.key === "arrival" && mode === "scan" && <label className={styles.message}><span>{t.message}</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.messagePlaceholder} /></label>}
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
-            {scene.key === "return" && <div className={styles.returnBook}><div className={styles.openBook}><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "The path you traced" : "Le chemin retracé"}</p><JourneyPath lang={lang} answers={answers} /></section><section className={styles.bookPage}><p className={styles.bookKicker}>{lang === "en" ? "Your private record" : "Votre registre privé"}</p><Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /></section></div><ActionPlan lang={lang} items={actionPlan} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}</div>}
+            {scene.key === "return" && <div className={styles.returnResults}><div className={styles.resultsBoard}><section className={styles.storySummary}><div className={styles.resultsHeading}><p>{lang === "en" ? "What happened" : "Ce qui s’est passé"}</p><span>{lang === "en" ? "A clear view of the pattern you just described." : "Une vue claire du motif que vous venez de décrire."}</span></div><JourneySummary lang={lang} answers={answers} /></section><ActionPlan lang={lang} items={actionPlan} /></div><section className={styles.recordPanel}><div className={styles.recordHeading}><div><p>{lang === "en" ? "Your private record" : "Votre registre privé"}</p><span>{lang === "en" ? "Keep it, copy it, or use it when you report what happened." : "Gardez-le, copiez-le ou utilisez-le pour signaler ce qui s’est passé."}</span></div><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button></div><Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} />{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}</section></div>}
             {scene.choices && <div className={`${styles.choices} ${scene.key === "emotion" ? styles.emotionChoices : ""}`}>{scene.choices.map(([id, en, fr]) => <button key={id} data-choice={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span></button>)}</div>}
             <div className={styles.own}>{!writingOpen ? <button type="button" onClick={() => setWritingOpen(true)}>＋ {t.own}</button> : <textarea autoFocus value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} rows={2} />}</div>
             {reflection && selected.length > 0 && <div className={styles.reflection}><i aria-hidden="true" />{reflection}</div>}
@@ -266,9 +266,21 @@ function ActionPlan({ lang, items }: { lang: Lang; items: ActionItem[] }) {
   return <section className={styles.actionPlan}><p>{t.actionPlan}</p><span>{t.actionLead}</span><ol>{items.map((item, index) => <li key={item.id}><i>{index + 1}</i><div><b>{item.title}</b>{item.detail && <span>{item.detail}</span>}</div></li>)}</ol></section>;
 }
 
-function JourneyPath({ lang, answers }: { lang: Lang; answers: Answers }) {
+function JourneySummary({ lang, answers }: { lang: Lang; answers: Answers }) {
+  const labels: Record<string, [string, string]> = {
+    arrival: ["How it started", "Comment ça a commencé"],
+    identity: ["Who they appeared to be", "Qui ils semblaient être"],
+    pressure: ["Pressure used", "Pression utilisée"],
+    emotion: ["What you felt", "Ce que vous avez ressenti"],
+    request: ["What they wanted", "Ce qu’ils voulaient"],
+    interruption: ["Your next move", "Votre prochain geste"],
+  };
   const keys = ["arrival", "identity", "pressure", "emotion", "request", "interruption"];
-  return <ol className={styles.path}>{keys.map((key, index) => { const item = scenes.find((x) => x.key === key)!; const labels = (answers[key] || []).map((id) => item.choices?.find((choice) => choice[0] === id)?.[lang === "en" ? 1 : 2]).filter(Boolean); return <li key={key}><i>{index + 1}</i><div><b>{tx(item.eyebrow, lang)}</b><span>{labels.join(" · ") || "—"}</span></div></li>; })}</ol>;
+  return <div className={styles.summaryGrid}>{keys.map((key, index) => {
+    const item = scenes.find((x) => x.key === key)!;
+    const values = (answers[key] || []).map((id) => item.choices?.find((choice) => choice[0] === id)?.[lang === "en" ? 1 : 2]).filter(Boolean);
+    return <article key={key} className={styles.summaryCard}><i>{index + 1}</i><div><b>{labels[key][lang === "en" ? 0 : 1]}</b><span>{values.join(" · ") || "—"}</span></div></article>;
+  })}</div>;
 }
 
 function EvidenceForm({ lang, evidence, setEvidence }: { lang: Lang; evidence: Evidence; setEvidence: (value: Evidence) => void }) {
