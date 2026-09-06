@@ -15,6 +15,7 @@ type UnsafeCapsule = DecisionCapsule & {
 };
 
 const mandate = (overrides: Record<string, unknown> = {}) => ({
+  currency: "CAD",
   max_autonomous_amount: 5_000,
   human_approval_amount: 2_500,
   approval_action_types: ["change_vendor_bank_account"],
