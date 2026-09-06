@@ -156,7 +156,8 @@ export async function authenticateIntegrityApiKey(
     throw new Error("integrity_auth_invalid");
   }
 
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
   const { data: credential, error: credentialError } = await supabase
     .from("integrity_client_credentials")
     .select("id,client_id,expires_at,revoked_at,last_used_at")
