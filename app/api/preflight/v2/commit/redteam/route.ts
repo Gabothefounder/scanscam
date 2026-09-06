@@ -41,6 +41,9 @@ export async function GET() {
 
   const suffix = crypto.randomUUID();
   const subjectId = `commit-redteam-${suffix}`;
+  const noBaselineSubject = `commit-redteam-new-${suffix}`;
+  const stalePrincipal = `commit-redteam-principal-${suffix}`;
+  const staleSubject = `commit-redteam-mandate-subject-${suffix}`;
   const results: Result[] = [];
   const authorizationIds: string[] = [];
 
@@ -72,40 +75,39 @@ export async function GET() {
       semantic_mode: "off",
     });
 
-    // 1. Exact authorized action succeeds and advances baseline.
+    // 1. Exact action commits once without rewriting an unchanged baseline.
     const auth1 = await authorize(baseRequest());
     authorizationIds.push(auth1.id);
-    const state2 = {
-      vendor: {
-        ...baselineState.vendor,
-        last_payment_amount: 100,
-        last_payment_status: "settled",
-      },
-    };
     const commit1 = await commitExecution({
       authorization_id: auth1.id,
       authorization_token: auth1.token,
       executed_action: baseRequest().proposed_action,
       outcome: "succeeded",
-      resulting_state: state2,
       external_execution_id: `rt-valid-${suffix}`,
     });
+    const { data: afterCommit1 } = await supabase
+      .from("integrity_baselines")
+      .select("version,state_hash")
+      .eq("principal_id", "demo-gabriel")
+      .eq("subject_id", subjectId)
+      .single();
     results.push({
       id: "exact-action-commit",
-      passed: commit1.ok === true && commit1.baseline_version_after === 2,
-      expected: "ok / baseline v2",
-      actual: JSON.stringify(commit1),
+      passed:
+        commit1.ok === true &&
+        commit1.replayed === false &&
+        commit1.baseline_version_after === 1 &&
+        Number(afterCommit1?.version) === 1,
+      expected: "ok / execution receipt / baseline remains v1",
+      actual: JSON.stringify({ commit1, baseline: afterCommit1 }),
     });
-    baselineState = state2;
 
-    // 2. Identical Commit retry is idempotent: same receipt, no second baseline transition.
+    // 2. Identical network retry returns the original receipt, with no second state transition.
     const replay = await commitExecution({
       authorization_id: auth1.id,
       authorization_token: auth1.token,
       executed_action: baseRequest().proposed_action,
       outcome: "succeeded",
-      resulting_state: baselineState,
-      external_execution_id: `rt-replay-${suffix}`,
     });
     const { data: afterReplay } = await supabase
       .from("integrity_baselines")
@@ -119,12 +121,12 @@ export async function GET() {
         replay.ok === true &&
         replay.replayed === true &&
         replay.execution_receipt_id === commit1.execution_receipt_id &&
-        Number(afterReplay?.version) === 2,
-      expected: "same execution receipt / baseline remains v2",
+        Number(afterReplay?.version) === 1,
+      expected: "same execution receipt / baseline remains v1",
       actual: JSON.stringify({ replay, baseline: afterReplay }),
     });
 
-    // 3. Tampering with the executed action is rejected.
+    // 3. Action tampering is rejected.
     const auth2 = await authorize(baseRequest());
     authorizationIds.push(auth2.id);
     const tampered = await commitExecution({
@@ -132,7 +134,6 @@ export async function GET() {
       authorization_token: auth2.token,
       executed_action: { ...baseRequest().proposed_action, amount: 101 },
       outcome: "succeeded",
-      resulting_state: baselineState,
     });
     results.push({
       id: "action-tamper-blocked",
@@ -141,13 +142,12 @@ export async function GET() {
       actual: JSON.stringify(tampered),
     });
 
-    // 4. A stolen ID without the one-time token is insufficient.
+    // 4. A receipt ID without its bearer token is insufficient.
     const badToken = await commitExecution({
       authorization_id: auth2.id,
       authorization_token: crypto.randomBytes(32).toString("base64url"),
       executed_action: baseRequest().proposed_action,
       outcome: "succeeded",
-      resulting_state: baselineState,
     });
     results.push({
       id: "invalid-token-blocked",
@@ -156,52 +156,125 @@ export async function GET() {
       actual: JSON.stringify(badToken),
     });
 
-    // 5. Failed tamper/token attempts do not consume a valid receipt.
-    const state3 = {
-      vendor: { ...baselineState.vendor, retry_after_integrity_check: true },
-    };
+    // 5. Rejected tamper/token attempts do not destroy the legitimate receipt.
     const recovered = await commitExecution({
       authorization_id: auth2.id,
       authorization_token: auth2.token,
       executed_action: baseRequest().proposed_action,
       outcome: "succeeded",
-      resulting_state: state3,
       external_execution_id: `rt-recovered-${suffix}`,
     });
     results.push({
       id: "valid-retry-after-rejected-attacks",
-      passed: recovered.ok === true && recovered.baseline_version_after === 3,
-      expected: "ok / baseline v3",
+      passed: recovered.ok === true && recovered.baseline_version_after === 1,
+      expected: "ok / baseline remains v1",
       actual: JSON.stringify(recovered),
     });
-    baselineState = state3;
 
-    // 6. Authorization becomes invalid if the authoritative baseline moves.
+    // 6. The agent cannot poison history with an arbitrary post-execution state.
     const auth3 = await authorize(baseRequest());
     authorizationIds.push(auth3.id);
+    const maliciousState = {
+      vendor: { ...baselineState.vendor, bank_account: "ATTACKER-ACCOUNT" },
+    };
+    const poisoned = await commitExecution({
+      authorization_id: auth3.id,
+      authorization_token: auth3.token,
+      executed_action: baseRequest().proposed_action,
+      outcome: "succeeded",
+      resulting_state: maliciousState,
+    });
+    results.push({
+      id: "arbitrary-resulting-state-blocked",
+      passed: poisoned.ok === false && poisoned.error === "resulting_state_not_authorized",
+      expected: "resulting_state_not_authorized",
+      actual: JSON.stringify(poisoned),
+    });
+
+    // 7. An exact benign state transition already evaluated at Preflight may advance the baseline.
+    const transitionState = {
+      vendor: { ...baselineState.vendor, display_label: "Verified Supplier" },
+    };
+    const transitionRequest: TrustedPreflightRequest = {
+      ...baseRequest(),
+      current_state: transitionState,
+    };
+    const transitionAuth = await authorize(transitionRequest);
+    authorizationIds.push(transitionAuth.id);
+    const transitionCommit = await commitExecution({
+      authorization_id: transitionAuth.id,
+      authorization_token: transitionAuth.token,
+      executed_action: transitionRequest.proposed_action,
+      outcome: "succeeded",
+      resulting_state: transitionState,
+      external_execution_id: `rt-transition-${suffix}`,
+    });
+    const { data: afterTransition } = await supabase
+      .from("integrity_baselines")
+      .select("version,state_hash")
+      .eq("principal_id", "demo-gabriel")
+      .eq("subject_id", subjectId)
+      .single();
+    results.push({
+      id: "preflight-bound-state-transition",
+      passed:
+        transitionCommit.ok === true &&
+        transitionCommit.baseline_version_after === 2 &&
+        Number(afterTransition?.version) === 2 &&
+        afterTransition?.state_hash === hashIntegrityValue(transitionState),
+      expected: "exact preflight state / baseline v2",
+      actual: JSON.stringify({ transitionCommit, baseline: afterTransition }),
+    });
+    baselineState = transitionState;
+
+    // 8. If Preflight approved a state transition, successful Commit cannot omit that state.
+    const transitionState2 = {
+      vendor: { ...baselineState.vendor, display_note: "routine-update" },
+    };
+    const transitionRequest2: TrustedPreflightRequest = {
+      ...baseRequest(),
+      current_state: transitionState2,
+    };
+    const missingStateAuth = await authorize(transitionRequest2);
+    authorizationIds.push(missingStateAuth.id);
+    const missingState = await commitExecution({
+      authorization_id: missingStateAuth.id,
+      authorization_token: missingStateAuth.token,
+      executed_action: transitionRequest2.proposed_action,
+      outcome: "succeeded",
+    });
+    results.push({
+      id: "required-authorized-state-missing",
+      passed: missingState.ok === false && missingState.error === "resulting_state_required",
+      expected: "resulting_state_required",
+      actual: JSON.stringify(missingState),
+    });
+
+    // 9. Receipt becomes invalid if authoritative history moved since authorization.
+    const staleAuth = await authorize(baseRequest());
+    authorizationIds.push(staleAuth.id);
     const concurrentState = {
       vendor: { ...baselineState.vendor, concurrent_change: "another authorized execution" },
     };
     const { error: concurrentError } = await supabase
       .from("integrity_baselines")
       .update({
-        version: 4,
+        version: 3,
         state: concurrentState,
         state_hash: hashIntegrityValue(concurrentState),
         updated_at: new Date().toISOString(),
       })
       .eq("principal_id", "demo-gabriel")
       .eq("subject_id", subjectId)
-      .eq("version", 3);
+      .eq("version", 2);
     if (concurrentError) throw new Error("redteam_concurrent_update_failed");
     baselineState = concurrentState;
 
     const stale = await commitExecution({
-      authorization_id: auth3.id,
-      authorization_token: auth3.token,
+      authorization_id: staleAuth.id,
+      authorization_token: staleAuth.token,
       executed_action: baseRequest().proposed_action,
       outcome: "succeeded",
-      resulting_state: baselineState,
     });
     results.push({
       id: "stale-baseline-blocked",
@@ -210,7 +283,7 @@ export async function GET() {
       actual: JSON.stringify(stale),
     });
 
-    // 7. Expired authorization cannot execute.
+    // 10. Expired authorization cannot execute.
     const expiredAuth = await authorize(baseRequest(), { ttlSeconds: -1 });
     authorizationIds.push(expiredAuth.id);
     const expired = await commitExecution({
@@ -218,7 +291,6 @@ export async function GET() {
       authorization_token: expiredAuth.token,
       executed_action: baseRequest().proposed_action,
       outcome: "succeeded",
-      resulting_state: baselineState,
     });
     results.push({
       id: "expired-authorization-blocked",
@@ -227,23 +299,7 @@ export async function GET() {
       actual: JSON.stringify(expired),
     });
 
-    // 8. A successful subject-bound execution must report resulting state.
-    const missingStateAuth = await authorize(baseRequest());
-    authorizationIds.push(missingStateAuth.id);
-    const missingState = await commitExecution({
-      authorization_id: missingStateAuth.id,
-      authorization_token: missingStateAuth.token,
-      executed_action: baseRequest().proposed_action,
-      outcome: "succeeded",
-    });
-    results.push({
-      id: "missing-resulting-state-blocked",
-      passed: missingState.ok === false && missingState.error === "resulting_state_required",
-      expected: "resulting_state_required",
-      actual: JSON.stringify(missingState),
-    });
-
-    // 9. Failed execution consumes the receipt but does not advance baseline.
+    // 11. Failed execution consumes the receipt and does not move history.
     const failedAuth = await authorize(baseRequest());
     authorizationIds.push(failedAuth.id);
     const failedCommit = await commitExecution({
@@ -259,20 +315,17 @@ export async function GET() {
       .eq("principal_id", "demo-gabriel")
       .eq("subject_id", subjectId)
       .single();
-
     results.push({
-      id: "failed-execution-consumes-without-state-advance",
+      id: "failed-execution-no-state-advance",
       passed:
         failedCommit.ok === true &&
-        failedCommit.baseline_version_after === null &&
-        Number(afterFailure?.version) === 4,
-      expected: "consumed / baseline remains v4",
+        failedCommit.baseline_version_after === 3 &&
+        Number(afterFailure?.version) === 3,
+      expected: "consumed / baseline remains v3",
       actual: JSON.stringify({ failedCommit, baseline: afterFailure }),
     });
 
-    // 10. A policy revision after authorization invalidates the old authorization.
-    const stalePrincipal = `commit-redteam-principal-${suffix}`;
-    const staleSubject = `commit-redteam-mandate-subject-${suffix}`;
+    // 12. A policy revision after authorization invalidates the old receipt.
     const staleMandate = {
       currency: "CAD",
       max_autonomous_amount: 5000,
@@ -308,11 +361,8 @@ export async function GET() {
     };
     const mandateAuth = await authorize(staleMandateRequest);
     authorizationIds.push(mandateAuth.id);
-    await supabase
-      .from("integrity_mandates")
-      .update({ active: false })
-      .eq("principal_id", stalePrincipal)
-      .eq("version", 1);
+    await supabase.from("integrity_mandates").update({ active: false })
+      .eq("principal_id", stalePrincipal).eq("version", 1);
     await supabase.from("integrity_mandates").insert({
       principal_id: stalePrincipal,
       version: 2,
@@ -325,7 +375,6 @@ export async function GET() {
       authorization_token: mandateAuth.token,
       executed_action: staleMandateRequest.proposed_action,
       outcome: "succeeded",
-      resulting_state: staleMandateState,
     });
     results.push({
       id: "stale-mandate-blocked",
@@ -336,11 +385,43 @@ export async function GET() {
       actual: JSON.stringify(staleMandateCommit),
     });
 
-    await supabase.from("integrity_baselines").delete()
-      .eq("principal_id", stalePrincipal)
-      .eq("subject_id", staleSubject);
-    await supabase.from("integrity_mandates").delete()
-      .eq("principal_id", stalePrincipal);
+    // 13. Commit cannot bootstrap a brand-new trusted baseline from caller-supplied state.
+    const newSubjectRequest: TrustedPreflightRequest = {
+      principal_id: "demo-gabriel",
+      subject_id: noBaselineSubject,
+      proposed_action: {
+        type: "send_payment",
+        amount: 25,
+        currency: "CAD",
+        counterparty_id: noBaselineSubject,
+      },
+      trace_excerpt: "Pay a small first-time 25 CAD invoice.",
+      semantic_mode: "off",
+    };
+    const noBaselineAuth = await authorize(newSubjectRequest);
+    authorizationIds.push(noBaselineAuth.id);
+    const bootstrapAttempt = await commitExecution({
+      authorization_id: noBaselineAuth.id,
+      authorization_token: noBaselineAuth.token,
+      executed_action: newSubjectRequest.proposed_action,
+      outcome: "succeeded",
+      resulting_state: { vendor: { bank_account: "CALLER-CONTROLLED" } },
+    });
+    const { data: bootstrappedBaseline } = await supabase
+      .from("integrity_baselines")
+      .select("version")
+      .eq("principal_id", "demo-gabriel")
+      .eq("subject_id", noBaselineSubject)
+      .maybeSingle();
+    results.push({
+      id: "caller-cannot-bootstrap-baseline",
+      passed:
+        bootstrapAttempt.ok === false &&
+        bootstrapAttempt.error === "resulting_state_not_authorized" &&
+        !bootstrappedBaseline,
+      expected: "state rejected / no baseline created",
+      actual: JSON.stringify({ bootstrapAttempt, baseline: bootstrappedBaseline }),
+    });
   } catch (error) {
     results.push({
       id: "suite-runtime",
@@ -350,20 +431,20 @@ export async function GET() {
     });
   } finally {
     if (authorizationIds.length) {
-      await supabase
-        .from("integrity_execution_receipts")
-        .delete()
-        .in("authorization_id", authorizationIds);
-      await supabase
-        .from("integrity_authorizations")
-        .delete()
-        .in("id", authorizationIds);
+      await supabase.from("integrity_execution_receipts").delete().in("authorization_id", authorizationIds);
+      await supabase.from("integrity_authorizations").delete().in("id", authorizationIds);
     }
-    await supabase
-      .from("integrity_baselines")
-      .delete()
+
+    await supabase.from("integrity_baselines").delete()
       .eq("principal_id", "demo-gabriel")
-      .eq("subject_id", subjectId);
+      .in("subject_id", [subjectId, noBaselineSubject]);
+
+    await supabase.from("integrity_baselines").delete()
+      .eq("principal_id", stalePrincipal)
+      .eq("subject_id", staleSubject);
+
+    await supabase.from("integrity_mandates").delete()
+      .eq("principal_id", stalePrincipal);
   }
 
   const passed = results.filter((result) => result.passed).length;
