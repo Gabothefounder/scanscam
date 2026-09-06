@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Primitive, ProposedAction } from "./preflight";
 import type { TrustedPreflightRequest, TrustedPreflightResult } from "./trusted";
+import type { IntegrityClientIdentity } from "./auth";
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -39,6 +40,7 @@ export type AuthorizationReceipt = {
 export async function issueAuthorizationReceipt(
   request: TrustedPreflightRequest,
   result: TrustedPreflightResult,
+  client: IntegrityClientIdentity,
   options?: { ttlSeconds?: number }
 ): Promise<AuthorizationReceipt> {
   if (result.decision !== "ALLOW") throw new Error("authorization_requires_allow");
@@ -62,6 +64,7 @@ export async function issueAuthorizationReceipt(
     .from("integrity_authorizations")
     .insert({
       principal_id: request.principal_id,
+      client_id: client.client_id,
       subject_id: subjectId,
       action: request.proposed_action,
       action_hash: actionHash,
@@ -135,7 +138,8 @@ export function isExecutionCommitRequest(value: unknown): value is ExecutionComm
 }
 
 export async function commitExecution(
-  request: ExecutionCommitRequest
+  request: ExecutionCommitRequest,
+  client: IntegrityClientIdentity
 ): Promise<ExecutionCommitResult> {
   const actionHash = hashIntegrityValue(request.executed_action);
   const stateHash = request.resulting_state ? hashIntegrityValue(request.resulting_state) : null;
@@ -145,6 +149,7 @@ export async function commitExecution(
 
   const { data, error } = await supabase.rpc("commit_integrity_execution", {
     p_authorization_id: request.authorization_id,
+    p_client_id: client.client_id,
     p_token_hash: tokenHash(request.authorization_token),
     p_action_hash: actionHash,
     p_outcome: request.outcome,
