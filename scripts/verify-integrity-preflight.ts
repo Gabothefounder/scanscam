@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { preflight, type DecisionCapsule } from "../lib/integrity/preflight.ts";
+import { preflight, type DecisionCapsule } from "../lib/integrity/preflight";
 
 const safeRecurringPayment: DecisionCapsule = {
   proposed_action: { type: "send_payment", amount: 120, currency: "CAD", counterparty_id: "vendor-acme" },
