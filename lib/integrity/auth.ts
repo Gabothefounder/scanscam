@@ -128,7 +128,8 @@ export async function revokeIntegrityClientCredential(
 }
 
 export async function revokeIntegrityClient(clientId: string): Promise<void> {
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
 
   const { error: clientError } = await supabase
     .from("integrity_clients")
@@ -158,13 +159,17 @@ export async function authenticateIntegrityApiKey(
   const now = new Date().toISOString();
   const { data: credential, error: credentialError } = await supabase
     .from("integrity_client_credentials")
-    .select("id,client_id,expires_at,revoked_at")
+    .select("id,client_id,expires_at,revoked_at,last_used_at")
     .eq("key_hash", keyHash(apiKey))
     .maybeSingle();
 
   if (credentialError) throw new Error("integrity_auth_lookup_failed");
   if (!credential || credential.revoked_at) throw new Error("integrity_auth_invalid");
-  if (credential.expires_at && String(credential.expires_at) <= now) {
+  if (
+    credential.expires_at &&
+    Number.isFinite(Date.parse(String(credential.expires_at))) &&
+    Date.parse(String(credential.expires_at)) <= nowDate.getTime()
+  ) {
     throw new Error("integrity_auth_expired");
   }
 
@@ -182,10 +187,13 @@ export async function authenticateIntegrityApiKey(
   const scopes = (client.scopes ?? []) as IntegrityScope[];
   if (!scopes.includes(requiredScope)) throw new Error("integrity_scope_denied");
 
-  await supabase
-    .from("integrity_client_credentials")
-    .update({ last_used_at: now })
-    .eq("id", credential.id);
+  const lastUsedAt = credential.last_used_at ? Date.parse(String(credential.last_used_at)) : NaN;
+  if (!Number.isFinite(lastUsedAt) || nowDate.getTime() - lastUsedAt > 15 * 60_000) {
+    await supabase
+      .from("integrity_client_credentials")
+      .update({ last_used_at: now })
+      .eq("id", credential.id);
+  }
 
   return {
     client_id: String(client.id),
