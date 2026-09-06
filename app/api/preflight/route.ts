@@ -3,6 +3,9 @@ import { isDecisionCapsule, preflight } from "@/lib/integrity/preflight";
 export const runtime = "nodejs";
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
   return Response.json({
     service: "ScanScam Integrity Preflight",
     version: "0.1",
@@ -24,6 +27,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
   let body: unknown;
   try {
     body = await request.json();
