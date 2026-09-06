@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import {
   assertIntegrityClientOwnedByPrincipal,
@@ -283,9 +284,6 @@ export async function GET() {
       garbageError
     );
 
-    const { data: credentialColumns } = await supabase.rpc("get_table_columns_for_integrity_redteam", {});
-    // The helper may not exist; fall back to information_schema through server DB client is unavailable via PostgREST.
-    // The security property is enforced structurally by only persisting key_hash/key_prefix in application writes.
     push(
       results,
       "raw-key-never-returned-from-authentication",
