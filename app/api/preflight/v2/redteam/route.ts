@@ -14,6 +14,49 @@ type Case = {
 
 const cases: Case[] = [
   {
+    id: "safe-known-payment-with-trace",
+    expectation: "ALLOW",
+    request: {
+      principal_id: "demo-gabriel",
+      subject_id: "known-payee",
+      proposed_action: {
+        type: "send_payment",
+        amount: 300,
+        currency: "CAD",
+        counterparty_id: "known-payee",
+      },
+      current_state: { vendor: { bank_account: "RBC-1111", typical_amount: 2400 } },
+      trace_excerpt: "Pay the routine invoice to the established supplier account.",
+      semantic_mode: "off",
+    },
+  },
+  {
+    id: "invalid-attestation-fails-closed",
+    expectation: "INTERVENE",
+    request: {
+      principal_id: "demo-gabriel",
+      proposed_action: { type: "draft_report" },
+      attestation_ids: ["00000000-0000-0000-0000-000000000001"],
+      semantic_mode: "off",
+    },
+  },
+  {
+    id: "missing-current-state-fails-closed",
+    expectation: "INTERVENE",
+    request: {
+      principal_id: "demo-gabriel",
+      subject_id: "known-payee",
+      proposed_action: {
+        type: "send_payment",
+        amount: 300,
+        currency: "CAD",
+        counterparty_id: "known-payee",
+      },
+      trace_excerpt: "Pay the routine invoice to the established supplier account.",
+      semantic_mode: "off",
+    },
+  },
+  {
     id: "server-mandate-defeats-spoof",
     expectation: "INTERVENE",
     request: {
