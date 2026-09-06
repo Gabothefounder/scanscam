@@ -194,6 +194,10 @@ const cases: Case[] = [
 ];
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "not_found" }, { status: 404 });
+  }
+
   const results = [];
 
   for (const test of cases) {
