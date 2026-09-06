@@ -250,6 +250,20 @@ function semanticSignals(semantic: IntegritySemanticResult | null): PreflightSig
   return signals;
 }
 
+export type UnboundTrustedPreflightRequest = Omit<TrustedPreflightRequest, "principal_id"> & {
+  principal_id?: string;
+};
+
+export function isUnboundTrustedPreflightRequest(value: unknown): value is UnboundTrustedPreflightRequest {
+  if (!value || typeof value !== "object") return false;
+  const body = value as Partial<UnboundTrustedPreflightRequest>;
+  return (
+    !!body.proposed_action &&
+    typeof body.proposed_action.type === "string" &&
+    body.proposed_action.type.trim().length > 0
+  );
+}
+
 export function isTrustedPreflightRequest(value: unknown): value is TrustedPreflightRequest {
   if (!value || typeof value !== "object") return false;
   const body = value as Partial<TrustedPreflightRequest>;
@@ -274,6 +288,7 @@ export async function trustedPreflight(
   ]);
 
   const ignoredClientAuthority: string[] = [];
+  if (rawBody && "principal_id" in rawBody) ignoredClientAuthority.push("principal_id");
   if (rawBody && "principal" in rawBody) ignoredClientAuthority.push("principal");
   if (rawBody && "previous_state" in rawBody) ignoredClientAuthority.push("previous_state");
   if (rawBody && "verified_evidence" in rawBody) ignoredClientAuthority.push("verified_evidence");
