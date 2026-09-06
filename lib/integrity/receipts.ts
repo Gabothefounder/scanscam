@@ -111,6 +111,7 @@ export type ExecutionCommitRequest = {
 
 export type ExecutionCommitResult = {
   ok: boolean;
+  replayed?: boolean;
   error?: string;
   authorization_id?: string;
   execution_receipt_id?: string;
