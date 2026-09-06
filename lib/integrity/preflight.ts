@@ -256,6 +256,11 @@ function evaluateRule(rule: MandateRule, action: ProposedAction, capsule: Decisi
     current_state: (capsule.current_state ?? {}) as unknown as Primitive,
   };
   const actual = getPath(root, rule.field);
+
+  // Missing data must not satisfy negative predicates. Otherwise a rule such as
+  // "supplier_country not in [CA]" would match every unrelated action.
+  if (rule.operator !== "exists" && (actual === undefined || actual === null)) return false;
+
   switch (rule.operator) {
     case "eq": return valuesEqual(actual, rule.value);
     case "neq": return !valuesEqual(actual, rule.value);
