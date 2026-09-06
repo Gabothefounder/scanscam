@@ -1,7 +1,7 @@
 import {
+  bindAuthenticatedPrincipal,
   isUnboundTrustedPreflightRequest,
   trustedPreflight,
-  type TrustedPreflightRequest,
 } from "@/lib/integrity/trusted";
 import { issueAuthorizationReceipt } from "@/lib/integrity/receipts";
 import {
@@ -63,10 +63,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const trustedRequest: TrustedPreflightRequest = {
-    ...body,
-    principal_id: identity.principal_id,
-  };
+  const trustedRequest = bindAuthenticatedPrincipal(body, identity);
 
   try {
     const result = await trustedPreflight(trustedRequest, body as Record<string, unknown>);
