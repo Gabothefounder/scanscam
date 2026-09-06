@@ -5,9 +5,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
   return Response.json({
     service: "ScanScam Integrity Trusted Preflight",
-    version: "0.2",
+    version: "0.3",
     trust_model: {
       caller_supplies: ["principal_id", "subject_id", "goal", "proposed_action", "current_state", "trace_excerpt", "attestation_ids"],
       server_resolves: ["active principal mandate", "historical baseline", "attestation validity"],
@@ -25,6 +28,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
