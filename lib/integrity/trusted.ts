@@ -307,7 +307,9 @@ export async function trustedPreflight(
     },
     goal: request.goal,
     proposed_action: request.proposed_action,
-    previous_state: baseline?.state,
+    // Compare against the trusted baseline only when the caller actually reports
+    // a current observation. Absence of current state is not a state deletion.
+    previous_state: request.current_state ? baseline?.state : undefined,
     current_state: request.current_state,
     claims,
     context: {
@@ -334,6 +336,19 @@ export async function trustedPreflight(
       code: "ATTESTATION_INVALID_OR_UNRESOLVED",
       severity: "high",
       message: "One or more requested attestations were missing, expired, revoked, or scoped to another principal.",
+    });
+  }
+
+  if (
+    shouldRequireTrace(request.proposed_action) &&
+    subjectId &&
+    baseline &&
+    !request.current_state
+  ) {
+    trustSignals.push({
+      code: "CURRENT_STATE_MISSING",
+      severity: "high",
+      message: "A consequential action with historical state requires a current observation before comparison.",
     });
   }
 
