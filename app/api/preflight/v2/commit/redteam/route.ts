@@ -98,7 +98,7 @@ export async function GET() {
     });
     baselineState = state2;
 
-    // 2. Same bearer receipt cannot be replayed.
+    // 2. Identical Commit retry is idempotent: same receipt, no second baseline transition.
     const replay = await commitExecution({
       authorization_id: auth1.id,
       authorization_token: auth1.token,
@@ -107,11 +107,21 @@ export async function GET() {
       resulting_state: baselineState,
       external_execution_id: `rt-replay-${suffix}`,
     });
+    const { data: afterReplay } = await supabase
+      .from("integrity_baselines")
+      .select("version")
+      .eq("principal_id", "demo-gabriel")
+      .eq("subject_id", subjectId)
+      .single();
     results.push({
-      id: "replay-blocked",
-      passed: replay.ok === false && replay.error === "authorization_already_used",
-      expected: "authorization_already_used",
-      actual: JSON.stringify(replay),
+      id: "idempotent-commit-retry",
+      passed:
+        replay.ok === true &&
+        replay.replayed === true &&
+        replay.execution_receipt_id === commit1.execution_receipt_id &&
+        Number(afterReplay?.version) === 2,
+      expected: "same execution receipt / baseline remains v2",
+      actual: JSON.stringify({ replay, baseline: afterReplay }),
     });
 
     // 3. Tampering with the executed action is rejected.
@@ -259,6 +269,78 @@ export async function GET() {
       expected: "consumed / baseline remains v4",
       actual: JSON.stringify({ failedCommit, baseline: afterFailure }),
     });
+
+    // 10. A policy revision after authorization invalidates the old authorization.
+    const stalePrincipal = `commit-redteam-principal-${suffix}`;
+    const staleSubject = `commit-redteam-mandate-subject-${suffix}`;
+    const staleMandate = {
+      currency: "CAD",
+      max_autonomous_amount: 5000,
+      human_approval_amount: 2500,
+    };
+    await supabase.from("integrity_mandates").insert({
+      principal_id: stalePrincipal,
+      version: 1,
+      mandate: staleMandate,
+      mandate_hash: `${stalePrincipal}:v1`,
+      active: true,
+    });
+    const staleMandateState = { vendor: { bank_account: "RBC-MANDATE", typical_amount: 100 } };
+    await supabase.from("integrity_baselines").insert({
+      principal_id: stalePrincipal,
+      subject_id: staleSubject,
+      version: 1,
+      state: staleMandateState,
+      state_hash: hashIntegrityValue(staleMandateState),
+    });
+    const staleMandateRequest: TrustedPreflightRequest = {
+      principal_id: stalePrincipal,
+      subject_id: staleSubject,
+      proposed_action: {
+        type: "send_payment",
+        amount: 100,
+        currency: "CAD",
+        counterparty_id: staleSubject,
+      },
+      current_state: staleMandateState,
+      trace_excerpt: "Pay the routine invoice to the established account.",
+      semantic_mode: "off",
+    };
+    const mandateAuth = await authorize(staleMandateRequest);
+    authorizationIds.push(mandateAuth.id);
+    await supabase
+      .from("integrity_mandates")
+      .update({ active: false })
+      .eq("principal_id", stalePrincipal)
+      .eq("version", 1);
+    await supabase.from("integrity_mandates").insert({
+      principal_id: stalePrincipal,
+      version: 2,
+      mandate: staleMandate,
+      mandate_hash: `${stalePrincipal}:v2`,
+      active: true,
+    });
+    const staleMandateCommit = await commitExecution({
+      authorization_id: mandateAuth.id,
+      authorization_token: mandateAuth.token,
+      executed_action: staleMandateRequest.proposed_action,
+      outcome: "succeeded",
+      resulting_state: staleMandateState,
+    });
+    results.push({
+      id: "stale-mandate-blocked",
+      passed:
+        staleMandateCommit.ok === false &&
+        staleMandateCommit.error === "authorization_stale_mandate",
+      expected: "authorization_stale_mandate",
+      actual: JSON.stringify(staleMandateCommit),
+    });
+
+    await supabase.from("integrity_baselines").delete()
+      .eq("principal_id", stalePrincipal)
+      .eq("subject_id", staleSubject);
+    await supabase.from("integrity_mandates").delete()
+      .eq("principal_id", stalePrincipal);
   } catch (error) {
     results.push({
       id: "suite-runtime",
