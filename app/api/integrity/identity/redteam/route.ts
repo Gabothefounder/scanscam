@@ -17,6 +17,7 @@ import {
 } from "@/lib/integrity/trusted";
 import {
   commitExecution,
+  hashIntegrityValue,
   issueAuthorizationReceipt,
 } from "@/lib/integrity/receipts";
 
@@ -68,6 +69,8 @@ export async function GET() {
   }
 
   const suffix = crypto.randomUUID();
+  const subjectId = `identity-redteam-subject-${suffix}`;
+  const subjectState = { vendor: { bank_account: "RBC-IDENTITY", typical_amount: 300 } };
   const results: Result[] = [];
   const clientIds: string[] = [];
   const authorizationIds: string[] = [];
@@ -91,16 +94,24 @@ export async function GET() {
       identityA
     );
 
+    await supabase.from("integrity_baselines").insert({
+      principal_id: "demo-gabriel",
+      subject_id: subjectId,
+      version: 1,
+      state: subjectState,
+      state_hash: hashIntegrityValue(subjectState),
+    });
+
     const spoofedBody: UnboundTrustedPreflightRequest = {
       principal_id: "attacker-selected-principal",
-      subject_id: "known-payee",
+      subject_id: subjectId,
       proposed_action: {
         type: "send_payment",
         amount: 300,
         currency: "CAD",
-        counterparty_id: "known-payee",
+        counterparty_id: subjectId,
       },
-      current_state: { vendor: { bank_account: "RBC-1111", typical_amount: 2400 } },
+      current_state: subjectState,
       trace_excerpt: "Pay the routine invoice to the established supplier account.",
       semantic_mode: "off",
     };
@@ -303,6 +314,10 @@ export async function GET() {
       await supabase.from("integrity_execution_receipts").delete().in("authorization_id", authorizationIds);
       await supabase.from("integrity_authorizations").delete().in("id", authorizationIds);
     }
+    await supabase.from("integrity_baselines").delete()
+      .eq("principal_id", "demo-gabriel")
+      .eq("subject_id", subjectId);
+
     if (clientIds.length) {
       await supabase.from("integrity_clients").delete().in("id", clientIds);
     }
