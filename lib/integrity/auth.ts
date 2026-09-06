@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-export type IntegrityScope = "preflight:write" | "commit:write";
+export type IntegrityScope = "preflight:write" | "commit:write" | "clients:manage";
 
 export type IntegrityClientIdentity = {
   client_id: string;
@@ -212,4 +212,47 @@ export function integrityAuthHttpStatus(error: string): number {
   }
   if (error === "integrity_client_inactive") return 401;
   return 500;
+}
+
+
+export async function assertIntegrityClientOwnedByPrincipal(
+  clientId: string,
+  principalId: string
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("integrity_clients")
+    .select("id")
+    .eq("id", clientId)
+    .eq("principal_id", principalId)
+    .maybeSingle();
+
+  if (error) throw new Error("integrity_client_lookup_failed");
+  if (!data) throw new Error("integrity_client_not_found");
+}
+
+export async function listIntegrityClientsForPrincipal(
+  principalId: string
+): Promise<Array<{
+  client_id: string;
+  name: string;
+  scopes: IntegrityScope[];
+  status: string;
+  created_at: string;
+  revoked_at: string | null;
+}>> {
+  const { data, error } = await supabase
+    .from("integrity_clients")
+    .select("id,name,scopes,status,created_at,revoked_at")
+    .eq("principal_id", principalId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error("integrity_client_lookup_failed");
+  return (data ?? []).map((row) => ({
+    client_id: String(row.id),
+    name: String(row.name),
+    scopes: (row.scopes ?? []) as IntegrityScope[],
+    status: String(row.status),
+    created_at: String(row.created_at),
+    revoked_at: row.revoked_at ? String(row.revoked_at) : null,
+  }));
 }
