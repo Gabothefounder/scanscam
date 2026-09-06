@@ -18,7 +18,7 @@ export async function GET() {
   }
   return Response.json({
     service: "ScanScam Integrity Trusted Preflight",
-    version: "0.3",
+    version: "0.4",
     trust_model: {
       caller_supplies: ["subject_id", "goal", "proposed_action", "current_state", "trace_excerpt", "attestation_ids"],
       server_resolves: ["active principal mandate", "historical baseline", "attestation validity"],
