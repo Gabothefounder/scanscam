@@ -112,7 +112,7 @@ const cases: RedTeamCase[] = [
     expectation: "ALLOW",
     why: "Soft preferences should create a score/notice, not silently become a hard gate.",
     capsule: {
-      proposed_action: { type: "place_order", amount: 100, metadata: { supplier_country: "US" } },
+      proposed_action: { type: "place_order", amount: 100, counterparty_id: "supplier-us", metadata: { supplier_country: "US" } },
       principal: { mandate: { ...mandate(), rules: [{ id: "prefer-ca", field: "action.metadata.supplier_country", operator: "eq", value: "US", effect: "avoid" }] } },
     },
   },
