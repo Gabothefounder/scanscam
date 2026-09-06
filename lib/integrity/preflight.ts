@@ -34,6 +34,7 @@ export type MandateRule = {
 };
 
 export type PrincipalMandate = {
+  currency?: string;
   max_autonomous_amount?: number;
   human_approval_amount?: number;
   blocked_action_types?: string[];
@@ -102,11 +103,35 @@ const SENSITIVE_KEYWORDS = [
   "term", "refund", "shipping", "address", "counterparty",
 ];
 
+const HIGH_IMPACT_CHANGE_KEYWORDS = [
+  "bank", "beneficiary", "payment_destination", "payout", "destination", "wallet",
+  "routing", "domain", "email", "permission", "scope", "role", "access", "contract",
+];
+
+const NUMERIC_VARIATION_KEYWORDS = ["price", "amount", "fee"];
+
 const COMMITMENT_ACTIONS = new Set([
   "send_payment", "transfer_funds", "change_payment_destination",
   "change_vendor_bank_account", "accept_fee", "accept_terms", "sign_contract",
   "promise_refund", "offer_discount", "grant_access", "publish", "place_order",
   "book", "cancel", "settle_claim",
+]);
+
+const EXPLICIT_SCOPE_COMMITMENTS = new Set([
+  "change_payment_destination", "change_vendor_bank_account", "accept_fee",
+  "accept_terms", "sign_contract", "promise_refund", "offer_discount",
+  "grant_access", "settle_claim",
+]);
+
+const FINANCIAL_ACTIONS = new Set([
+  "send_payment", "transfer_funds", "change_payment_destination",
+  "change_vendor_bank_account", "accept_fee", "place_order", "book",
+  "promise_refund", "offer_discount", "settle_claim",
+]);
+
+const AMOUNT_REQUIRED_ACTIONS = new Set([
+  "send_payment", "transfer_funds", "accept_fee", "place_order",
+  "promise_refund", "offer_discount", "settle_claim",
 ]);
 
 function clamp(value: number, min = 0, max = 1): number {
@@ -142,6 +167,47 @@ function flatten(
 function pathLooksSensitive(path: string): boolean {
   const lower = path.toLowerCase();
   return SENSITIVE_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
+
+function numericChangeSeverity(
+  path: string,
+  before: Primitive | undefined,
+  after: Primitive | undefined
+): Severity | null {
+  const lower = path.toLowerCase();
+  if (!NUMERIC_VARIATION_KEYWORDS.some((keyword) => lower.includes(keyword))) return null;
+  if (typeof before !== "number" || typeof after !== "number") return "medium";
+  if (!Number.isFinite(before) || !Number.isFinite(after)) return "high";
+  if (lower.includes("fee") && before === 0 && after > 0) return "high";
+  const denominator = Math.max(Math.abs(before), 1);
+  const ratio = Math.abs(after - before) / denominator;
+  if (ratio <= 0.1) return "low";
+  if (ratio <= 0.2) return "medium";
+  return "high";
+}
+
+function changeSeverity(
+  path: string,
+  before: Primitive | undefined,
+  after: Primitive | undefined
+): Severity {
+  const numeric = numericChangeSeverity(path, before, after);
+  if (numeric) return numeric;
+  const lower = path.toLowerCase();
+  if (HIGH_IMPACT_CHANGE_KEYWORDS.some((keyword) => lower.includes(keyword))) return "high";
+  return pathLooksSensitive(path) ? "medium" : "low";
+}
+
+function isFinancialAction(action: ProposedAction): boolean {
+  return FINANCIAL_ACTIONS.has(action.type) || typeof action.destination === "string";
+}
+
+function actionAmount(action: ProposedAction): number | null {
+  return typeof action.amount === "number" && Number.isFinite(action.amount) ? action.amount : null;
+}
+
+function claimRequiresFreshEvidence(text: string): boolean {
+  return /\b(current|currently|remains|still|now|today|bank|authorized|active|valid|ownership|acquired)\b/i.test(text);
 }
 
 function severityWeight(severity: Severity): number {
@@ -212,20 +278,30 @@ export function runChangeGuard(capsule: DecisionCapsule): CheckResult {
 
   for (const path of paths) {
     if (valuesEqual(before[path], after[path])) continue;
-    const sensitive = pathLooksSensitive(path);
+    const severity = changeSeverity(path, before[path], after[path]);
     signals.push({
-      code: sensitive ? "SENSITIVE_STATE_CHANGE" : "STATE_CHANGE",
-      severity: sensitive ? "high" : "low",
+      code: severity === "high" ? "SENSITIVE_STATE_CHANGE" : "STATE_CHANGE",
+      severity,
       path,
-      message: sensitive ? `Material state changed at ${path}.` : `State changed at ${path}.`,
+      message: severity === "high" ? `Material state changed at ${path}.` : `State changed at ${path}.`,
     });
   }
 
   if (!capsule.previous_state && capsule.proposed_action.counterparty_id) {
+    const amount = actionAmount(capsule.proposed_action);
+    const approval = capsule.principal?.mandate?.human_approval_amount;
+    const stakeThreshold =
+      typeof approval === "number" && approval > 0 ? Math.min(500, approval * 0.2) : 500;
+    const severity: Severity =
+      isFinancialAction(capsule.proposed_action) && amount !== null && amount >= stakeThreshold
+        ? "high"
+        : "medium";
     signals.push({
       code: "NO_PRIOR_STATE",
-      severity: "medium",
-      message: "No prior state was provided for a consequential counterparty action.",
+      severity,
+      message: severity === "high"
+        ? "No trusted prior state exists for a material first-time counterparty action."
+        : "No prior state was provided for this counterparty action.",
     });
   }
   return buildCheck(signals);
@@ -243,6 +319,50 @@ export function runMandateCheck(capsule: DecisionCapsule): CheckResult {
       message: "No principal mandate was supplied; only generic integrity checks can run.",
     });
     return buildCheck(signals);
+  }
+
+  const rawAmount = (action as unknown as { amount?: unknown }).amount;
+  if (rawAmount !== undefined && (typeof rawAmount !== "number" || !Number.isFinite(rawAmount) || rawAmount < 0)) {
+    signals.push({
+      code: "INVALID_AMOUNT",
+      severity: "high",
+      message: "Financial amount must be a finite non-negative number.",
+    });
+  }
+
+  if (AMOUNT_REQUIRED_ACTIONS.has(action.type) && rawAmount === undefined) {
+    signals.push({
+      code: "FINANCIAL_AMOUNT_MISSING",
+      severity: "high",
+      message: `Action type ${action.type} requires an amount before it can be evaluated safely.`,
+    });
+  }
+
+  if (
+    mandate.currency &&
+    action.currency &&
+    mandate.currency.toUpperCase() !== action.currency.toUpperCase() &&
+    typeof rawAmount === "number"
+  ) {
+    signals.push({
+      code: "CURRENCY_CONVERSION_REQUIRED",
+      severity: "high",
+      message: `Mandate limits are denominated in ${mandate.currency}; action is denominated in ${action.currency}.`,
+    });
+  }
+
+  const aggregate = capsule.context?.aggregate_amount_last_hour;
+  if (
+    typeof aggregate === "number" &&
+    Number.isFinite(aggregate) &&
+    typeof mandate.human_approval_amount === "number" &&
+    aggregate >= mandate.human_approval_amount
+  ) {
+    signals.push({
+      code: "AGGREGATE_SPEND_THRESHOLD",
+      severity: "high",
+      message: "Recent aggregate spend meets or exceeds the principal's approval threshold.",
+    });
   }
 
   if (mandate.blocked_action_types?.includes(action.type)) {
@@ -322,11 +442,49 @@ export function runCommitmentGuard(capsule: DecisionCapsule): CheckResult {
       severity: "high",
       message: "A commitment is proposed without an explicit principal mandate.",
     });
-  } else if (!blocked && !explicitlyApproved && action.creates_commitment === true) {
+  } else if (
+    !blocked &&
+    !explicitlyApproved &&
+    (action.creates_commitment === true || EXPLICIT_SCOPE_COMMITMENTS.has(action.type))
+  ) {
     signals.push({
       code: "COMMITMENT_SCOPE_UNCLEAR",
       severity: "high",
-      message: "The action creates a commitment but the mandate does not explicitly describe approval scope.",
+      message: "The action can bind the principal but the mandate does not explicitly describe approval scope.",
+    });
+  }
+
+  const legalEffect = action.metadata?.legal_effect;
+  if (typeof legalEffect === "string" && /binding|contract|obligation|liability/i.test(legalEffect)) {
+    signals.push({
+      code: "SEMANTIC_BINDING_EFFECT",
+      severity: "high",
+      message: "Action metadata indicates a binding legal or commercial effect.",
+    });
+  }
+
+  const permission = action.metadata?.permission;
+  const target = action.metadata?.target;
+  if (
+    typeof permission === "string" &&
+    /admin|root|owner|write/i.test(permission) &&
+    (typeof target !== "string" || /production|prod|account|workspace/i.test(target))
+  ) {
+    signals.push({
+      code: "HIGH_PRIVILEGE_ACCESS",
+      severity: "high",
+      message: "Action metadata indicates a high-privilege access grant.",
+    });
+  }
+
+  if (
+    action.type === "publish" &&
+    (action.metadata?.contains_personal_data === true || capsule.context?.data_classification === "confidential")
+  ) {
+    signals.push({
+      code: "SENSITIVE_DATA_PUBLICATION",
+      severity: "high",
+      message: "The action would publish sensitive or confidential data.",
     });
   }
 
@@ -339,13 +497,30 @@ export function runVerifyCheck(capsule: DecisionCapsule): CheckResult {
     if (claim.material === false) continue;
     const evidence = claim.evidence ?? [];
     const verifiedIndependent = evidence.filter((item) => item.verified && item.independent);
-    const verifiedAny = evidence.filter((item) => item.verified);
     if (verifiedIndependent.length === 0) {
       signals.push({
         code: "MATERIAL_CLAIM_NOT_INDEPENDENTLY_VERIFIED",
-        severity: verifiedAny.length ? "medium" : "high",
+        severity: "high",
         message: `Material claim lacks independent verified evidence: ${claim.text}`,
       });
+      continue;
+    }
+
+    if (claimRequiresFreshEvidence(claim.text)) {
+      const dated = verifiedIndependent
+        .map((item) => item.observed_at ? Date.parse(item.observed_at) : NaN)
+        .filter((value) => Number.isFinite(value));
+      if (dated.length > 0) {
+        const newest = Math.max(...dated);
+        const ageDays = (Date.now() - newest) / 86_400_000;
+        if (ageDays > 180) {
+          signals.push({
+            code: "EVIDENCE_STALE",
+            severity: "high",
+            message: `Independent evidence is too stale for a freshness-sensitive material claim: ${claim.text}`,
+          });
+        }
+      }
     }
   }
   return buildCheck(signals);
@@ -359,8 +534,8 @@ export function runChallengeCheck(
   if (capsule.proposed_action.irreversible) {
     signals.push({
       code: "IRREVERSIBLE_ACTION",
-      severity: "medium",
-      message: "The proposed action is marked irreversible.",
+      severity: "high",
+      message: "The proposed action is marked irreversible and requires an explicit integrity checkpoint.",
     });
   }
 
@@ -400,6 +575,9 @@ function controlsForSignals(signals: PreflightSignal[]): string[] {
     if (signal.code.includes("APPROVAL") || signal.code.includes("COMMITMENT")) controls.add("principal_approval");
     if (signal.code.includes("SPEND_LIMIT")) controls.add("principal_approval");
     if (signal.code.includes("NO_PRIOR_STATE")) controls.add("establish_baseline");
+    if (signal.code.includes("AMOUNT") || signal.code.includes("CURRENCY")) controls.add("validate_transaction");
+    if (signal.code.includes("AGGREGATE")) controls.add("review_recent_activity");
+    if (signal.code.includes("SENSITIVE_DATA") || signal.code.includes("HIGH_PRIVILEGE")) controls.add("principal_approval");
   }
   return [...controls];
 }
