@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:hard-fallback": "npx --yes tsx scripts/verify-hard-fallback-presentation.ts",
     "test:scan-persist": "npx --yes tsx scripts/verify-scan-persist-outcome.ts",
+    "test:preflight": "npx --yes tsx scripts/verify-integrity-preflight.ts",
     "eval:generate": "npx --yes tsx evals/generate-stress-suite.ts",
     "eval:models": "npx --yes tsx evals/run-model-eval.ts",
     "test:v3-invariants": "npx --yes tsx scripts/verify-scan-v3-invariants.ts",
