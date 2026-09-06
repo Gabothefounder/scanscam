@@ -1,4 +1,5 @@
 import { isTrustedPreflightRequest, trustedPreflight } from "@/lib/integrity/trusted";
+import { issueAuthorizationReceipt } from "@/lib/integrity/receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,12 @@ export async function GET() {
       ignored_if_client_supplied: ["principal", "previous_state", "verified_evidence"],
     },
     decisions: ["ALLOW", "VERIFY", "HOLD", "BLOCK"],
+    authorization: {
+      issued_only_on: "ALLOW",
+      one_time: true,
+      default_ttl_seconds: 300,
+      commit_endpoint: "/api/preflight/v2/commit",
+    },
   });
 }
 
@@ -34,10 +41,15 @@ export async function POST(request: Request) {
 
   try {
     const result = await trustedPreflight(body, body as Record<string, unknown>);
-    return Response.json(result, {
+    const authorization =
+      result.decision === "ALLOW"
+        ? await issueAuthorizationReceipt(body, result)
+        : null;
+
+    return Response.json({ ...result, authorization }, {
       headers: {
         "Cache-Control": "no-store",
-        "X-ScanScam-Integrity-Version": "0.2",
+        "X-ScanScam-Integrity-Version": "0.3",
       },
     });
   } catch (error) {
