@@ -330,6 +330,19 @@ export function runMandateCheck(capsule: DecisionCapsule): CheckResult {
     });
   }
 
+  if (
+    FINANCIAL_ACTIONS.has(action.type) &&
+    !action.counterparty_id &&
+    !action.destination &&
+    !["promise_refund", "offer_discount", "accept_fee"].includes(action.type)
+  ) {
+    signals.push({
+      code: "FINANCIAL_COUNTERPARTY_MISSING",
+      severity: "high",
+      message: "A financial action must identify a counterparty or destination.",
+    });
+  }
+
   if (AMOUNT_REQUIRED_ACTIONS.has(action.type) && rawAmount === undefined) {
     signals.push({
       code: "FINANCIAL_AMOUNT_MISSING",
@@ -424,36 +437,37 @@ export function runCommitmentGuard(capsule: DecisionCapsule): CheckResult {
   const signals: PreflightSignal[] = [];
   const isCommitment = action.creates_commitment === true || COMMITMENT_ACTIONS.has(action.type);
 
-  if (!isCommitment) return buildCheck(signals);
-
-  signals.push({
-    code: "PRINCIPAL_COMMITMENT",
-    severity: "medium",
-    message: `Action ${action.type} can create a commitment on behalf of the principal.`,
-  });
-
-  const mandate = capsule.principal?.mandate;
-  const explicitlyApproved = mandate?.approval_action_types?.includes(action.type);
-  const blocked = mandate?.blocked_action_types?.includes(action.type);
-
-  if (!mandate) {
+  if (isCommitment) {
     signals.push({
-      code: "COMMITMENT_WITHOUT_MANDATE",
-      severity: "high",
-      message: "A commitment is proposed without an explicit principal mandate.",
+      code: "PRINCIPAL_COMMITMENT",
+      severity: "medium",
+      message: `Action ${action.type} can create a commitment on behalf of the principal.`,
     });
-  } else if (
-    !blocked &&
-    !explicitlyApproved &&
-    (action.creates_commitment === true || EXPLICIT_SCOPE_COMMITMENTS.has(action.type))
-  ) {
-    signals.push({
-      code: "COMMITMENT_SCOPE_UNCLEAR",
-      severity: "high",
-      message: "The action can bind the principal but the mandate does not explicitly describe approval scope.",
-    });
+
+    const mandate = capsule.principal?.mandate;
+    const explicitlyApproved = mandate?.approval_action_types?.includes(action.type);
+    const blocked = mandate?.blocked_action_types?.includes(action.type);
+
+    if (!mandate) {
+      signals.push({
+        code: "COMMITMENT_WITHOUT_MANDATE",
+        severity: "high",
+        message: "A commitment is proposed without an explicit principal mandate.",
+      });
+    } else if (
+      !blocked &&
+      !explicitlyApproved &&
+      (action.creates_commitment === true || EXPLICIT_SCOPE_COMMITMENTS.has(action.type))
+    ) {
+      signals.push({
+        code: "COMMITMENT_SCOPE_UNCLEAR",
+        severity: "high",
+        message: "The action can bind the principal but the mandate does not explicitly describe approval scope.",
+      });
+    }
   }
 
+  // These semantic metadata checks intentionally run even for unknown tool/action names.
   const legalEffect = action.metadata?.legal_effect;
   if (typeof legalEffect === "string" && /binding|contract|obligation|liability/i.test(legalEffect)) {
     signals.push({
