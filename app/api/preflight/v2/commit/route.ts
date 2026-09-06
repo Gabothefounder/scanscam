@@ -4,6 +4,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
   return Response.json({
     service: "ScanScam Integrity Execution Commit",
     version: "0.3",
@@ -24,6 +27,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
