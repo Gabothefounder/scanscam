@@ -1,4 +1,8 @@
 import { commitExecution, isExecutionCommitRequest } from "@/lib/integrity/receipts";
+import {
+  authenticateIntegrityRequest,
+  integrityAuthHttpStatus,
+} from "@/lib/integrity/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +13,7 @@ export async function GET() {
   }
   return Response.json({
     service: "ScanScam Integrity Execution Commit",
-    version: "0.3",
+    version: "0.4",
     flow: [
       "POST /api/preflight/v2 to receive an authorization receipt when decision=ALLOW",
       "execute the exact authorized action",
@@ -21,6 +25,7 @@ export async function GET() {
       "expiry",
       "current mandate version/hash",
       "current baseline version/hash",
+      "authorization bound to authenticated client",
       "atomic receipt consumption and baseline advancement",
     ],
   });
@@ -29,6 +34,14 @@ export async function GET() {
 export async function POST(request: Request) {
   if (process.env.VERCEL_ENV === "production") {
     return Response.json({ error: "integrity_preview_only" }, { status: 404 });
+  }
+
+  let identity;
+  try {
+    identity = await authenticateIntegrityRequest(request, "commit:write");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "integrity_auth_failed";
+    return Response.json({ error: message }, { status: integrityAuthHttpStatus(message) });
   }
 
   let body: unknown;
@@ -49,20 +62,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await commitExecution(body);
+    const result = await commitExecution(body, identity);
     const status = result.ok
       ? 200
       : result.error === "authorization_not_found"
         ? 404
         : result.error === "authorization_token_invalid"
           ? 401
-          : 409;
+          : result.error === "authorization_client_mismatch"
+            ? 403
+            : 409;
 
     return Response.json(result, {
       status,
       headers: {
         "Cache-Control": "no-store",
-        "X-ScanScam-Integrity-Version": "0.3",
+        "X-ScanScam-Integrity-Version": "0.4",
       },
     });
   } catch (error) {
