@@ -12,6 +12,7 @@ import {
   type Severity,
 } from "./preflight";
 import { analyzeIntegritySemantics, type IntegritySemanticResult } from "./semantic";
+import type { IntegrityClientIdentity } from "./auth";
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -262,6 +263,16 @@ export function isUnboundTrustedPreflightRequest(value: unknown): value is Unbou
     typeof body.proposed_action.type === "string" &&
     body.proposed_action.type.trim().length > 0
   );
+}
+
+export function bindAuthenticatedPrincipal(
+  request: UnboundTrustedPreflightRequest,
+  identity: IntegrityClientIdentity
+): TrustedPreflightRequest {
+  return {
+    ...request,
+    principal_id: identity.principal_id,
+  };
 }
 
 export function isTrustedPreflightRequest(value: unknown): value is TrustedPreflightRequest {
