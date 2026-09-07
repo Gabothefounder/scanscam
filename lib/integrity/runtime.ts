@@ -76,6 +76,9 @@ async function recordAuthorizedRuntimeExecution(input: {
       principal_id: input.actor.principal_id,
       protocol: "acs",
       external_request_id: input.parsed.request_id,
+      external_agent_id: input.parsed.agent_id,
+      external_session_id: input.parsed.session_id,
+      tool_name: input.parsed.observed.tool.name,
       observer_client_id: input.observer.client_id,
       actor_client_id: input.actor.client_id,
       observation_id: input.observation_id,
@@ -150,13 +153,17 @@ async function loadRuntimeExecution(
   authorization_id: string;
   observation_id: string;
   status: string;
+  external_agent_id: string | null;
+  external_session_id: string | null;
+  tool_name: string | null;
 }> {
   const { data, error } = await supabase
     .from("integrity_runtime_executions")
-    .select("id,principal_id,actor_client_id,authorization_id,observation_id,status")
+    .select("id,principal_id,actor_client_id,authorization_id,observation_id,status,external_agent_id,external_session_id,tool_name")
     .eq("principal_id", observer.principal_id)
     .eq("observer_client_id", observer.client_id)
     .eq("external_request_id", parsed.request_id_ref)
+    .eq("external_agent_id", parsed.agent_id)
     .maybeSingle();
 
   if (error) throw new Error("runtime_execution_lookup_failed");
@@ -168,6 +175,9 @@ async function loadRuntimeExecution(
     authorization_id: string;
     observation_id: string;
     status: string;
+    external_agent_id: string | null;
+    external_session_id: string | null;
+    tool_name: string | null;
   };
 }
 
@@ -248,6 +258,25 @@ export async function processAcsToolCallResult(input: {
         scanscam: {
           integrity_version: "0.7",
           request_id_ref: parsed.request_id_ref,
+        },
+      },
+      evaluation_duration_ms: performance.now() - started,
+    });
+  }
+
+  if (
+    runtime.external_session_id !== parsed.session_id ||
+    runtime.tool_name !== parsed.tool_name
+  ) {
+    return simpleAcsFinalResponse({
+      request: parsed,
+      decision: "deny",
+      reasoning: "The ACS result does not match the authorized session or tool.",
+      reason_codes: ["scanscam_runtime_result_context_mismatch"],
+      policy_data: {
+        scanscam: {
+          integrity_version: "0.7",
+          runtime_execution_id: runtime.id,
         },
       },
       evaluation_duration_ms: performance.now() - started,
