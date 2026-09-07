@@ -117,7 +117,7 @@ function acsToolCallRequest(input: {
       },
       payload: {
         tool: {
-          name: "pay_invoice",
+          name: input.toolName ?? "pay_invoice",
           provider: "erp.local",
           version: "pay-v1",
         },
@@ -140,6 +140,7 @@ function acsToolCallResult(input: {
   sessionId: string;
   exitStatus?: "success" | "failure" | "timeout" | "blocked";
   jsonrpcId?: number;
+  toolName?: string;
 }) {
   return {
     jsonrpc: "2.0",
@@ -426,6 +427,61 @@ export async function GET() {
         policy: safePolicy,
         execution: safeExecution,
       }
+    );
+
+    const wrongSessionResponse = await processAcsToolCallResult({
+      body: acsToolCallResult({
+        requestId: crypto.randomUUID(),
+        requestIdRef: safeRequestId,
+        agentId,
+        sessionId: `wrong-session-${suffix}`,
+        exitStatus: "success",
+        jsonrpcId: 101,
+      }),
+      observer,
+    });
+    const { data: afterWrongSession } = await supabase
+      .from("integrity_runtime_executions")
+      .select("status")
+      .eq("id", safeExecution!.id)
+      .single();
+
+    record(
+      results,
+      "result-session-mismatch-does-not-consume",
+      responseDecision(wrongSessionResponse) === "deny" &&
+        JSON.stringify(wrongSessionResponse).includes("scanscam_runtime_result_context_mismatch") &&
+        afterWrongSession?.status === "authorized",
+      "wrong ACS session cannot settle an authorization and leaves the valid authorization intact",
+      { response: wrongSessionResponse, execution: afterWrongSession }
+    );
+
+    const wrongToolResponse = await processAcsToolCallResult({
+      body: acsToolCallResult({
+        requestId: crypto.randomUUID(),
+        requestIdRef: safeRequestId,
+        agentId,
+        sessionId: `safe-${suffix}`,
+        exitStatus: "success",
+        jsonrpcId: 102,
+        toolName: "delete_everything",
+      }),
+      observer,
+    });
+    const { data: afterWrongTool } = await supabase
+      .from("integrity_runtime_executions")
+      .select("status")
+      .eq("id", safeExecution!.id)
+      .single();
+
+    record(
+      results,
+      "result-tool-mismatch-does-not-consume",
+      responseDecision(wrongToolResponse) === "deny" &&
+        JSON.stringify(wrongToolResponse).includes("scanscam_runtime_result_context_mismatch") &&
+        afterWrongTool?.status === "authorized",
+      "wrong ACS tool cannot settle an authorization and leaves the valid authorization intact",
+      { response: wrongToolResponse, execution: afterWrongTool }
     );
 
     const safeResultResponse = await processAcsToolCallResult({
