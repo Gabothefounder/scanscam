@@ -372,9 +372,14 @@ async function resolveContext(
   return result;
 }
 
+export type IntegrityV05RuntimeOptions = {
+  semanticAnalyzer?: typeof analyzeIntegritySemantics;
+};
+
 export async function runIntegrityV05(
   request: IntegrityV05Request,
-  actor: IntegrityClientIdentity
+  actor: IntegrityClientIdentity,
+  options?: IntegrityV05RuntimeOptions
 ): Promise<IntegrityV05Result> {
   if (!["actor", "hybrid"].includes(actor.kind)) {
     throw new Error("integrity_actor_kind_required");
@@ -444,7 +449,7 @@ export async function runIntegrityV05(
 
   if (requiresSemantic) {
     try {
-      semantic = await analyzeIntegritySemantics({
+      semantic = await (options?.semanticAnalyzer ?? analyzeIntegritySemantics)({
         goal: envelope.goal,
         action: proposedAction,
         tool_description: envelope.tool.description,
