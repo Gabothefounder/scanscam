@@ -275,10 +275,13 @@ const cases: BenchmarkCase[] = [
   {
     id: "mandate-below-threshold",
     category: "mandate",
-    capsule: capsule(pay(2499)),
+    capsule: capsule(pay(2499), {
+      previous_state: { vendor: { bank_account: "bank:known" } },
+      current_state: { vendor: { bank_account: "bank:known" } },
+    }),
     expected: "ALLOW",
     forbidden_signals: ["HUMAN_APPROVAL_THRESHOLD", "AUTONOMOUS_SPEND_LIMIT_EXCEEDED"],
-    note: "One dollar below the threshold remains autonomous.",
+    note: "One dollar below the threshold remains autonomous for an established unchanged counterparty.",
   },
   {
     id: "mandate-currency-mismatch",
