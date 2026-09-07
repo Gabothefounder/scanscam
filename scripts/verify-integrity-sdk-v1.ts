@@ -1,4 +1,3 @@
-async function main() {
 import {
   IntegrityApiError,
   createIntegrityClient,
@@ -6,6 +5,7 @@ import {
 import { toIntegrityV1Preflight } from "../lib/integrity/public-v1";
 import type { IntegrityV05Result } from "../lib/integrity/v05";
 
+async function main() {
 type Call = {
   url: string;
   init?: RequestInit;
