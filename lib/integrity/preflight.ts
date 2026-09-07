@@ -33,6 +33,27 @@ export type MandateRule = {
   reason?: string;
 };
 
+export type ValueObjective = {
+  id: string;
+  field: string;
+  operator: MandateRule["operator"];
+  value?: Primitive;
+  mode: "prefer" | "avoid";
+  weight: number;
+  reason?: string;
+  private?: boolean;
+};
+
+export type MandateBudget = {
+  id: string;
+  limit: number;
+  currency?: string;
+  window_seconds: number;
+  effects?: string[];
+  action_types?: string[];
+  mode?: "approval" | "deny";
+};
+
 export type PrincipalMandate = {
   currency?: string;
   max_autonomous_amount?: number;
@@ -40,6 +61,8 @@ export type PrincipalMandate = {
   blocked_action_types?: string[];
   approval_action_types?: string[];
   rules?: MandateRule[];
+  objectives?: ValueObjective[];
+  budgets?: MandateBudget[];
 };
 
 export type ProposedAction = {
@@ -80,12 +103,24 @@ export type CheckResult = {
   signals: PreflightSignal[];
 };
 
+export type ValueCheckResult = CheckResult & {
+  preference_score: number;
+  matched_objectives: Array<{
+    id: string;
+    mode: "prefer" | "avoid";
+    weight: number;
+    reason?: string;
+    private: boolean;
+  }>;
+};
+
 export type PreflightResult = {
   version: "0.1";
   decision: PreflightDecision;
   risk: number;
   checks: {
     change: CheckResult;
+    value: ValueCheckResult;
     mandate: CheckResult;
     commitment: CheckResult;
     verify: CheckResult;
@@ -249,31 +284,84 @@ function primitiveIn(haystack: Primitive | undefined, needle: Primitive | undefi
   return haystack.some((item) => valuesEqual(item, needle));
 }
 
-function evaluateRule(rule: MandateRule, action: ProposedAction, capsule: DecisionCapsule): boolean {
+function evaluateCondition(
+  field: string,
+  operator: MandateRule["operator"],
+  expected: Primitive | undefined,
+  action: ProposedAction,
+  capsule: DecisionCapsule
+): boolean {
   const root: Record<string, Primitive> = {
     action: action as unknown as Primitive,
     context: (capsule.context ?? {}) as unknown as Primitive,
     current_state: (capsule.current_state ?? {}) as unknown as Primitive,
   };
-  const actual = getPath(root, rule.field);
+  const actual = getPath(root, field);
 
-  // Missing data must not satisfy negative predicates. Otherwise a rule such as
-  // "supplier_country not in [CA]" would match every unrelated action.
-  if (rule.operator !== "exists" && (actual === undefined || actual === null)) return false;
+  if (operator !== "exists" && (actual === undefined || actual === null)) return false;
 
-  switch (rule.operator) {
-    case "eq": return valuesEqual(actual, rule.value);
-    case "neq": return !valuesEqual(actual, rule.value);
-    case "in": return primitiveIn(rule.value, actual);
-    case "not_in": return !primitiveIn(rule.value, actual);
+  switch (operator) {
+    case "eq": return valuesEqual(actual, expected);
+    case "neq": return !valuesEqual(actual, expected);
+    case "in": return primitiveIn(expected, actual);
+    case "not_in": return !primitiveIn(expected, actual);
     case "lte":
-      return typeof actual === "number" && typeof rule.value === "number" && actual <= rule.value;
+      return typeof actual === "number" && typeof expected === "number" && actual <= expected;
     case "gte":
-      return typeof actual === "number" && typeof rule.value === "number" && actual >= rule.value;
+      return typeof actual === "number" && typeof expected === "number" && actual >= expected;
     case "exists":
       return actual !== undefined && actual !== null;
   }
 }
+
+function evaluateRule(rule: MandateRule, action: ProposedAction, capsule: DecisionCapsule): boolean {
+  return evaluateCondition(rule.field, rule.operator, rule.value, action, capsule);
+}
+
+export function runValueGuard(capsule: DecisionCapsule): ValueCheckResult {
+  const objectives = capsule.principal?.mandate?.objectives ?? [];
+  const signals: PreflightSignal[] = [];
+  const matched_objectives: ValueCheckResult["matched_objectives"] = [];
+  let rawScore = 0;
+  let totalWeight = 0;
+
+  for (const objective of objectives) {
+    const weight = Math.max(0, Math.min(100, Math.abs(objective.weight)));
+    totalWeight += weight;
+    if (!evaluateCondition(objective.field, objective.operator, objective.value, capsule.proposed_action, capsule)) {
+      continue;
+    }
+
+    const signedWeight = objective.mode === "prefer" ? weight : -weight;
+    rawScore += signedWeight;
+    matched_objectives.push({
+      id: objective.id,
+      mode: objective.mode,
+      weight,
+      reason: objective.reason,
+      private: objective.private !== false,
+    });
+
+    signals.push({
+      code: objective.mode === "prefer" ? "VALUE_PREFERENCE_MATCH" : "VALUE_AVOID_MATCH",
+      severity: "info",
+      path: objective.field,
+      message: objective.reason ?? `Value objective ${objective.id} matched.`,
+    });
+  }
+
+  const preference_score =
+    totalWeight > 0 ? Number(Math.max(-1, Math.min(1, rawScore / totalWeight)).toFixed(3)) : 0;
+
+  return {
+    status: signals.length ? "notice" : "pass",
+    score: 0,
+    signals,
+    preference_score,
+    matched_objectives,
+  };
+}
+
 
 export function runChangeGuard(capsule: DecisionCapsule): CheckResult {
   const before = flatten(capsule.previous_state);
@@ -603,11 +691,12 @@ function controlsForSignals(signals: PreflightSignal[]): string[] {
 
 export function preflight(capsule: DecisionCapsule): PreflightResult {
   const change = runChangeGuard(capsule);
+  const value = runValueGuard(capsule);
   const mandate = runMandateCheck(capsule);
   const commitment = runCommitmentGuard(capsule);
   const verify = runVerifyCheck(capsule);
-  const challenge = runChallengeCheck(capsule, { change, mandate, commitment, verify });
-  const checks = { change, mandate, commitment, verify, challenge };
+  const challenge = runChallengeCheck(capsule, { change, value, mandate, commitment, verify });
+  const checks = { change, value, mandate, commitment, verify, challenge };
 
   let decision: PreflightDecision = "ALLOW";
   for (const check of Object.values(checks)) {
@@ -615,7 +704,8 @@ export function preflight(capsule: DecisionCapsule): PreflightResult {
   }
 
   const signals = Object.values(checks).flatMap((check) => check.signals);
-  const risk = clamp(1 - Math.exp(-signals.reduce((sum, signal) => sum + severityWeight(signal.severity), 0)));
+  const riskSignals = signals.filter((signal) => !signal.code.startsWith("VALUE_"));
+  const risk = clamp(1 - Math.exp(-riskSignals.reduce((sum, signal) => sum + severityWeight(signal.severity), 0)));
   const required_controls = controlsForSignals(signals);
 
   const summary =
