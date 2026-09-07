@@ -4,6 +4,7 @@ import type { Primitive, ProposedAction } from "./preflight";
 import type { TrustedPreflightRequest, TrustedPreflightResult } from "./trusted";
 import type { IntegrityClientIdentity } from "./auth";
 import { hashIntegrityValue } from "./canonical";
+export { hashIntegrityValue } from "./canonical";
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
