@@ -237,7 +237,7 @@ export function guardianResponseForACS(input: {
   result: IntegrityV05Result;
   challenge_id?: string | null;
   evaluation_duration_ms: number;
-  timings_ms?: Record<string, number | null>;
+  timings_ms?: Record<string, number | string | null>;
 }): Record<string, unknown> {
   const { request, result } = input;
   const decision = acsDecision(result);
