@@ -356,12 +356,21 @@ function interventionScoreFor(signals: PreflightSignal[]): number {
 function semanticRequired(
   envelope: ActionEnvelope,
   base: PreflightResult,
-  deterministicDeception: PreflightSignal[]
+  deterministicSignals: PreflightSignal[]
 ): boolean {
+  // Unknown real-world effects still need semantic normalization.
   if (envelope.effect === "unknown") return true;
-  if (deterministicDeception.some((signal) => signal.severity === "high")) return true;
-  if (base.risk >= 0.55) return true;
-  return false;
+
+  // If deterministic policy already reaches a safe interrupt (deny, approval,
+  // or challenge), semantic review cannot improve the immediate execution
+  // decision. Avoid paying latency/cost to rediscover an answer we already
+  // have. Semantic escalation is for ambiguity on an otherwise-allowable path.
+  if (dispositionFor(deterministicSignals) !== "ALLOW") return false;
+
+  // Multiple medium/low signals can produce elevated aggregate risk without a
+  // deterministic high-severity control. This is where semantic review can
+  // still materially change an ALLOW.
+  return base.risk >= 0.55;
 }
 
 function semanticSignals(
@@ -641,7 +650,11 @@ export async function runIntegrityV05(
   const deterministicDeception = deceptionSignals(causalContext);
   extraSignals.push(...applyVerifiedDeceptionEvidence(deterministicDeception, claims));
 
-  const requiresSemantic = semanticRequired(envelope, base, deterministicDeception);
+  const requiresSemantic = semanticRequired(
+    envelope,
+    base,
+    [...controlledBaseSignals, ...extraSignals]
+  );
   let semantic: Awaited<ReturnType<typeof analyzeIntegritySemantics>> = null;
 
   if (requiresSemantic) {
