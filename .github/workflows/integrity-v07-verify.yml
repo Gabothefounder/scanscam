@@ -1,0 +1,38 @@
+name: Integrity v0.7 verification
+
+on:
+  push:
+    branches:
+      - work/integrity-preflight-v0-1
+  pull_request:
+    paths:
+      - "app/api/integrity/**"
+      - "lib/integrity/**"
+      - "scripts/verify-integrity-acs-v07.ts"
+      - "supabase/migrations/*integrity*"
+      - "package.json"
+      - ".github/workflows/integrity-v07-verify.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: verification-placeholder
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: verification-placeholder
+      OPENAI_API_KEY: sk-verification-placeholder
+      VERCEL_ENV: preview
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build with Integrity invariants
+        run: npm run build
