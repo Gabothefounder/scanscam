@@ -298,6 +298,42 @@ function applyVerifiedChangeEvidence(
   });
 }
 
+function applyVerifiedDeceptionEvidence(
+  signals: PreflightSignal[],
+  claims: MaterialClaim[]
+): PreflightSignal[] {
+  const destinationVerified = claimIsVerified(
+    claims,
+    /payment or destination instructions changed/i
+  );
+  const ownershipVerified = claimIsVerified(
+    claims,
+    /ownership or corporate control changed/i
+  );
+
+  return signals.map((signal) => {
+    if (signal.code === "DECEPTION_DESTINATION_CHANGE_CLAIM" && destinationVerified) {
+      return {
+        ...signal,
+        code: "VERIFIED_DESTINATION_CHANGE_CLAIM",
+        severity: "medium",
+        message: "The destination-change premise is covered by independent verified evidence.",
+      };
+    }
+
+    if (signal.code === "DECEPTION_OWNERSHIP_CHANGE_CLAIM" && ownershipVerified) {
+      return {
+        ...signal,
+        code: "VERIFIED_OWNERSHIP_CHANGE_CLAIM",
+        severity: "medium",
+        message: "The ownership-change premise is covered by independent verified evidence.",
+      };
+    }
+
+    return signal;
+  });
+}
+
 function interventionScoreFor(signals: PreflightSignal[]): number {
   const weights: Record<PreflightSignal["severity"], number> = {
     info: 0.02,
@@ -598,7 +634,7 @@ export async function runIntegrityV05(
   }
 
   const deterministicDeception = deceptionSignals(causalContext);
-  extraSignals.push(...deterministicDeception);
+  extraSignals.push(...applyVerifiedDeceptionEvidence(deterministicDeception, claims));
 
   const requiresSemantic = semanticRequired(envelope, base, deterministicDeception);
   let semantic: Awaited<ReturnType<typeof analyzeIntegritySemantics>> = null;
