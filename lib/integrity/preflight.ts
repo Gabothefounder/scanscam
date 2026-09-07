@@ -246,7 +246,7 @@ function actionAmount(action: ProposedAction): number | null {
 }
 
 function claimRequiresFreshEvidence(text: string): boolean {
-  return /\b(current|currently|remains|still|now|today|bank|authorized|active|valid|ownership|acquired)\b/i.test(text);
+  return /\b(current|currently|remains|still|now|today|bank|banking|beneficiary|account|routing|payment|destination|wallet|domain|email|contact|identity|authorized|active|valid|ownership|acquired)\b/i.test(text);
 }
 
 function severityWeight(severity: Severity): number {
