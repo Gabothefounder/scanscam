@@ -113,6 +113,7 @@ export async function processAcsToolCallRequest(input: {
   body: unknown;
   observer: IntegrityClientIdentity;
   semantic?: IntegrityV05RuntimeOptions["semanticAnalyzer"];
+  attestation_ids?: string[];
 }): Promise<Record<string, unknown>> {
   const started = performance.now();
   const parsed = parseAcsToolCallRequest(input.body);
@@ -147,7 +148,7 @@ export async function processAcsToolCallRequest(input: {
       p_state_hash: stateHash,
       p_causal_context: parsed.observed.causal_context?.trim().slice(0, 2400) || null,
       p_expires_at: expiresAt,
-      p_attestation_ids: [],
+      p_attestation_ids: input.attestation_ids ?? [],
     }
   );
   const prepareMs = performance.now() - stageStarted;
