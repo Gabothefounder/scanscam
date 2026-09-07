@@ -254,6 +254,64 @@ function deceptionSignals(context: string | null): PreflightSignal[] {
   return signals;
 }
 
+function claimIsVerified(claims: MaterialClaim[], matcher: RegExp): boolean {
+  return claims.some((claim) =>
+    matcher.test(claim.text) &&
+    (claim.evidence ?? []).some((item) => item.verified && item.independent)
+  );
+}
+
+function applyVerifiedChangeEvidence(
+  signals: PreflightSignal[],
+  claims: MaterialClaim[]
+): PreflightSignal[] {
+  const destinationVerified = claimIsVerified(
+    claims,
+    /payment or destination instructions changed/i
+  );
+  const identityVerified = claimIsVerified(
+    claims,
+    /identity or contact information changed/i
+  );
+  const ownershipVerified = claimIsVerified(
+    claims,
+    /ownership or corporate control changed/i
+  );
+
+  return signals.map((signal) => {
+    if (signal.code !== "SENSITIVE_STATE_CHANGE" || !signal.path) return signal;
+    const path = signal.path.toLowerCase();
+
+    const satisfied =
+      (destinationVerified && /(destination|bank|account|wallet|routing)/.test(path)) ||
+      (identityVerified && /(domain|email|contact)/.test(path)) ||
+      (ownershipVerified && /(owner|ownership|control)/.test(path));
+
+    if (!satisfied) return signal;
+
+    return {
+      ...signal,
+      code: "VERIFIED_STATE_CHANGE",
+      severity: "medium",
+      message: `Material change at ${signal.path} is covered by independent verified evidence.`,
+    };
+  });
+}
+
+function interventionScoreFor(signals: PreflightSignal[]): number {
+  const weights: Record<PreflightSignal["severity"], number> = {
+    info: 0.02,
+    low: 0.08,
+    medium: 0.2,
+    high: 0.4,
+    critical: 0.7,
+  };
+  const total = signals
+    .filter((signal) => !signal.code.startsWith("VALUE_"))
+    .reduce((sum, signal) => sum + weights[signal.severity], 0);
+  return Number(Math.min(1, 1 - Math.exp(-total)).toFixed(3));
+}
+
 function semanticRequired(
   envelope: ActionEnvelope,
   base: PreflightResult,
@@ -515,6 +573,7 @@ export async function runIntegrityV05(
   };
 
   const base = preflight(capsule);
+  const controlledBaseSignals = applyVerifiedChangeEvidence(base.signals, claims);
   const extraSignals: PreflightSignal[] = [];
 
   if (resolved.missing_attestation_ids.length) {
@@ -567,7 +626,7 @@ export async function runIntegrityV05(
     }
   }
 
-  const allSignals = [...base.signals, ...extraSignals];
+  const allSignals = [...controlledBaseSignals, ...extraSignals];
   let disposition = dispositionFor(allSignals);
   let authorization: AuthorizationReceipt | null = null;
   let budget: IntegrityV05Result["budget"];
@@ -577,7 +636,7 @@ export async function runIntegrityV05(
     decision: disposition === "ALLOW" ? "ALLOW" : "VERIFY",
     signals: allSignals,
     trust_signals: extraSignals,
-    required_controls: [...new Set([...base.required_controls, ...controlsFor(extraSignals)])],
+    required_controls: controlsFor(allSignals),
     trust: {
       capsule_source: "server-built",
       mandate: {
@@ -667,14 +726,9 @@ export async function runIntegrityV05(
     }
   }
 
-  const finalSignals = [...base.signals, ...extraSignals];
+  const finalSignals = [...controlledBaseSignals, ...extraSignals];
   const privateMatches = base.checks.value.matched_objectives.filter((item) => item.private).length;
-  const riskSignals = finalSignals.filter((signal) => !signal.code.startsWith("VALUE_"));
-  const interventionScore = Math.max(
-    base.risk,
-    riskSignals.some((signal) => signal.severity === "critical") ? 0.9 :
-      riskSignals.some((signal) => signal.severity === "high") ? 0.65 : base.risk
-  );
+  const interventionScore = interventionScoreFor(finalSignals);
 
   return {
     version: "0.5",
@@ -682,7 +736,7 @@ export async function runIntegrityV05(
     intervention_score: Number(Math.min(1, interventionScore).toFixed(3)),
     action: envelope,
     signals: finalSignals.filter((signal) => !signal.code.startsWith("VALUE_")),
-    required_controls: [...new Set([...base.required_controls, ...controlsFor(extraSignals)])],
+    required_controls: controlsFor(finalSignals),
     challenge_requirements: buildChallengeRequirements(disposition, claims, finalSignals),
     value_guard: {
       preference_score: base.checks.value.preference_score,
