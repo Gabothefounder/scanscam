@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Primitive, ProposedAction } from "./preflight";
 import type { TrustedPreflightRequest, TrustedPreflightResult } from "./trusted";
@@ -8,8 +9,6 @@ const supabase = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
-
-import crypto from "crypto";
 
 function tokenHash(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
