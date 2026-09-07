@@ -147,6 +147,17 @@ function asFiniteNumber(value: unknown): number | null {
 function asOptionalString(value: unknown): string | null {
   return typeof value === "string" && value ? value : null;
 }
+function asTimingMap(value: unknown): Record<string, number | string | null> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, number | string | null> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === "number" && Number.isFinite(item)) out[key] = item;
+    else if (typeof item === "string") out[key] = item;
+    else if (item === null) out[key] = null;
+  }
+  return out;
+}
+
 
 function acsArguments(args: PaymentArgs): Record<string, { value: unknown }> {
   return {
@@ -559,6 +570,7 @@ async function persistTelemetry(input: {
   proposal: AgentProposal;
   completion: AgentCompletion | null;
   guardian_response: Record<string, unknown>;
+  commit_response: Record<string, unknown> | null;
   tool_duration_ms: number | null;
   commit_duration_ms: number | null;
   executed: boolean;
@@ -573,6 +585,13 @@ async function persistTelemetry(input: {
     policy.semantic && typeof policy.semantic === "object" && !Array.isArray(policy.semantic)
       ? policy.semantic as Record<string, unknown>
       : {};
+  const guardianTiming = asTimingMap(policy.timing_ms);
+  const commitPolicy = input.commit_response ? scanscamPolicy(input.commit_response) : {};
+  const commitValue =
+    commitPolicy.commit && typeof commitPolicy.commit === "object" && !Array.isArray(commitPolicy.commit)
+      ? commitPolicy.commit as Record<string, unknown>
+      : {};
+  const commitTiming = asTimingMap(commitValue.timing_ms);
 
   const proposalAndCompletionUsage = addTokenUsage(
     input.proposal.usage,
@@ -632,6 +651,12 @@ async function persistTelemetry(input: {
           : null,
         pricing: openAiPricing(AGENT_MODEL),
         simulated_executor: true,
+        guardian_timing_ms: guardianTiming,
+        commit_timing_ms: commitTiming,
+        runtime_region: typeof guardianTiming.runtime_region === "string"
+          ? guardianTiming.runtime_region
+          : process.env.VERCEL_REGION ?? null,
+        git_commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
       },
     });
 
@@ -650,6 +675,8 @@ export type AgentLabRunResult = {
     semantic_model: string | null;
     semantic_estimated_cost_usd: number | null;
     duration_ms: number | null;
+    timing_ms: Record<string, number | string | null>;
+    runtime_region: string | null;
   };
   agent: {
     model: string;
@@ -667,6 +694,7 @@ export type AgentLabRunResult = {
     receipt_outcome: string | null;
     tool_duration_ms: number | null;
     commit_duration_ms: number | null;
+    commit_timing_ms: Record<string, number | string | null>;
     real_money_moved: false;
   };
   total_duration_ms: number;
@@ -683,6 +711,7 @@ export async function runAgentLabScenario(
   let proposal: AgentProposal | null = null;
   let completion: AgentCompletion | null = null;
   let guardianResponse: Record<string, unknown> | null = null;
+  let commitResponse: Record<string, unknown> | null = null;
   let toolDuration: number | null = null;
   let commitDuration: number | null = null;
   let executed = false;
@@ -732,6 +761,7 @@ export async function runAgentLabScenario(
         observer: fixture.observer,
       });
       commitDuration = Math.max(0, Math.round(performance.now() - commitStarted));
+      commitResponse = resultResponse;
 
       const commitPolicy = scanscamPolicy(resultResponse);
       const commitValue =
@@ -758,6 +788,7 @@ export async function runAgentLabScenario(
       proposal,
       completion,
       guardian_response: guardianResponse,
+      commit_response: commitResponse,
       tool_duration_ms: toolDuration,
       commit_duration_ms: commitDuration,
       executed,
@@ -774,6 +805,15 @@ export async function runAgentLabScenario(
         ? policy.semantic as Record<string, unknown>
         : {};
     const allAgentUsage = addTokenUsage(proposal.usage, completion.usage);
+    const guardianTiming = asTimingMap(policy.timing_ms);
+    const returnedCommitPolicy = commitResponse ? scanscamPolicy(commitResponse) : {};
+    const returnedCommit =
+      returnedCommitPolicy.commit &&
+      typeof returnedCommitPolicy.commit === "object" &&
+      !Array.isArray(returnedCommitPolicy.commit)
+        ? returnedCommitPolicy.commit as Record<string, unknown>
+        : {};
+    const commitTiming = asTimingMap(returnedCommit.timing_ms);
 
     return {
       run_id: runId,
@@ -787,6 +827,10 @@ export async function runAgentLabScenario(
         semantic_model: asOptionalString(semantic.model),
         semantic_estimated_cost_usd: asFiniteNumber(semantic.estimated_cost_usd),
         duration_ms: asFiniteNumber(metadata.evaluation_duration_ms),
+        timing_ms: guardianTiming,
+        runtime_region: typeof guardianTiming.runtime_region === "string"
+          ? guardianTiming.runtime_region
+          : process.env.VERCEL_REGION ?? null,
       },
       agent: {
         model: AGENT_MODEL,
@@ -804,6 +848,7 @@ export async function runAgentLabScenario(
         receipt_outcome: receiptOutcome,
         tool_duration_ms: toolDuration,
         commit_duration_ms: commitDuration,
+        commit_timing_ms: commitTiming,
         real_money_moved: false,
       },
       total_duration_ms: totalDuration,
@@ -827,7 +872,7 @@ export async function getAgentLabSummary(limit = 100): Promise<Record<string, un
   const { data, error } = await supabase
     .from("integrity_runtime_experiments")
     .select(
-      "run_id,scenario,agent_model,guardian_decision,guardian_disposition,guardian_duration_ms,guardian_semantic_ran,agent_estimated_cost_usd,guardian_semantic_estimated_cost_usd,proposal_duration_ms,total_duration_ms,executed,committed,created_at"
+      "run_id,scenario,agent_model,guardian_decision,guardian_disposition,guardian_duration_ms,guardian_semantic_ran,agent_estimated_cost_usd,guardian_semantic_estimated_cost_usd,proposal_duration_ms,total_duration_ms,executed,committed,metadata,created_at"
     )
     .order("created_at", { ascending: false })
     .limit(Math.min(500, Math.max(1, limit)));
@@ -841,6 +886,43 @@ export async function getAgentLabSummary(limit = 100): Promise<Record<string, un
   const totalLatencies = rows
     .map((row) => asFiniteNumber(row.total_duration_ms))
     .filter((value): value is number => value !== null);
+
+  const stageValues: Record<string, number[]> = {};
+  const commitStageValues: Record<string, number[]> = {};
+  const regions: Record<string, number> = {};
+
+  for (const row of rows) {
+    const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {};
+    const guardianTiming = asTimingMap(metadata.guardian_timing_ms);
+    const commitTiming = asTimingMap(metadata.commit_timing_ms);
+
+    for (const [key, value] of Object.entries(guardianTiming)) {
+      if (typeof value !== "number") continue;
+      (stageValues[key] ??= []).push(value);
+    }
+    for (const [key, value] of Object.entries(commitTiming)) {
+      if (typeof value !== "number") continue;
+      (commitStageValues[key] ??= []).push(value);
+    }
+
+    const region = asOptionalString(metadata.runtime_region);
+    if (region) regions[region] = (regions[region] ?? 0) + 1;
+  }
+
+  const stageSummary = Object.fromEntries(
+    Object.entries(stageValues).map(([key, values]) => [
+      key,
+      { p50: percentile(values, 0.5), p95: percentile(values, 0.95) },
+    ])
+  );
+  const commitStageSummary = Object.fromEntries(
+    Object.entries(commitStageValues).map(([key, values]) => [
+      key,
+      { p50: percentile(values, 0.5), p95: percentile(values, 0.95) },
+    ])
+  );
 
   const decisions: Record<string, number> = {};
   let semanticRuns = 0;
@@ -879,6 +961,9 @@ export async function getAgentLabSummary(limit = 100): Promise<Record<string, un
       p50: percentile(guardianLatencies, 0.5),
       p95: percentile(guardianLatencies, 0.95),
     },
+    guardian_stage_latency_ms: stageSummary,
+    commit_stage_latency_ms: commitStageSummary,
+    runtime_regions: regions,
     total_latency_ms: {
       p50: percentile(totalLatencies, 0.5),
       p95: percentile(totalLatencies, 0.95),
