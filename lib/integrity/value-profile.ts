@@ -10,7 +10,7 @@ import { hashIntegrityValue } from "./canonical";
 export type ValueStrength = "light" | "moderate" | "strong" | "very_strong";
 export type ValueSource = "explicit" | "tradeoff" | "observed_choice" | "inferred";
 export type ValueTargetKind = "fact" | "action_amount" | "action_type" | "effect";
-export type ValuePreferenceKind = "match" | "minimize" | "maximize";
+export type ValuePreferenceKind = "match" | "minimize" | "maximize" | "qualitative";
 
 export type ValueTarget = {
   kind: ValueTargetKind;
@@ -117,6 +117,34 @@ export function initialValueCoachQuestion(): ValueCoachQuestion {
   };
 }
 
+function normalizeCountryValue(factKey: string | null, value: Primitive): Primitive {
+  if (!factKey || !/(^|\.)(country|country_code)$|_country$/i.test(factKey)) return value;
+  if (typeof value !== "string") return value;
+
+  const normalized = value.trim().toLowerCase();
+  const map: Record<string, string> = {
+    canada: "CA",
+    canadian: "CA",
+    ca: "CA",
+    "united states": "US",
+    "united states of america": "US",
+    usa: "US",
+    us: "US",
+    american: "US",
+    mexico: "MX",
+    mexican: "MX",
+    "united kingdom": "GB",
+    britain: "GB",
+    british: "GB",
+    uk: "GB",
+    gb: "GB",
+    france: "FR",
+    french: "FR",
+  };
+
+  return map[normalized] ?? value;
+}
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }
@@ -154,6 +182,7 @@ export function normalizeHumanValueProfile(profile: HumanValueProfile): HumanVal
       label: rule.label.trim().slice(0, 180),
       reason: rule.reason.trim().slice(0, 300),
       confidence: clamp01(rule.confidence),
+      value: normalizeCountryValue(rule.target.fact_key, rule.value),
     }))
     .filter((rule) => rule.id && rule.label);
 
@@ -170,6 +199,7 @@ export function normalizeHumanValueProfile(profile: HumanValueProfile): HumanVal
           ? null
           : Math.max(0, Math.min(500, preference.max_premium_percent)),
       private: preference.private !== false,
+      value: normalizeCountryValue(preference.target.fact_key, preference.value),
     }))
     .filter((preference) => preference.id && preference.label);
 
@@ -331,7 +361,7 @@ export function evaluateOptionsWithValueProfile(
 
   const numericRanges = new Map<string, { min: number; max: number }>();
   for (const preference of normalized.preferences) {
-    if (preference.kind === "match") continue;
+    if (preference.kind === "match" || preference.kind === "qualitative") continue;
     const values = options
       .map((option) => numericTarget(option, preference))
       .filter((value): value is number => value !== null);
@@ -357,6 +387,10 @@ export function evaluateOptionsWithValueProfile(
     for (const preference of normalized.preferences) {
       const baseWeight = strengthWeight(preference.strength) *
         (0.45 + 0.55 * clamp01(preference.confidence));
+
+      if (preference.kind === "qualitative") {
+        continue;
+      }
 
       if (preference.kind === "match") {
         if (!preference.operator) continue;
