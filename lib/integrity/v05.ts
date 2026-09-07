@@ -79,7 +79,7 @@ type AttestationContext = {
   expires_at: string | null;
 };
 
-type ResolvedContext = {
+export type ResolvedContext = {
   ok: true;
   subject_id: string | null;
   observation: ObservationRow;
@@ -579,6 +579,7 @@ async function resolveContext(
 
 export type IntegrityV05RuntimeOptions = {
   semanticAnalyzer?: typeof analyzeIntegritySemantics;
+  resolvedContext?: ResolvedContext;
 };
 
 export async function runIntegrityV05(
@@ -590,7 +591,7 @@ export async function runIntegrityV05(
     throw new Error("integrity_actor_kind_required");
   }
 
-  const resolved = await resolveContext(actor.principal_id, request);
+  const resolved = options?.resolvedContext ?? await resolveContext(actor.principal_id, request);
   if (resolved.observation.observer_client_id === actor.client_id) {
     throw new Error("integrity_observation_not_independent");
   }
