@@ -8,10 +8,17 @@ import {
   type ParsedAcsToolCallRequest,
   type ParsedAcsToolCallResult,
 } from "./adapters/acs";
-import { storeRuntimeObservation } from "./observer";
-import { runIntegrityV05, type IntegrityV05RuntimeOptions } from "./v05";
+
+import {
+  runIntegrityV05,
+  type IntegrityV05RuntimeOptions,
+  type ResolvedContext,
+} from "./v05";
 import { persistIntegrityChallenge } from "./challenge";
-import { actionEnvelopeToProposedAction } from "./action-envelope";
+import {
+  actionEnvelopeToProposedAction,
+  normalizeObservedToolCall,
+} from "./action-envelope";
 import { hashIntegrityValue } from "./canonical";
 
 const supabase = createClient(
@@ -110,20 +117,68 @@ export async function processAcsToolCallRequest(input: {
   const started = performance.now();
   const parsed = parseAcsToolCallRequest(input.body);
 
+  const argumentSize = Buffer.byteLength(
+    JSON.stringify(parsed.observed.arguments ?? {}),
+    "utf8"
+  );
+  if (argumentSize > 64_000) {
+    throw new Error("integrity_observation_too_large");
+  }
+
+  const normalized = normalizeObservedToolCall(parsed.observed);
+  const envelopeHash = hashIntegrityValue(normalized.envelope);
+  const stateHash = hashIntegrityValue(normalized.state_snapshot);
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+
   let stageStarted = performance.now();
-  const binding = await resolveRuntimeBinding(input.observer, parsed.agent_id);
-  const bindingMs = performance.now() - stageStarted;
+  const { data: preparedData, error: preparedError } = await supabase.rpc(
+    "prepare_integrity_runtime_preflight",
+    {
+      p_principal_id: input.observer.principal_id,
+      p_observer_client_id: input.observer.client_id,
+      p_external_agent_id: parsed.agent_id,
+      p_protocol: "acs",
+      p_hook: "steps/toolCallRequest",
+      p_session_id: parsed.session_id,
+      p_step_id: parsed.request_id,
+      p_envelope: normalized.envelope,
+      p_envelope_hash: envelopeHash,
+      p_state_snapshot: normalized.state_snapshot,
+      p_state_hash: stateHash,
+      p_causal_context: parsed.observed.causal_context?.trim().slice(0, 2400) || null,
+      p_expires_at: expiresAt,
+      p_attestation_ids: [],
+    }
+  );
+  const prepareMs = performance.now() - stageStarted;
+
+  if (preparedError) throw new Error("runtime_preflight_prepare_failed");
+
+  const prepared = preparedData as
+    | {
+        ok: true;
+        binding: { ok: true } & RuntimeBinding;
+        observation_id: string;
+        context: ResolvedContext;
+        db_elapsed_ms?: number;
+      }
+    | { ok: false; error: string; db_elapsed_ms?: number }
+    | null;
+
+  if (!prepared) throw new Error("runtime_preflight_prepare_failed");
+  if (!prepared.ok) throw new Error(prepared.error);
+
+  const binding = prepared.binding;
   const actor = actorIdentityFromBinding(binding);
 
   stageStarted = performance.now();
-  const observation = await storeRuntimeObservation(parsed.observed, input.observer);
-  const observationMs = performance.now() - stageStarted;
-
-  stageStarted = performance.now();
   const result = await runIntegrityV05(
-    { observation_id: observation.id },
+    { observation_id: prepared.observation_id },
     actor,
-    input.semantic ? { semanticAnalyzer: input.semantic } : undefined
+    {
+      ...(input.semantic ? { semanticAnalyzer: input.semantic } : {}),
+      resolvedContext: prepared.context,
+    }
   );
   const guardianMs = performance.now() - stageStarted;
 
@@ -141,7 +196,7 @@ export async function processAcsToolCallRequest(input: {
       parsed,
       observer: input.observer,
       actor,
-      observation_id: observation.id,
+      observation_id: prepared.observation_id,
       authorization_id: result.authorization.id,
       action_hash: actionHash,
       preflight_duration_ms: durationBeforeBinding,
@@ -158,8 +213,11 @@ export async function processAcsToolCallRequest(input: {
     challenge_id: challenge?.id ?? null,
     evaluation_duration_ms: duration,
     timings_ms: {
-      binding: Math.round(bindingMs),
-      observation: Math.round(observationMs),
+      prepare: Math.round(prepareMs),
+      prepare_db:
+        typeof prepared.db_elapsed_ms === "number"
+          ? prepared.db_elapsed_ms
+          : null,
       guardian: Math.round(guardianMs),
       challenge: Math.round(challengeMs),
       execution_binding: Math.round(executionBindingMs),
