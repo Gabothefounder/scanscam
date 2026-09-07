@@ -1,3 +1,4 @@
+async function main() {
 import {
   IntegrityApiError,
   createIntegrityClient,
@@ -216,3 +217,10 @@ console.log(JSON.stringify({
     "internal action/semantic redaction",
   ],
 }, null, 2));
+
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
