@@ -21,7 +21,8 @@
     "test:integrity-semantic-gate": "npx --yes tsx scripts/verify-integrity-semantic-gate.ts",
     "test:integrity-sdk-v1": "npx --yes tsx scripts/verify-integrity-sdk-v1.ts",
     "build:integrity-sdk": "npx --yes tsc -p packages/integrity-sdk/tsconfig.json",
-    "test:integrity-mcp-v1": "npx --yes tsx scripts/verify-integrity-mcp-v1.ts"
+    "test:integrity-mcp-v1": "npx --yes tsx scripts/verify-integrity-mcp-v1.ts",
+    "test:outside-agent-mcp": "npx --yes tsx scripts/run-integrity-outside-agent-mcp.ts"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.4",
