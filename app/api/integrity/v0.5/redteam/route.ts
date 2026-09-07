@@ -325,9 +325,9 @@ export async function GET() {
       results,
       "soft-value-avoidance-does-not-block",
       avoid.disposition === "ALLOW" &&
-        avoid.value_guard.preference_score < 0 &&
+        avoid.value_guard.preference_score < safe.value_guard.preference_score &&
         avoid.value_guard.private_match_count >= 1,
-      "soft arbitrary preference changes utility, not safety disposition",
+      "soft arbitrary preference lowers utility without becoming a safety block",
       { disposition: avoid.disposition, value_guard: avoid.value_guard }
     );
     if (avoid.authorization) {
