@@ -370,18 +370,21 @@ export function runValueGuard(capsule: DecisionCapsule): ValueCheckResult {
 export function runChangeGuard(capsule: DecisionCapsule): CheckResult {
   const before = flatten(capsule.previous_state);
   const after = flatten(capsule.current_state);
-  const paths = new Set([...Object.keys(before), ...Object.keys(after)]);
   const signals: PreflightSignal[] = [];
 
-  for (const path of paths) {
-    if (valuesEqual(before[path], after[path])) continue;
-    const severity = changeSeverity(path, before[path], after[path]);
-    signals.push({
-      code: severity === "high" ? "SENSITIVE_STATE_CHANGE" : "STATE_CHANGE",
-      severity,
-      path,
-      message: severity === "high" ? `Material state changed at ${path}.` : `State changed at ${path}.`,
-    });
+  // No baseline means "unknown history", not "every observed field changed".
+  if (capsule.previous_state) {
+    const paths = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const path of paths) {
+      if (valuesEqual(before[path], after[path])) continue;
+      const severity = changeSeverity(path, before[path], after[path]);
+      signals.push({
+        code: severity === "high" ? "SENSITIVE_STATE_CHANGE" : "STATE_CHANGE",
+        severity,
+        path,
+        message: severity === "high" ? `Material state changed at ${path}.` : `State changed at ${path}.`,
+      });
+    }
   }
 
   if (!capsule.previous_state && capsule.proposed_action.counterparty_id) {
