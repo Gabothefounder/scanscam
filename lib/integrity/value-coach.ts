@@ -103,7 +103,7 @@ const PROFILE_SCHEMA = {
           id: { type: "string", maxLength: 120 },
           label: { type: "string", maxLength: 180 },
           target: TARGET_SCHEMA,
-          kind: { type: "string", enum: ["match", "minimize", "maximize"] },
+          kind: { type: "string", enum: ["match", "minimize", "maximize", "qualitative"] },
           operator: {
             anyOf: [
               {
@@ -307,7 +307,9 @@ export async function compileValueCoachTurn(input: {
       "Preferences may concern literally anything: price, privacy, geography, time, reliability, environmental impact, brands, data residency, travel style, vendors, convenience, open source, family preferences, scheduling, or custom facts.",
       "Use target.kind=fact for arbitrary observable properties. fact_key should be a concise dot path such as supplier_country, flight.red_eye, hosting.region, privacy.sells_personal_data, warranty_years, or brand.",
       "Use target.kind=action_amount only for monetary action limits or relative price preferences.",
-      "Use kind=minimize or maximize for relative numeric preferences such as price, latency, carbon, travel time, or warranty years. For minimize/maximize, operator should be null.",
+      "Use kind=minimize or maximize ONLY for genuinely numeric observable facts such as price, latency, carbon, travel time, or warranty years. For minimize/maximize, operator should be null.",
+      "Use kind=qualitative when the user clearly cares about something but it is not operationally defined yet, such as 'privacy matters a lot'. Keep operator null and value null, preserve it as a private preference, and ask a concrete follow-up rather than inventing a score.",
+      "For country facts such as supplier_country, use ISO 3166-1 alpha-2 values when known (Canada=CA, United States=US).",
       "Use kind=match for categorical/boolean preferences. A match requires an operator.",
       "Keep preferences private by default.",
       "max_premium_percent is only for a preference when the user gives enough information about how much extra they would tolerate. Otherwise use null.",
@@ -316,6 +318,7 @@ export async function compileValueCoachTurn(input: {
       "Ask ONE next question at a time, chosen for maximum decision value. Prefer concrete trade-off questions over abstract ratings.",
       "Examples: 'Would you still prefer the local option if it cost about 10% more?' or 'Should red-eye flights be a preference to avoid, or should I always ask you first?'",
       "Avoid an exhausting questionnaire. By roughly 5-8 useful answers, mark ready_to_publish unless a major ambiguity remains.",
+      "When question_count is below 3, normally ask another high-information question unless the user explicitly says they are done or refuses further questions.",
       "The user can later correct the profile conversationally; when they do, update or remove prior entries rather than duplicating them.",
       "Do not store or repeat sensitive secrets. The event_summary should contain only the structured preference learned, not the raw answer.",
       "assistant_message should briefly reflect what you learned and naturally introduce next_question when present.",
