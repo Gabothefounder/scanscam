@@ -91,6 +91,13 @@ type ResolvedContext = {
 
 type ResolveFailure = { ok: false; error: string };
 
+export type ChallengeRequirement = {
+  id: string;
+  kind: "attestation" | "principal_approval" | "establish_baseline" | "semantic_retry" | "runtime_context";
+  claim?: string;
+  reason: string;
+};
+
 export type IntegrityV05Result = {
   version: "0.5";
   disposition: IntegrityDisposition;
@@ -98,6 +105,7 @@ export type IntegrityV05Result = {
   action: ActionEnvelope;
   signals: PreflightSignal[];
   required_controls: string[];
+  challenge_requirements: ChallengeRequirement[];
   value_guard: {
     preference_score: number;
     matched_count: number;
@@ -154,6 +162,28 @@ function attestationClaims(rows: AttestationContext[]): MaterialClaim[] {
       observed_at: row.observed_at,
     }],
   }));
+}
+
+function mergeClaims(claims: MaterialClaim[]): MaterialClaim[] {
+  const byText = new Map<string, MaterialClaim>();
+
+  for (const claim of claims) {
+    const key = claim.text.trim().toLowerCase();
+    if (!key) continue;
+    const existing = byText.get(key);
+    if (!existing) {
+      byText.set(key, {
+        ...claim,
+        evidence: [...(claim.evidence ?? [])],
+      });
+      continue;
+    }
+
+    existing.material = existing.material !== false || claim.material !== false;
+    existing.evidence = [...(existing.evidence ?? []), ...(claim.evidence ?? [])];
+  }
+
+  return [...byText.values()];
 }
 
 function causalClaims(context: string | null): MaterialClaim[] {
@@ -328,6 +358,68 @@ function controlsFor(signals: PreflightSignal[]): string[] {
   return [...controls];
 }
 
+function buildChallengeRequirements(
+  disposition: IntegrityDisposition,
+  claims: MaterialClaim[],
+  signals: PreflightSignal[]
+): ChallengeRequirement[] {
+  const requirements: ChallengeRequirement[] = [];
+
+  for (const claim of claims) {
+    if (claim.material === false) continue;
+    const independentlyVerified = (claim.evidence ?? []).some(
+      (item) => item.verified && item.independent
+    );
+    if (!independentlyVerified) {
+      requirements.push({
+        id: `attest:${claim.text.trim().toLowerCase()}`,
+        kind: "attestation",
+        claim: claim.text,
+        reason: "Provide an independent verifier attestation for this material premise.",
+      });
+    }
+  }
+
+  if (signals.some((signal) => signal.code === "SEMANTIC_REQUIRED_UNAVAILABLE")) {
+    requirements.push({
+      id: "semantic-retry",
+      kind: "semantic_retry",
+      reason: "Retry when the required semantic integrity sensor is available.",
+    });
+  }
+
+  if (signals.some((signal) => signal.code === "NO_PRIOR_STATE")) {
+    requirements.push({
+      id: "establish-baseline",
+      kind: "establish_baseline",
+      reason: "Establish a trusted baseline for this subject before materially relying on change history.",
+    });
+  }
+
+  if (signals.some((signal) => signal.code === "TRUSTED_CAUSAL_CONTEXT_MISSING")) {
+    requirements.push({
+      id: "runtime-context",
+      kind: "runtime_context",
+      reason: "The independent runtime observer must supply causal context.",
+    });
+  }
+
+  if (disposition === "APPROVAL_REQUIRED") {
+    requirements.push({
+      id: "principal-approval",
+      kind: "principal_approval",
+      reason: "The principal must explicitly approve this action.",
+    });
+  }
+
+  const seen = new Set<string>();
+  return requirements.filter((requirement) => {
+    if (seen.has(requirement.id)) return false;
+    seen.add(requirement.id);
+    return true;
+  });
+}
+
 function matchingBudgets(
   budgets: MandateBudget[] | undefined,
   envelope: ActionEnvelope,
@@ -399,10 +491,10 @@ export async function runIntegrityV05(
   const proposedAction = actionEnvelopeToProposedAction(envelope);
   const causalContext = resolved.observation.causal_context;
 
-  const claims = [
+  const claims = mergeClaims([
     ...causalClaims(causalContext),
     ...attestationClaims(resolved.attestations),
-  ];
+  ]);
 
   const capsule: DecisionCapsule = {
     version: "0.1",
@@ -591,6 +683,7 @@ export async function runIntegrityV05(
     action: envelope,
     signals: finalSignals.filter((signal) => !signal.code.startsWith("VALUE_")),
     required_controls: [...new Set([...base.required_controls, ...controlsFor(extraSignals)])],
+    challenge_requirements: buildChallengeRequirements(disposition, claims, finalSignals),
     value_guard: {
       preference_score: base.checks.value.preference_score,
       matched_count: base.checks.value.matched_objectives.length,
