@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ProposedAction } from "./preflight";
 import type { ActionEffect } from "./action-envelope";
+import { estimateOpenAiCostUsd, responseTokenUsage, type OpenAiTokenUsage } from "./model-cost";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = process.env.INTEGRITY_SEMANTIC_MODEL || process.env.SCAN_ANALYSIS_MODEL || "gpt-5.6-luna";
@@ -65,6 +66,9 @@ export type IntegritySemanticResult = {
   material_claims: string[];
   reasons: string[];
   model: string;
+  request_id?: string;
+  usage?: OpenAiTokenUsage;
+  estimated_cost_usd?: number;
 };
 
 export async function analyzeIntegritySemantics(input: {
@@ -115,8 +119,14 @@ export async function analyzeIntegritySemantics(input: {
   if (!response.output_text) return null;
 
   const parsed = JSON.parse(response.output_text);
+  const usage = responseTokenUsage(response);
+  const estimatedCost = estimateOpenAiCostUsd(MODEL, usage);
+
   return {
     ...parsed,
     model: MODEL,
+    request_id: typeof response._request_id === "string" ? response._request_id : undefined,
+    usage: usage ?? undefined,
+    estimated_cost_usd: estimatedCost ?? undefined,
   } as IntegritySemanticResult;
 }
