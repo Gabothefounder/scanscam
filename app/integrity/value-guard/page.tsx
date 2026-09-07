@@ -22,7 +22,7 @@ type HardRule = {
 type Preference = {
   id: string;
   label: string;
-  kind: "match" | "minimize" | "maximize";
+  kind: "match" | "minimize" | "maximize" | "qualitative";
   mode: "prefer" | "avoid";
   strength: Strength;
   confidence: number;
