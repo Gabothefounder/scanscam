@@ -8,9 +8,9 @@ import {
 type Case = { id: string; passed: boolean; detail?: string };
 const cases: Case[] = [];
 
-async function check(id: string, fn: () => void | Promise<void>) {
+function check(id: string, fn: () => void) {
   try {
-    await fn();
+    fn();
     cases.push({ id, passed: true });
   } catch (error) {
     cases.push({
@@ -151,7 +151,7 @@ function resultFor(disposition: "ALLOW" | "DENY" | "APPROVAL_REQUIRED" | "CHALLE
   } as any;
 }
 
-await check("request-parses-exact-v01-envelope", () => {
+check("request-parses-exact-v01-envelope", () => {
   const parsed = parseAcsToolCallRequest(validRequest());
   assert.equal(parsed.request_id, requestId);
   assert.equal(parsed.jsonrpc_id, 7);
@@ -163,7 +163,7 @@ await check("request-parses-exact-v01-envelope", () => {
   assert.deepEqual(parsed.observed.arguments?.nested, { a: true, b: [1, 2, 3] });
 });
 
-await check("raw-command-is-hashed-not-retained", () => {
+check("raw-command-is-hashed-not-retained", () => {
   const parsed = parseAcsToolCallRequest(validRequest());
   const serialized = JSON.stringify(parsed.observed);
   assert.equal(serialized.includes("PAY SUPER SECRET RAW COMMAND"), false);
@@ -171,7 +171,7 @@ await check("raw-command-is-hashed-not-retained", () => {
   assert.equal(typeof acs.raw_command_hash, "string");
 });
 
-await check("unwrapped-argument-is-rejected", () => {
+check("unwrapped-argument-is-rejected", () => {
   const malformed = validRequest();
   (malformed.params.payload.arguments as any).amount = 300;
   assert.throws(
@@ -180,7 +180,7 @@ await check("unwrapped-argument-is-rejected", () => {
   );
 });
 
-await check("wrong-hook-method-is-rejected", () => {
+check("wrong-hook-method-is-rejected", () => {
   const malformed = validRequest();
   malformed.method = "steps/otherHook";
   assert.throws(
@@ -189,7 +189,7 @@ await check("wrong-hook-method-is-rejected", () => {
   );
 });
 
-await check("bad-request-id-is-rejected", () => {
+check("bad-request-id-is-rejected", () => {
   const malformed = validRequest();
   malformed.params.request_id = "not-a-uuid";
   assert.throws(
@@ -198,7 +198,7 @@ await check("bad-request-id-is-rejected", () => {
   );
 });
 
-await check("tool-result-links-to-request", () => {
+check("tool-result-links-to-request", () => {
   const parsed = parseAcsToolCallResult(validResult());
   assert.equal(parsed.request_id_ref, requestId);
   assert.equal(parsed.request_id, resultRequestId);
@@ -209,7 +209,7 @@ await check("tool-result-links-to-request", () => {
   assert.ok(parsed.output_hash.length >= 32);
 });
 
-await check("invalid-exit-status-is-rejected", () => {
+check("invalid-exit-status-is-rejected", () => {
   const malformed = validResult();
   (malformed.params.payload as any).exit_status = "maybe";
   assert.throws(
@@ -220,7 +220,7 @@ await check("invalid-exit-status-is-rejected", () => {
 
 const requestContext = parseAcsToolCallRequest(validRequest());
 
-await check("allow-maps-to-acs-allow-without-token-leak", () => {
+check("allow-maps-to-acs-allow-without-token-leak", () => {
   const response = guardianResponseForACS({
     request: requestContext,
     result: resultFor("ALLOW"),
@@ -235,7 +235,7 @@ await check("allow-maps-to-acs-allow-without-token-leak", () => {
   assert.equal((response as any).result.policy_data.scanscam.authorization_id, "auth-visible-id");
 });
 
-await check("approval-maps-to-acs-ask", () => {
+check("approval-maps-to-acs-ask", () => {
   const response = guardianResponseForACS({
     request: requestContext,
     result: resultFor("APPROVAL_REQUIRED"),
@@ -246,7 +246,7 @@ await check("approval-maps-to-acs-ask", () => {
   assert.deepEqual((response as any).result.ask_details.options, ["approve", "deny"]);
 });
 
-await check("challenge-maps-to-acs-defer", () => {
+check("challenge-maps-to-acs-defer", () => {
   const response = guardianResponseForACS({
     request: requestContext,
     result: resultFor("CHALLENGE"),
@@ -258,7 +258,7 @@ await check("challenge-maps-to-acs-defer", () => {
   assert.deepEqual((response as any).result.defer_details.required_context, ["Verify bank change"]);
 });
 
-await check("deny-maps-to-acs-deny", () => {
+check("deny-maps-to-acs-deny", () => {
   const response = guardianResponseForACS({
     request: requestContext,
     result: resultFor("DENY"),
