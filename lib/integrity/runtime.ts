@@ -282,128 +282,105 @@ export async function processAcsToolCallResult(input: {
 }): Promise<Record<string, unknown>> {
   const started = performance.now();
   const parsed = parseAcsToolCallResult(input.body);
-  await resolveRuntimeBinding(input.observer, parsed.agent_id);
 
-  let runtime: Awaited<ReturnType<typeof loadRuntimeExecution>>;
-  try {
-    runtime = await loadRuntimeExecution(input.observer, parsed);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "runtime_execution_not_found";
-    return simpleAcsFinalResponse({
-      request: parsed,
-      decision: "deny",
-      reasoning: "ScanScam has no matching pre-execution authorization for this tool result.",
-      reason_codes: ["scanscam_untracked_tool_execution", message],
-      policy_data: {
-        scanscam: {
-          integrity_version: "0.7",
-          request_id_ref: parsed.request_id_ref,
-        },
-      },
-      evaluation_duration_ms: performance.now() - started,
-    });
-  }
-
-  if (
-    runtime.external_session_id !== parsed.session_id ||
-    runtime.tool_name !== parsed.tool_name
-  ) {
-    return simpleAcsFinalResponse({
-      request: parsed,
-      decision: "deny",
-      reasoning: "The ACS result does not match the authorized session or tool.",
-      reason_codes: ["scanscam_runtime_result_context_mismatch"],
-      policy_data: {
-        scanscam: {
-          integrity_version: "0.7",
-          runtime_execution_id: runtime.id,
-        },
-      },
-      evaluation_duration_ms: performance.now() - started,
-    });
-  }
-
-  if (runtime.status !== "authorized") {
-    const { data: receipt } = await supabase
-      .from("integrity_execution_receipts")
-      .select("id,outcome,baseline_version_after")
-      .eq("authorization_id", runtime.authorization_id)
-      .maybeSingle();
-
-    return simpleAcsFinalResponse({
-      request: parsed,
-      decision: runtime.status === "succeeded" || runtime.status === "failed" ? "allow" : "deny",
-      reasoning: "This ACS tool result has already been processed by ScanScam.",
-      reason_codes: ["scanscam_runtime_result_replayed"],
-      policy_data: {
-        scanscam: {
-          integrity_version: "0.7",
-          runtime_execution_id: runtime.id,
-          receipt: receipt ?? null,
-        },
-      },
-      evaluation_duration_ms: performance.now() - started,
-    });
-  }
-
-  const committed = await commitAcsRuntimeExecution({
-    parsed,
-    observer: input.observer,
-    runtime,
+  const { data, error } = await supabase.rpc("commit_integrity_runtime_execution", {
+    p_principal_id: input.observer.principal_id,
+    p_observer_client_id: input.observer.client_id,
+    p_external_agent_id: parsed.agent_id,
+    p_external_request_id: parsed.request_id_ref,
+    p_external_session_id: parsed.session_id,
+    p_tool_name: parsed.tool_name,
+    p_result_request_id: parsed.request_id,
+    p_exit_status: parsed.exit_status,
+    p_output_hash: parsed.output_hash,
+    p_duration_ms: parsed.duration_ms ?? null,
+    p_executed_at: parsed.timestamp,
   });
-
-  const nextStatus =
-    committed.ok
-      ? parsed.exit_status === "success"
-        ? "succeeded"
-        : "failed"
-      : "commit_rejected";
-
-  await supabase
-    .from("integrity_runtime_executions")
-    .update({
-      status: nextStatus,
-      completed_at: new Date().toISOString(),
-      metadata: {
-        request_id_ref: parsed.request_id_ref,
-        tool_call_result_request_id: parsed.request_id,
-        exit_status: parsed.exit_status,
-        output_hash: parsed.output_hash,
-        commit: committed,
-      },
-    })
-    .eq("id", runtime.id)
-    .eq("status", "authorized");
 
   const duration = performance.now() - started;
 
-  if (!committed.ok) {
+  if (error) {
+    throw new Error("runtime_commit_rpc_failed");
+  }
+
+  const settled = (data ?? {
+    ok: false,
+    error: "runtime_commit_empty",
+  }) as {
+    ok: boolean;
+    replayed?: boolean;
+    error?: string;
+    runtime_execution_id?: string;
+    status?: string;
+    db_elapsed_ms?: number;
+    commit?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+
+  const timingMs = {
+    runtime_settlement_rpc: Math.max(0, Math.round(duration)),
+    db_elapsed_ms:
+      typeof settled.db_elapsed_ms === "number" && Number.isFinite(settled.db_elapsed_ms)
+        ? settled.db_elapsed_ms
+        : null,
+  };
+
+  if (!settled.ok) {
+    const errorCode = String(settled.error ?? "runtime_commit_rejected");
+    const reasonCode =
+      errorCode === "runtime_execution_not_found"
+        ? "scanscam_untracked_tool_execution"
+        : errorCode === "runtime_result_context_mismatch"
+          ? "scanscam_runtime_result_context_mismatch"
+          : errorCode === "runtime_binding_not_found"
+            ? "scanscam_runtime_binding_not_found"
+            : "scanscam_execution_commit_rejected";
+
     return simpleAcsFinalResponse({
       request: parsed,
       decision: "deny",
-      reasoning: "The tool executed, but ScanScam rejected the execution Commit because the authorization context was no longer valid.",
-      reason_codes: ["scanscam_execution_commit_rejected", `scanscam_${String(committed.error ?? "unknown")}`],
+      reasoning:
+        errorCode === "runtime_execution_not_found"
+          ? "ScanScam has no matching pre-execution authorization for this tool result."
+          : errorCode === "runtime_result_context_mismatch"
+            ? "The ACS result does not match the authorized session or tool."
+            : "ScanScam rejected the execution Commit because the bound authorization context was not valid.",
+      reason_codes: [reasonCode, `scanscam_${errorCode}`],
       policy_data: {
         scanscam: {
-          integrity_version: "0.7",
-          runtime_execution_id: runtime.id,
-          commit: committed,
+          integrity_version: "0.9",
+          runtime_execution_id: settled.runtime_execution_id ?? null,
+          commit: {
+            ...settled,
+            timing_ms: timingMs,
+          },
         },
       },
       evaluation_duration_ms: duration,
     });
   }
 
+  const replayed = settled.replayed === true;
+
   return simpleAcsFinalResponse({
     request: parsed,
     decision: "allow",
-    reasoning: "ScanScam accepted the tool execution result and settled the bound execution authorization.",
-    reason_codes: ["scanscam_execution_committed"],
+    reasoning: replayed
+      ? "This ACS tool result was already settled; ScanScam returned the existing execution receipt."
+      : "ScanScam accepted the tool execution result and settled the bound execution authorization.",
+    reason_codes: [
+      replayed
+        ? "scanscam_runtime_result_replayed"
+        : "scanscam_execution_committed",
+    ],
     policy_data: {
       scanscam: {
-        integrity_version: "0.7",
-        runtime_execution_id: runtime.id,
-        commit: committed,
+        integrity_version: "0.9",
+        runtime_execution_id: settled.runtime_execution_id ?? null,
+        commit: {
+          ...settled,
+          timing_ms: timingMs,
+        },
       },
     },
     evaluation_duration_ms: duration,
