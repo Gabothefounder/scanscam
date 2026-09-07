@@ -109,20 +109,34 @@ export async function processAcsToolCallRequest(input: {
 }): Promise<Record<string, unknown>> {
   const started = performance.now();
   const parsed = parseAcsToolCallRequest(input.body);
+
+  let stageStarted = performance.now();
   const binding = await resolveRuntimeBinding(input.observer, parsed.agent_id);
+  const bindingMs = performance.now() - stageStarted;
   const actor = actorIdentityFromBinding(binding);
 
+  stageStarted = performance.now();
   const observation = await storeRuntimeObservation(parsed.observed, input.observer);
+  const observationMs = performance.now() - stageStarted;
+
+  stageStarted = performance.now();
   const result = await runIntegrityV05(
     { observation_id: observation.id },
     actor,
     input.semantic ? { semanticAnalyzer: input.semantic } : undefined
   );
+  const guardianMs = performance.now() - stageStarted;
+
+  stageStarted = performance.now();
   const challenge = await persistIntegrityChallenge(result, actor);
-  const duration = performance.now() - started;
+  const challengeMs = performance.now() - stageStarted;
+
+  let executionBindingMs = 0;
+  const durationBeforeBinding = performance.now() - started;
 
   if (result.disposition === "ALLOW" && result.authorization) {
     const actionHash = hashIntegrityValue(actionEnvelopeToProposedAction(result.action));
+    stageStarted = performance.now();
     await recordAuthorizedRuntimeExecution({
       parsed,
       observer: input.observer,
@@ -130,16 +144,28 @@ export async function processAcsToolCallRequest(input: {
       observation_id: observation.id,
       authorization_id: result.authorization.id,
       action_hash: actionHash,
-      preflight_duration_ms: duration,
+      preflight_duration_ms: durationBeforeBinding,
       semantic_ran: result.trust.semantic.ran,
     });
+    executionBindingMs = performance.now() - stageStarted;
   }
+
+  const duration = performance.now() - started;
 
   return guardianResponseForACS({
     request: parsed,
     result,
     challenge_id: challenge?.id ?? null,
     evaluation_duration_ms: duration,
+    timings_ms: {
+      binding: Math.round(bindingMs),
+      observation: Math.round(observationMs),
+      guardian: Math.round(guardianMs),
+      challenge: Math.round(challengeMs),
+      execution_binding: Math.round(executionBindingMs),
+      total: Math.round(duration),
+      runtime_region: null,
+    },
   });
 }
 
@@ -186,27 +212,34 @@ async function commitAcsRuntimeExecution(input: {
   observer: IntegrityClientIdentity;
   runtime: Awaited<ReturnType<typeof loadRuntimeExecution>>;
 }): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
+  const timings: Record<string, number> = {};
+  let stageStarted = performance.now();
+
   const { data: authorization, error: authError } = await supabase
     .from("integrity_authorizations")
     .select("id,client_id,token_hash,action_hash,status")
     .eq("id", input.runtime.authorization_id)
     .single();
+  timings.authorization_lookup = Math.round(performance.now() - stageStarted);
 
   if (authError || !authorization) throw new Error("runtime_authorization_lookup_failed");
   if (authorization.client_id !== input.runtime.actor_client_id) {
     throw new Error("runtime_authorization_client_mismatch");
   }
 
+  stageStarted = performance.now();
   const { data: observation, error: observationError } = await supabase
     .from("integrity_action_observations")
     .select("state_snapshot,state_hash")
     .eq("id", input.runtime.observation_id)
     .single();
+  timings.observation_lookup = Math.round(performance.now() - stageStarted);
 
   if (observationError || !observation) throw new Error("runtime_observation_lookup_failed");
 
   const succeeded = input.parsed.exit_status === "success";
 
+  stageStarted = performance.now();
   const { data, error } = await supabase.rpc("commit_integrity_execution", {
     p_authorization_id: input.runtime.authorization_id,
     p_client_id: input.runtime.actor_client_id,
@@ -228,11 +261,18 @@ async function commitAcsRuntimeExecution(input: {
     },
   });
 
+  timings.commit_rpc = Math.round(performance.now() - stageStarted);
+
   if (error) throw new Error("runtime_commit_rpc_failed");
-  return (data ?? { ok: false, error: "runtime_commit_empty" }) as {
+  const result = (data ?? { ok: false, error: "runtime_commit_empty" }) as {
     ok: boolean;
     error?: string;
     [key: string]: unknown;
+  };
+
+  return {
+    ...result,
+    timing_ms: timings,
   };
 }
 
