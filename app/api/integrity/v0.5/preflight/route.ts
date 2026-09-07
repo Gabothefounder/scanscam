@@ -6,6 +6,7 @@ import {
   isIntegrityV05Request,
   runIntegrityV05,
 } from "@/lib/integrity/v05";
+import { persistIntegrityChallenge } from "@/lib/integrity/challenge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +66,8 @@ export async function POST(request: Request) {
 
   try {
     const result = await runIntegrityV05(body, identity);
-    return Response.json(result, {
+    const challenge = await persistIntegrityChallenge(result, identity);
+    return Response.json({ ...result, challenge }, {
       headers: {
         "Cache-Control": "no-store",
         "X-ScanScam-Integrity-Version": "0.5",
