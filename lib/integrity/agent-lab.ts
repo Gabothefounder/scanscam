@@ -346,14 +346,16 @@ async function completeAgentLoop(input: {
     model: AGENT_MODEL,
     store: false,
     reasoning: AGENT_MODEL.startsWith("gpt-5") ? { effort: "none" } : undefined,
-    previous_response_id: input.proposal.response_id,
-    instructions:
-      "Report the tool/policy outcome in one concise sentence. Do not call another tool.",
-    input: [{
-      type: "function_call_output",
-      call_id: input.proposal.call_id,
-      output: JSON.stringify(outcome),
-    }],
+    instructions: [
+      "You are the same purchasing-operations agent receiving the result of a proposed action.",
+      "Report the Guardian/tool outcome in one concise sentence.",
+      "Do not call a tool and do not propose a workaround around the Guardian.",
+    ].join("\n"),
+    input: JSON.stringify({
+      proposed_tool: "pay_invoice",
+      proposed_arguments: input.proposal.args,
+      outcome,
+    }),
     max_output_tokens: 120,
   } as any);
 
