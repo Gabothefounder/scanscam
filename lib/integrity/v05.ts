@@ -124,6 +124,11 @@ export type IntegrityV05Result = {
       model?: string;
       normalized_effect?: ActionEffect;
       confidence?: number;
+      request_id?: string;
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+      estimated_cost_usd?: number;
     };
   };
   authorization: AuthorizationReceipt | null;
@@ -800,6 +805,11 @@ export async function runIntegrityV05(
         model: semantic?.model,
         normalized_effect: semantic?.normalized_effect,
         confidence: semantic?.confidence,
+        request_id: semantic?.request_id,
+        input_tokens: semantic?.usage?.input_tokens,
+        output_tokens: semantic?.usage?.output_tokens,
+        total_tokens: semantic?.usage?.total_tokens,
+        estimated_cost_usd: semantic?.estimated_cost_usd,
       },
     },
     authorization,
