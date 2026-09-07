@@ -164,7 +164,7 @@ export async function processAcsToolCallRequest(input: {
       challenge: Math.round(challengeMs),
       execution_binding: Math.round(executionBindingMs),
       total: Math.round(duration),
-      runtime_region: null,
+      runtime_region: process.env.VERCEL_REGION ?? null,
     },
   });
 }
