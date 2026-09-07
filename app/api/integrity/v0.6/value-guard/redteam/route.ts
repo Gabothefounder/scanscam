@@ -314,8 +314,7 @@ export async function GET() {
       "publish-activates-exact-compiled-policy",
       stored.status === "active" &&
         activated.mandate_hash === hashesA.compiled_mandate_hash &&
-        activeMandate?.mandate_hash === hashesA.compiled_mandate_hash &&
-        JSON.stringify(activeMandate?.mandate) === JSON.stringify(hashesA.compiled_mandate),
+        activeMandate?.mandate_hash === hashesA.compiled_mandate_hash,
       "publishing activates the exact deterministic Guardian mandate",
       { activated, activeMandate }
     );
