@@ -158,6 +158,31 @@ function asTimingMap(value: unknown): Record<string, number | string | null> {
   return out;
 }
 
+function commitTimingMap(
+  value: Record<string, unknown> | null
+): Record<string, number | string | null> {
+  if (!value) return {};
+
+  const policy = scanscamPolicy(value);
+  const commit =
+    policy.commit && typeof policy.commit === "object" && !Array.isArray(policy.commit)
+      ? policy.commit as Record<string, unknown>
+      : {};
+
+  const nested = asTimingMap(commit.timing_ms);
+  if (Object.keys(nested).length) return nested;
+
+  const fallback: Record<string, number | string | null> = {};
+  const metadata = responseMetadata(value);
+  const evaluationMs = asFiniteNumber(metadata.evaluation_duration_ms);
+  const dbElapsedMs = asFiniteNumber(commit.db_elapsed_ms);
+
+  if (evaluationMs !== null) fallback.runtime_settlement_rpc = evaluationMs;
+  if (dbElapsedMs !== null) fallback.db_elapsed_ms = dbElapsedMs;
+
+  return fallback;
+}
+
 
 function acsArguments(args: PaymentArgs): Record<string, { value: unknown }> {
   return {
@@ -586,12 +611,7 @@ async function persistTelemetry(input: {
       ? policy.semantic as Record<string, unknown>
       : {};
   const guardianTiming = asTimingMap(policy.timing_ms);
-  const commitPolicy = input.commit_response ? scanscamPolicy(input.commit_response) : {};
-  const commitValue =
-    commitPolicy.commit && typeof commitPolicy.commit === "object" && !Array.isArray(commitPolicy.commit)
-      ? commitPolicy.commit as Record<string, unknown>
-      : {};
-  const commitTiming = asTimingMap(commitValue.timing_ms);
+  const commitTiming = commitTimingMap(input.commit_response);
 
   const proposalAndCompletionUsage = addTokenUsage(
     input.proposal.usage,
@@ -806,14 +826,7 @@ export async function runAgentLabScenario(
         : {};
     const allAgentUsage = addTokenUsage(proposal.usage, completion.usage);
     const guardianTiming = asTimingMap(policy.timing_ms);
-    const returnedCommitPolicy = commitResponse ? scanscamPolicy(commitResponse) : {};
-    const returnedCommit =
-      returnedCommitPolicy.commit &&
-      typeof returnedCommitPolicy.commit === "object" &&
-      !Array.isArray(returnedCommitPolicy.commit)
-        ? returnedCommitPolicy.commit as Record<string, unknown>
-        : {};
-    const commitTiming = asTimingMap(returnedCommit.timing_ms);
+    const commitTiming = commitTimingMap(commitResponse);
 
     return {
       run_id: runId,
