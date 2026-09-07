@@ -15,6 +15,11 @@ import { storeRuntimeObservation } from "@/lib/integrity/observer";
 import { hashIntegrityValue } from "@/lib/integrity/canonical";
 import { runIntegrityV05 } from "@/lib/integrity/v05";
 import { commitExecution } from "@/lib/integrity/receipts";
+import { issueIntegrityAttestation } from "@/lib/integrity/attest";
+import {
+  persistIntegrityChallenge,
+  retryIntegrityChallenge,
+} from "@/lib/integrity/challenge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,8 +54,8 @@ function record(
 async function makeClient(input: {
   principal: string;
   name: string;
-  kind: "actor" | "observer" | "hybrid";
-  scopes: Array<"preflight:write" | "commit:write" | "observe:write">;
+  kind: "actor" | "observer" | "verifier" | "hybrid";
+  scopes: Array<"preflight:write" | "commit:write" | "observe:write" | "attest:write">;
 }): Promise<{ identity: IntegrityClientIdentity; apiKey: string }> {
   const created = await createIntegrityClient({
     principal_id: input.principal,
@@ -60,10 +65,11 @@ async function makeClient(input: {
     metadata: { redteam: true },
   });
   const credential = await issueIntegrityClientCredential({ client_id: created.client_id });
-  const identity = await authenticateIntegrityApiKey(
-    credential.api_key,
-    input.scopes.includes("preflight:write") ? "preflight:write" : "observe:write"
-  );
+  const authScope =
+    input.scopes.includes("preflight:write") ? "preflight:write" :
+    input.scopes.includes("observe:write") ? "observe:write" :
+    "attest:write";
+  const identity = await authenticateIntegrityApiKey(credential.api_key, authScope);
   return { identity, apiKey: credential.api_key };
 }
 
@@ -107,6 +113,12 @@ export async function GET() {
       name: "hybrid-self-observer",
       kind: "hybrid",
       scopes: ["preflight:write", "commit:write", "observe:write"],
+    });
+    const verifier = await makeClient({
+      principal,
+      name: "independent-verifier",
+      kind: "verifier",
+      scopes: ["attest:write"],
     });
     const otherObserver = await makeClient({
       principal: otherPrincipal,
@@ -547,6 +559,77 @@ export async function GET() {
       { succeeded, next: afterCommit.disposition, budget: afterCommit.budget }
     );
 
+    const challengeObs = await storeRuntimeObservation({
+      ...safeInput,
+      session_id: `challenge-proof-${suffix}`,
+      step_id: "1",
+      causal_context: "ACME says its banking changed and asks us to use the new account.",
+      arguments: {
+        ...safeInput.arguments!,
+        amount: 100,
+        bank_account: "TD-VERIFIED",
+      },
+    }, observer.identity);
+
+    const challenged = await runIntegrityV05(
+      { observation_id: challengeObs.id },
+      actor.identity,
+      { semanticAnalyzer: safeSemantic }
+    );
+    const persistedChallenge = await persistIntegrityChallenge(challenged, actor.identity);
+    const requiredClaim = challenged.challenge_requirements.find(
+      (requirement) => requirement.kind === "attestation" && requirement.claim
+    )?.claim;
+
+    if (!persistedChallenge || !requiredClaim) {
+      throw new Error("challenge_requirement_missing");
+    }
+
+    const attestation = await issueIntegrityAttestation({
+      claim_text: requiredClaim,
+      evidence: {
+        method: "out_of_band_verification",
+        result: "confirmed",
+        verifier_note: "Supplier independently confirmed the new destination.",
+      },
+      expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+    }, verifier.identity);
+
+    const retried = await retryIntegrityChallenge(
+      persistedChallenge.id,
+      [attestation.id],
+      actor.identity,
+      { semanticAnalyzer: safeSemantic }
+    );
+
+    record(
+      results,
+      "challenge-attestation-retry-resolves",
+      challenged.disposition === "CHALLENGE" &&
+        persistedChallenge.status === "open" &&
+        retried.challenge.status === "satisfied" &&
+        retried.result.disposition === "ALLOW" &&
+        !!retried.result.authorization,
+      "CHALLENGE -> verifier attestation -> retry same observation -> ALLOW",
+      {
+        initial: challenged.disposition,
+        requirement: requiredClaim,
+        attestation_id: attestation.id,
+        challenge_status: retried.challenge.status,
+        retry_disposition: retried.result.disposition,
+      }
+    );
+
+    if (retried.result.authorization) {
+      await commitExecution({
+        authorization_id: retried.result.authorization.id,
+        authorization_token: retried.result.authorization.token,
+        executed_action: actionEnvelopeToProposedAction(retried.result.action),
+        outcome: "failed",
+        external_execution_id: `challenge-release-${suffix}`,
+      }, actor.identity);
+    }
+
     const otherObs = await storeRuntimeObservation({
       ...safeInput,
       session_id: `other-principal-${suffix}`,
@@ -590,6 +673,8 @@ export async function GET() {
       await supabase.from("integrity_authorizations").delete().in("id", authorizationIds);
     }
 
+    await supabase.from("integrity_challenges").delete().eq("principal_id", principal);
+    await supabase.from("integrity_attestations").delete().eq("principal_id", principal);
     await supabase.from("integrity_action_observations").delete().in("principal_id", [principal, otherPrincipal]);
     await supabase.from("integrity_baselines").delete().eq("principal_id", principal);
     await supabase.from("integrity_mandates").delete().eq("principal_id", principal);
