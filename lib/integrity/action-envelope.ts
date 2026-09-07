@@ -85,6 +85,10 @@ const DOMAIN_KEYS = ["domain", "email_domain", "merchant_domain", "vendor_domain
 const COUNTRY_KEYS = ["country", "country_code", "supplier_country", "merchant_country"];
 const RESOURCE_KEYS = ["resource_id", "file_id", "document_id", "contract_id", "order_id", "workspace_id"];
 const PERMISSION_KEYS = ["permission", "permissions", "role", "scope", "scopes", "access"];
+const PRICE_KEYS = ["unit_price", "price_per_unit", "quoted_price", "contract_price"];
+const FEE_KEYS = ["service_fee", "fee", "surcharge", "processing_fee"];
+const EMAIL_KEYS = ["contact_email", "email", "email_address", "accounts_payable_email"];
+const OWNERSHIP_KEYS = ["ownership", "owner", "parent_company", "corporate_control"];
 
 function scalar(value: Primitive | undefined): string | number | boolean | null | undefined {
   return value === null || ["string", "number", "boolean"].includes(typeof value)
@@ -231,6 +235,10 @@ export function normalizeObservedToolCall(input: ObservedToolCallInput): {
   const country = stringValue(args, COUNTRY_KEYS)?.toUpperCase();
   const resourceId = stringValue(args, RESOURCE_KEYS);
   const permissions = listValue(args, PERMISSION_KEYS);
+  const unitPrice = numberValue(args, PRICE_KEYS);
+  const fee = numberValue(args, FEE_KEYS);
+  const contactEmail = stringValue(args, EMAIL_KEYS)?.toLowerCase();
+  const ownership = stringValue(args, OWNERSHIP_KEYS);
   const effect = inferEffect(toolName, args);
 
   const subjectId = canonicalSubject({
@@ -302,6 +310,10 @@ export function normalizeObservedToolCall(input: ObservedToolCallInput): {
       destination_hash: envelope.destination?.value_hash ?? null,
       domain: envelope.counterparty?.domain ?? null,
       country: envelope.counterparty?.country ?? null,
+      contact_email: contactEmail ?? null,
+      ownership: ownership ?? null,
+      unit_price: unitPrice ?? null,
+      fee: fee ?? null,
       tool_server: envelope.tool.server ?? null,
       permissions: envelope.permissions ?? [],
     },
@@ -341,6 +353,10 @@ export function actionEnvelopeToProposedAction(envelope: ActionEnvelope): Propos
       supplier_country: envelope.counterparty?.country ?? null,
       counterparty_domain: envelope.counterparty?.domain ?? null,
       permission: envelope.permissions?.[0] ?? null,
+      legal_effect: findByKeys(envelope.policy_facts, ["legal_effect"]) ?? null,
+      target: findByKeys(envelope.policy_facts, ["target"]) ?? null,
+      contains_personal_data: findByKeys(envelope.policy_facts, ["contains_personal_data"]) ?? null,
+      data_classification: findByKeys(envelope.policy_facts, ["data_classification"]) ?? null,
     },
   };
 }
