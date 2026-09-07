@@ -46,6 +46,9 @@ export async function issueAuthorizationReceipt(
   options?: AuthorizationIssueOptions
 ): Promise<AuthorizationReceipt> {
   if (result.decision !== "ALLOW") throw new Error("authorization_requires_allow");
+  if (request.principal_id !== client.principal_id) {
+    throw new Error("authorization_principal_client_mismatch");
+  }
 
   const token = crypto.randomBytes(32).toString("base64url");
   const actionHash = hashIntegrityValue(request.proposed_action);
