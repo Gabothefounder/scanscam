@@ -290,7 +290,12 @@ function dispositionFor(signals: PreflightSignal[]): IntegrityDisposition {
     "COMMITMENT_SCOPE_UNCLEAR",
   ]);
 
-  if (signals.some((signal) => approvalCodes.has(signal.code))) return "APPROVAL_REQUIRED";
+  if (
+    signals.some((signal) =>
+      approvalCodes.has(signal.code) ||
+      (signal.code.startsWith("MANDATE_") && signal.severity === "high")
+    )
+  ) return "APPROVAL_REQUIRED";
 
   if (
     signals.some((signal) =>
