@@ -1,27 +1,15 @@
-import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Primitive, ProposedAction } from "./preflight";
 import type { TrustedPreflightRequest, TrustedPreflightResult } from "./trusted";
 import type { IntegrityClientIdentity } from "./auth";
+import { hashIntegrityValue } from "./canonical";
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-function canonicalize(value: unknown): string {
-  if (value === undefined) return "__undefined__";
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, item]) => item !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b));
-  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalize(item)}`).join(",")}}`;
-}
-
-export function hashIntegrityValue(value: unknown): string {
-  return crypto.createHash("sha256").update(canonicalize(value)).digest("hex");
-}
+import crypto from "crypto";
 
 function tokenHash(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -37,11 +25,25 @@ export type AuthorizationReceipt = {
   baseline: { version: number; hash: string } | null;
 };
 
+export type AuthorizationBudgetReservation = {
+  id: string;
+  amount: number;
+  currency?: string;
+  limit: number;
+  window_seconds: number;
+};
+
+export type AuthorizationIssueOptions = {
+  ttlSeconds?: number;
+  observation_id?: string | null;
+  budgets?: AuthorizationBudgetReservation[];
+};
+
 export async function issueAuthorizationReceipt(
   request: TrustedPreflightRequest,
   result: TrustedPreflightResult,
   client: IntegrityClientIdentity,
-  options?: { ttlSeconds?: number }
+  options?: AuthorizationIssueOptions
 ): Promise<AuthorizationReceipt> {
   if (result.decision !== "ALLOW") throw new Error("authorization_requires_allow");
 
@@ -60,38 +62,49 @@ export async function issueAuthorizationReceipt(
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
   const subjectId = request.subject_id ?? request.proposed_action.counterparty_id ?? null;
 
-  const { data, error } = await supabase
-    .from("integrity_authorizations")
-    .insert({
-      principal_id: request.principal_id,
-      client_id: client.client_id,
-      subject_id: subjectId,
-      action: request.proposed_action,
-      action_hash: actionHash,
-      mandate_version: result.trust.mandate.version,
-      mandate_hash: result.trust.mandate.hash,
-      baseline_version: result.trust.baseline?.version ?? null,
-      baseline_hash: result.trust.baseline?.hash ?? null,
-      observed_state_hash: observedStateHash,
-      token_hash: tokenHash(token),
-      decision: "ALLOW",
-      status: "issued",
-      expires_at: expiresAt,
-      metadata: {
-        context_hash: contextHash,
-        semantic_ran: result.trust.semantic.ran,
-        attestation_ids: result.trust.attestations.ids,
-      },
-    })
-    .select("id,expires_at")
-    .single();
+  const { data, error } = await supabase.rpc("issue_integrity_authorization", {
+    p_principal_id: request.principal_id,
+    p_client_id: client.client_id,
+    p_subject_id: subjectId,
+    p_observation_id: options?.observation_id ?? null,
+    p_action: request.proposed_action,
+    p_action_hash: actionHash,
+    p_mandate_version: result.trust.mandate.version,
+    p_mandate_hash: result.trust.mandate.hash,
+    p_baseline_version: result.trust.baseline?.version ?? null,
+    p_baseline_hash: result.trust.baseline?.hash ?? null,
+    p_observed_state_hash: observedStateHash,
+    p_token_hash: tokenHash(token),
+    p_expires_at: expiresAt,
+    p_metadata: {
+      context_hash: contextHash,
+      semantic_ran: result.trust.semantic.ran,
+      attestation_ids: result.trust.attestations.ids,
+    },
+    p_budgets: options?.budgets ?? [],
+  });
 
-  if (error || !data) throw new Error("authorization_issue_failed");
+  if (error) throw new Error("authorization_issue_failed");
+
+  const issue = data as
+    | { ok: true; authorization_id: string }
+    | { ok: false; error: string; [key: string]: unknown }
+    | null;
+
+  if (!issue) throw new Error("authorization_issue_failed");
+  if (!issue.ok) {
+    const failure = new Error(issue.error) as Error & { details?: Record<string, unknown> };
+    failure.details = issue as Record<string, unknown>;
+    throw failure;
+  }
+
+  const authorizationId = String(issue.authorization_id);
+
 
   return {
-    id: String(data.id),
+    id: authorizationId,
     token,
-    expires_at: String(data.expires_at),
+    expires_at: expiresAt,
     action_hash: actionHash,
     subject_id: subjectId,
     mandate: { ...result.trust.mandate },
