@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/next-dev-wrapper.mjs",
-    "build": "npm run test:v3-invariants && npm run test:integrity-acs-v07 && npm run test:integrity-primitives && npm run test:integrity-metamorphic && npm run test:integrity-semantic-gate && npm run audit:runtime && npm run benchmark:verify-fix-once && next build",
+    "build": "npm run test:v3-invariants && npm run test:integrity-acs-v07 && npm run test:integrity-primitives && npm run test:integrity-metamorphic && npm run test:integrity-semantic-gate && npm run test:integrity-sdk-v1 && npm run build:integrity-sdk && npm run audit:runtime && next build",
     "start": "next start",
     "lint": "eslint",
     "test:hard-fallback": "npx --yes tsx scripts/verify-hard-fallback-presentation.ts",
@@ -19,7 +19,8 @@
     "test:integrity-metamorphic": "npx --yes tsx scripts/verify-integrity-metamorphic.ts",
     "audit:runtime": "node scripts/audit-runtime-deps.mjs",
     "test:integrity-semantic-gate": "npx --yes tsx scripts/verify-integrity-semantic-gate.ts",
-    "benchmark:verify-fix-once": "npx --yes tsx scripts/run-agent-verify-fix-once.ts"
+    "test:integrity-sdk-v1": "npx --yes tsx scripts/verify-integrity-sdk-v1.ts",
+    "build:integrity-sdk": "npx --yes tsc -p packages/integrity-sdk/tsconfig.json"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.4",
