@@ -73,11 +73,11 @@ async function recordAuthorizedRuntimeExecution(input: {
   const { error } = await supabase
     .from("integrity_runtime_executions")
     .insert({
-      principal_id: actor.principal_id,
+      principal_id: input.actor.principal_id,
       protocol: "acs",
       external_request_id: input.parsed.request_id,
-      observer_client_id: observer.client_id,
-      actor_client_id: actor.client_id,
+      observer_client_id: input.observer.client_id,
+      actor_client_id: input.actor.client_id,
       observation_id: input.observation_id,
       authorization_id: input.authorization_id,
       action_hash: input.action_hash,
