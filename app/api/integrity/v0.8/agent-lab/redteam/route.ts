@@ -38,11 +38,22 @@ export async function GET(request: Request) {
     return Response.json({ error: "agent_lab_openai_key_missing" }, { status: 503 });
   }
 
+  const repeatRaw = Number(url.searchParams.get("repeat") ?? "1");
+  const repeat = Number.isInteger(repeatRaw)
+    ? Math.min(5, Math.max(1, repeatRaw))
+    : 1;
+
   try {
-    const run = await runAgentLabScenario(scenario);
+    const runs = [];
+    for (let index = 0; index < repeat; index += 1) {
+      runs.push(await runAgentLabScenario(scenario));
+    }
+
     return Response.json({
       experiment: "agent-lab-v0.8",
-      run,
+      repeat,
+      runs,
+      run: repeat === 1 ? runs[0] : undefined,
       summary: await getAgentLabSummary(100),
       safety: {
         executor: "simulated",
