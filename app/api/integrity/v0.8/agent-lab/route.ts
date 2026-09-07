@@ -1,6 +1,8 @@
 import {
+  AGENT_LAB_CATEGORIES,
   AGENT_LAB_SCENARIOS,
   getAgentLabSummary,
+  runAgentLabCategory,
   runAgentLabScenario,
   type AgentLabScenarioId,
 } from "@/lib/integrity/agent-lab";
@@ -21,30 +23,39 @@ function isScenario(value: unknown): value is AgentLabScenarioId {
     (AGENT_LAB_SCENARIOS as readonly string[]).includes(value);
 }
 
+function isCategory(value: unknown): value is string {
+  return typeof value === "string" &&
+    (AGENT_LAB_CATEGORIES as readonly string[]).includes(value);
+}
+
 export async function GET() {
   const blocked = previewOnly();
   if (blocked) return blocked;
 
   try {
-    const summary = await getAgentLabSummary(100);
+    const summary = await getAgentLabSummary(500);
     return Response.json({
       ...summary,
       safety: {
         executor: "simulated",
         moves_real_money: false,
+        changes_real_permissions: false,
+        publishes_real_data: false,
+        signs_real_contracts: false,
         production_route_enabled: false,
       },
       run_contract: {
         method: "POST",
         confirm: "RUN_SYNTHETIC_AGENT_LAB",
         scenarios: AGENT_LAB_SCENARIOS,
-        all: true,
+        categories: AGENT_LAB_CATEGORIES,
+        note: "Run one scenario or one category per request. The 42-case corpus is intentionally not executed inside one 60-second function invocation.",
       },
     }, {
       headers: {
         "Cache-Control": "no-store",
         "X-Robots-Tag": "noindex",
-        "X-ScanScam-Integrity-Version": "0.8",
+        "X-ScanScam-Integrity-Version": "0.10",
       },
     });
   } catch (error) {
@@ -83,19 +94,24 @@ export async function POST(request: Request) {
 
   try {
     if (input.scenario === "all") {
-      const runs = [];
-      for (const scenario of AGENT_LAB_SCENARIOS) {
-        runs.push(await runAgentLabScenario(scenario));
-      }
       return Response.json({
-        experiment: "agent-lab-v0.8",
+        error: "run_corpus_by_category",
+        categories: AGENT_LAB_CATEGORIES,
+        reason: "The 42-case live corpus is split into bounded category runs to stay within the preview function duration limit.",
+      }, { status: 400 });
+    }
+
+    if (isCategory(input.category)) {
+      const runs = await runAgentLabCategory(input.category);
+      return Response.json({
         runs,
-        summary: await getAgentLabSummary(100),
+        category: input.category,
+        summary: await getAgentLabSummary(500),
       }, {
         headers: {
           "Cache-Control": "no-store",
           "X-Robots-Tag": "noindex",
-          "X-ScanScam-Integrity-Version": "0.8",
+          "X-ScanScam-Integrity-Version": "0.10",
         },
       });
     }
@@ -104,19 +120,19 @@ export async function POST(request: Request) {
       return Response.json({
         error: "scenario_invalid",
         allowed: AGENT_LAB_SCENARIOS,
+        categories: AGENT_LAB_CATEGORIES,
       }, { status: 400 });
     }
 
     const run = await runAgentLabScenario(input.scenario);
     return Response.json({
-      experiment: "agent-lab-v0.8",
       run,
-      summary: await getAgentLabSummary(100),
+      summary: await getAgentLabSummary(500),
     }, {
       headers: {
         "Cache-Control": "no-store",
         "X-Robots-Tag": "noindex",
-        "X-ScanScam-Integrity-Version": "0.8",
+        "X-ScanScam-Integrity-Version": "0.10",
       },
     });
   } catch (error) {
