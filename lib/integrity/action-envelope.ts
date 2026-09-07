@@ -46,6 +46,7 @@ export type ActionEnvelope = {
     id?: string;
   };
   permissions?: string[];
+  policy_facts?: Record<string, Primitive>;
   consequences: {
     irreversible: boolean;
     creates_commitment: boolean;
@@ -141,6 +142,40 @@ function listValue(source: Record<string, Primitive> | undefined, keys: string[]
   }
   const single = scalar(value);
   return typeof single === "string" && single.trim() ? [single.trim()] : [];
+}
+
+const SECRET_KEY_RE = /(password|passwd|secret|token|authorization|api[_-]?key|private[_-]?key|session[_-]?key)/i;
+const SENSITIVE_VALUE_KEY_RE = /(bank[_-]?account|account[_-]?number|iban|routing|wallet|payment[_-]?destination|recipient[_-]?account)/i;
+
+function sanitizePolicyFacts(
+  value: Primitive,
+  key = "",
+  depth = 0
+): Primitive | undefined {
+  if (SECRET_KEY_RE.test(key)) return undefined;
+  if (depth > 4) return undefined;
+
+  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim().slice(0, 240);
+    if (SENSITIVE_VALUE_KEY_RE.test(key)) return `sha256:${hashIntegrityValue(trimmed)}`;
+    return trimmed;
+  }
+
+  if (Array.isArray(value)) {
+    const items = value
+      .slice(0, 20)
+      .map((item) => sanitizePolicyFacts(item, key, depth + 1))
+      .filter((item): item is Primitive => item !== undefined);
+    return items;
+  }
+
+  const output: Record<string, Primitive> = {};
+  for (const [childKey, childValue] of Object.entries(value).slice(0, 64)) {
+    const clean = sanitizePolicyFacts(childValue, childKey, depth + 1);
+    if (clean !== undefined) output[childKey] = clean;
+  }
+  return output;
 }
 
 function inferEffect(toolName: string, args: Record<string, Primitive> | undefined): ActionEffect {
@@ -253,6 +288,7 @@ export function normalizeObservedToolCall(input: ObservedToolCallInput): {
         }
       : undefined,
     permissions: permissions.length ? permissions : undefined,
+    policy_facts: sanitizePolicyFacts(args as unknown as Primitive) as Record<string, Primitive>,
     consequences: {
       irreversible,
       creates_commitment: createsCommitment,
