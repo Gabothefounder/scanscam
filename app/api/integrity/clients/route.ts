@@ -8,6 +8,7 @@ import {
   revokeIntegrityClient,
   revokeIntegrityClientCredential,
   rotateIntegrityClientCredential,
+  type IntegrityClientKind,
   type IntegrityScope,
 } from "@/lib/integrity/auth";
 
@@ -18,6 +19,16 @@ const ALLOWED_SCOPES = new Set<IntegrityScope>([
   "preflight:write",
   "commit:write",
   "clients:manage",
+  "observe:write",
+  "attest:write",
+]);
+
+const ALLOWED_KINDS = new Set<IntegrityClientKind>([
+  "actor",
+  "observer",
+  "manager",
+  "verifier",
+  "hybrid",
 ]);
 
 function parseScopes(value: unknown): IntegrityScope[] | null {
@@ -82,6 +93,10 @@ export async function POST(request: Request) {
       case "create_client": {
         const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
         const scopes = parseScopes(body.scopes);
+        const kind =
+          typeof body.kind === "string" && ALLOWED_KINDS.has(body.kind as IntegrityClientKind)
+            ? (body.kind as IntegrityClientKind)
+            : "actor";
         if (!name || !scopes) {
           return Response.json({ error: "invalid_client_definition" }, { status: 400 });
         }
@@ -90,6 +105,7 @@ export async function POST(request: Request) {
           principal_id: identity.principal_id,
           name,
           scopes,
+          kind,
           metadata: {
             created_by_client_id: identity.client_id,
           },
@@ -110,6 +126,7 @@ export async function POST(request: Request) {
           client_id: created.client_id,
           principal_id: identity.principal_id,
           name,
+          kind,
           scopes,
           credential: {
             credential_id: credential.credential_id,
