@@ -152,6 +152,10 @@ const COMMITMENT_ACTIONS = new Set([
   "book", "cancel", "settle_claim",
 ]);
 
+const ROUTINE_BOUNDED_COMMITMENTS = new Set([
+  "send_payment", "transfer_funds", "place_order", "book",
+]);
+
 const EXPLICIT_SCOPE_COMMITMENTS = new Set([
   "change_payment_destination", "change_vendor_bank_account", "accept_fee",
   "accept_terms", "sign_contract", "promise_refund", "offer_discount",
@@ -494,8 +498,8 @@ export function runMandateCheck(capsule: DecisionCapsule): CheckResult {
   ) {
     signals.push({
       code: "AUTONOMOUS_SPEND_LIMIT_EXCEEDED",
-      severity: "critical",
-      message: `Action amount ${action.amount} exceeds autonomous limit ${mandate.max_autonomous_amount}.`,
+      severity: "high",
+      message: `Action amount ${action.amount} exceeds autonomous limit ${mandate.max_autonomous_amount}; principal approval is required.`,
     });
   } else if (
     typeof action.amount === "number" &&
@@ -550,7 +554,10 @@ export function runCommitmentGuard(capsule: DecisionCapsule): CheckResult {
     } else if (
       !blocked &&
       !explicitlyApproved &&
-      (action.creates_commitment === true || EXPLICIT_SCOPE_COMMITMENTS.has(action.type))
+      (
+        EXPLICIT_SCOPE_COMMITMENTS.has(action.type) ||
+        (action.creates_commitment === true && !ROUTINE_BOUNDED_COMMITMENTS.has(action.type))
+      )
     ) {
       signals.push({
         code: "COMMITMENT_SCOPE_UNCLEAR",
@@ -641,8 +648,8 @@ export function runChallengeCheck(
   if (capsule.proposed_action.irreversible) {
     signals.push({
       code: "IRREVERSIBLE_ACTION",
-      severity: "high",
-      message: "The proposed action is marked irreversible and requires an explicit integrity checkpoint.",
+      severity: "medium",
+      message: "The proposed action is irreversible; preserve the authorization and execution receipt.",
     });
   }
 
