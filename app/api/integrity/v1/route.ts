@@ -19,6 +19,7 @@ export async function GET() {
       attest: "/api/integrity/v1/attest",
       challenge: "/api/integrity/v1/challenge",
       commit: "/api/integrity/v1/commit",
+      mcp: "/api/integrity/v1/mcp",
     },
     auth: "Bearer ssi_v1_* credential with endpoint-specific scope",
     contract: "Frozen public v1 adapter over evolving Guardian internals.",
