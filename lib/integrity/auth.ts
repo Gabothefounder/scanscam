@@ -6,12 +6,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-export type IntegrityScope = "preflight:write" | "commit:write" | "clients:manage";
+export type IntegrityScope =
+  | "preflight:write"
+  | "commit:write"
+  | "clients:manage"
+  | "observe:write"
+  | "attest:write";
+
+export type IntegrityClientKind = "actor" | "observer" | "manager" | "verifier" | "hybrid";
 
 export type IntegrityClientIdentity = {
   client_id: string;
   principal_id: string;
   name: string;
+  kind: IntegrityClientKind;
   scopes: IntegrityScope[];
   credential_id: string;
 };
@@ -39,6 +47,7 @@ export async function createIntegrityClient(input: {
   principal_id: string;
   name: string;
   scopes?: IntegrityScope[];
+  kind?: IntegrityClientKind;
   metadata?: Record<string, unknown>;
 }): Promise<{ client_id: string }> {
   const scopes = input.scopes ?? ["preflight:write", "commit:write"];
@@ -48,6 +57,7 @@ export async function createIntegrityClient(input: {
       principal_id: input.principal_id,
       name: input.name,
       scopes,
+      kind: input.kind ?? "actor",
       status: "active",
       metadata: input.metadata ?? {},
     })
@@ -156,52 +166,36 @@ export async function authenticateIntegrityApiKey(
     throw new Error("integrity_auth_invalid");
   }
 
-  const nowDate = new Date();
-  const now = nowDate.toISOString();
-  const { data: credential, error: credentialError } = await supabase
-    .from("integrity_client_credentials")
-    .select("id,client_id,expires_at,revoked_at,last_used_at")
-    .eq("key_hash", keyHash(apiKey))
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("authenticate_integrity_client", {
+    p_key_hash: keyHash(apiKey),
+    p_required_scope: requiredScope,
+  });
 
-  if (credentialError) throw new Error("integrity_auth_lookup_failed");
-  if (!credential || credential.revoked_at) throw new Error("integrity_auth_invalid");
-  if (
-    credential.expires_at &&
-    Number.isFinite(Date.parse(String(credential.expires_at))) &&
-    Date.parse(String(credential.expires_at)) <= nowDate.getTime()
-  ) {
-    throw new Error("integrity_auth_expired");
-  }
+  if (error) throw new Error("integrity_auth_lookup_failed");
 
-  const { data: client, error: clientError } = await supabase
-    .from("integrity_clients")
-    .select("id,principal_id,name,scopes,status,revoked_at")
-    .eq("id", credential.client_id)
-    .maybeSingle();
+  const result = data as
+    | {
+        ok: true;
+        credential_id: string;
+        client_id: string;
+        principal_id: string;
+        name: string;
+        kind: IntegrityClientKind;
+        scopes: IntegrityScope[];
+      }
+    | { ok: false; error: string }
+    | null;
 
-  if (clientError) throw new Error("integrity_auth_lookup_failed");
-  if (!client || client.status !== "active" || client.revoked_at) {
-    throw new Error("integrity_client_inactive");
-  }
-
-  const scopes = (client.scopes ?? []) as IntegrityScope[];
-  if (!scopes.includes(requiredScope)) throw new Error("integrity_scope_denied");
-
-  const lastUsedAt = credential.last_used_at ? Date.parse(String(credential.last_used_at)) : NaN;
-  if (!Number.isFinite(lastUsedAt) || nowDate.getTime() - lastUsedAt > 15 * 60_000) {
-    await supabase
-      .from("integrity_client_credentials")
-      .update({ last_used_at: now })
-      .eq("id", credential.id);
-  }
+  if (!result) throw new Error("integrity_auth_lookup_failed");
+  if (!result.ok) throw new Error(result.error);
 
   return {
-    client_id: String(client.id),
-    principal_id: String(client.principal_id),
-    name: String(client.name),
-    scopes,
-    credential_id: String(credential.id),
+    client_id: String(result.client_id),
+    principal_id: String(result.principal_id),
+    name: String(result.name),
+    kind: result.kind,
+    scopes: result.scopes ?? [],
+    credential_id: String(result.credential_id),
   };
 }
 
@@ -244,6 +238,7 @@ export async function listIntegrityClientsForPrincipal(
 ): Promise<Array<{
   client_id: string;
   name: string;
+  kind: IntegrityClientKind;
   scopes: IntegrityScope[];
   status: string;
   created_at: string;
@@ -251,7 +246,7 @@ export async function listIntegrityClientsForPrincipal(
 }>> {
   const { data, error } = await supabase
     .from("integrity_clients")
-    .select("id,name,scopes,status,created_at,revoked_at")
+    .select("id,name,kind,scopes,status,created_at,revoked_at")
     .eq("principal_id", principalId)
     .order("created_at", { ascending: true });
 
@@ -259,6 +254,7 @@ export async function listIntegrityClientsForPrincipal(
   return (data ?? []).map((row) => ({
     client_id: String(row.id),
     name: String(row.name),
+    kind: String(row.kind ?? "actor") as IntegrityClientKind,
     scopes: (row.scopes ?? []) as IntegrityScope[],
     status: String(row.status),
     created_at: String(row.created_at),
