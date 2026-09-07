@@ -117,7 +117,7 @@ function acsToolCallRequest(input: {
       },
       payload: {
         tool: {
-          name: input.toolName ?? "pay_invoice",
+          name: "pay_invoice",
           provider: "erp.local",
           version: "pay-v1",
         },
@@ -158,7 +158,7 @@ function acsToolCallResult(input: {
       payload: {
         request_id_ref: input.requestIdRef,
         tool: {
-          name: "pay_invoice",
+          name: input.toolName ?? "pay_invoice",
           provider: "erp.local",
           version: "pay-v1",
         },
