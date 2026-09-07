@@ -10,12 +10,12 @@ import {
   type DecisionCapsule,
   type MandateBudget,
   type MaterialClaim,
-  type PreflightResult,
   type PreflightSignal,
   type PrincipalMandate,
   type Primitive,
 } from "./preflight";
 import { analyzeIntegritySemantics } from "./semantic";
+import { shouldRunIntegritySemantic } from "./semantic-gate";
 import {
   issueAuthorizationReceipt,
   type AuthorizationBudgetReservation,
@@ -353,26 +353,6 @@ function interventionScoreFor(signals: PreflightSignal[]): number {
   return Number(Math.min(1, 1 - Math.exp(-total)).toFixed(3));
 }
 
-function semanticRequired(
-  envelope: ActionEnvelope,
-  base: PreflightResult,
-  deterministicSignals: PreflightSignal[]
-): boolean {
-  // Unknown real-world effects still need semantic normalization.
-  if (envelope.effect === "unknown") return true;
-
-  // If deterministic policy already reaches a safe interrupt (deny, approval,
-  // or challenge), semantic review cannot improve the immediate execution
-  // decision. Avoid paying latency/cost to rediscover an answer we already
-  // have. Semantic escalation is for ambiguity on an otherwise-allowable path.
-  if (dispositionFor(deterministicSignals) !== "ALLOW") return false;
-
-  // Multiple medium/low signals can produce elevated aggregate risk without a
-  // deterministic high-severity control. This is where semantic review can
-  // still materially change an ALLOW.
-  return base.risk >= 0.55;
-}
-
 function semanticSignals(
   semantic: Awaited<ReturnType<typeof analyzeIntegritySemantics>>
 ): PreflightSignal[] {
@@ -651,9 +631,8 @@ export async function runIntegrityV05(
   const deterministicDeception = deceptionSignals(causalContext);
   extraSignals.push(...applyVerifiedDeceptionEvidence(deterministicDeception, claims));
 
-  const requiresSemantic = semanticRequired(
+  const requiresSemantic = shouldRunIntegritySemantic(
     envelope,
-    base,
     [...controlledBaseSignals, ...extraSignals]
   );
   let semantic: Awaited<ReturnType<typeof analyzeIntegritySemantics>> = null;
