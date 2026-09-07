@@ -99,6 +99,7 @@ export async function GET() {
       "natural-language-private-preference",
       !!privacy &&
         privacy.private === true &&
+        privacy.kind === "qualitative" &&
         ["strong", "very_strong"].includes(privacy.strength) &&
         privacy.confidence >= 0.75,
       "strong privacy statement becomes a high-confidence private preference",
@@ -110,6 +111,7 @@ export async function GET() {
       "natural-language-tradeoff-tolerance",
       !!canadian &&
         canadian.mode === "prefer" &&
+        canadian.value === "CA" &&
         canadian.max_premium_percent !== null &&
         canadian.max_premium_percent >= 8 &&
         canadian.max_premium_percent <= 16,
