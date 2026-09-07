@@ -2,7 +2,7 @@ import {
   authenticateIntegrityRequest,
   integrityAuthHttpStatus,
 } from "@/lib/integrity/auth";
-import { observedToolCallFromACS } from "@/lib/integrity/adapters/acs";
+import { parseAcsToolCallRequest } from "@/lib/integrity/adapters/acs";
 import { storeRuntimeObservation } from "@/lib/integrity/observer";
 
 export const runtime = "nodejs";
@@ -16,9 +16,10 @@ export async function GET() {
   return Response.json({
     service: "ScanScam Integrity ACS Adapter",
     version: "0.5",
-    status: "public-preview adapter",
-    hook: "toolCallRequest",
-    note: "ACS schema evolution is isolated in this adapter; the Guardian core remains protocol-neutral.",
+    status: "schema-aligned public-preview adapter",
+    hook: "steps/toolCallRequest",
+    acs_version: "0.1.0",
+    note: "Compatibility observation-only endpoint. New end-to-end runtime integrations should use /api/integrity/v0.7/acs.",
   });
 }
 
@@ -47,8 +48,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const observed = observedToolCallFromACS(body);
-    const stored = await storeRuntimeObservation(observed, observer);
+    const parsed = parseAcsToolCallRequest(body);
+    const stored = await storeRuntimeObservation(parsed.observed, observer);
     return Response.json({
       observation_id: stored.id,
       envelope: stored.envelope,
