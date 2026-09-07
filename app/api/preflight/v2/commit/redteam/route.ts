@@ -54,6 +54,7 @@ export async function GET() {
   const results: Result[] = [];
   const authorizationIds: string[] = [];
   let testClientId: string | null = null;
+  let staleClientId: string | null = null;
 
   let baselineState: Record<string, any> = {
     vendor: { bank_account: "RBC-RT", typical_amount: 100, status: "active" },
@@ -301,9 +302,13 @@ export async function GET() {
       actual: JSON.stringify(stale),
     });
 
-    // 10. Expired authorization cannot execute.
-    const expiredAuth = await authorize(baseRequest(), identity, { ttlSeconds: -1 });
+    // 10. Expired authorization cannot execute. Issue it validly, then expire it server-side.
+    const expiredAuth = await authorize(baseRequest(), identity, { ttlSeconds: 300 });
     authorizationIds.push(expiredAuth.id);
+    await supabase
+      .from("integrity_authorizations")
+      .update({ expires_at: new Date(Date.now() - 60_000).toISOString() })
+      .eq("id", expiredAuth.id);
     const expired = await commitExecution({
       authorization_id: expiredAuth.id,
       authorization_token: expiredAuth.token,
@@ -349,6 +354,16 @@ export async function GET() {
       max_autonomous_amount: 5000,
       human_approval_amount: 2500,
     };
+    const staleCreatedClient = await createIntegrityClient({
+      principal_id: stalePrincipal,
+      name: `commit-redteam-stale-principal-${suffix}`,
+      scopes: ["preflight:write", "commit:write"],
+      metadata: { redteam: true },
+    });
+    staleClientId = staleCreatedClient.client_id;
+    const staleCredential = await issueIntegrityClientCredential({ client_id: staleCreatedClient.client_id });
+    const staleIdentity = await authenticateIntegrityApiKey(staleCredential.api_key, "preflight:write");
+
     await supabase.from("integrity_mandates").insert({
       principal_id: stalePrincipal,
       version: 1,
@@ -377,7 +392,7 @@ export async function GET() {
       trace_excerpt: "Pay the routine invoice to the established account.",
       semantic_mode: "off",
     };
-    const mandateAuth = await authorize(staleMandateRequest, identity);
+    const mandateAuth = await authorize(staleMandateRequest, staleIdentity);
     authorizationIds.push(mandateAuth.id);
     await supabase.from("integrity_mandates").update({ active: false })
       .eq("principal_id", stalePrincipal).eq("version", 1);
@@ -393,7 +408,7 @@ export async function GET() {
       authorization_token: mandateAuth.token,
       executed_action: staleMandateRequest.proposed_action,
       outcome: "succeeded",
-    }, identity);
+    }, staleIdentity);
     results.push({
       id: "stale-mandate-blocked",
       passed:
@@ -466,6 +481,9 @@ export async function GET() {
 
     if (testClientId) {
       await supabase.from("integrity_clients").delete().eq("id", testClientId);
+    }
+    if (staleClientId) {
+      await supabase.from("integrity_clients").delete().eq("id", staleClientId);
     }
   }
 
