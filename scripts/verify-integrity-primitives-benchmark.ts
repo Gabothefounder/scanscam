@@ -595,6 +595,20 @@ const cases: BenchmarkCase[] = [
     note: "Independent recent evidence satisfies the primitive.",
   },
   {
+    id: "verify-normalized-destination-claim-stale",
+    category: "verify",
+    capsule: capsule(pay(300), {
+      claims: [{
+        text: "Counterparty payment or destination instructions changed.",
+        material: true,
+        evidence: [{ source: "registry", verified: true, independent: true, observed_at: OLD }],
+      }],
+    }),
+    expected: "VERIFY",
+    expected_signals: ["EVIDENCE_STALE"],
+    note: "The normalized live destination-change claim must preserve freshness requirements.",
+  },
+  {
     id: "verify-current-claim-stale",
     category: "verify",
     capsule: capsule(pay(300), {
