@@ -620,15 +620,30 @@ export async function GET() {
       }
     );
 
-    if (retried.result.authorization) {
-      await commitExecution({
-        authorization_id: retried.result.authorization.id,
-        authorization_token: retried.result.authorization.token,
-        executed_action: actionEnvelopeToProposedAction(retried.result.action),
-        outcome: "failed",
-        external_execution_id: `challenge-release-${suffix}`,
-      }, actor.identity);
+    if (!retried.result.authorization) {
+      throw new Error("challenge_authorization_missing");
     }
+
+    await supabase
+      .from("integrity_attestations")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", attestation.id);
+
+    const revokedEvidenceCommit = await commitExecution({
+      authorization_id: retried.result.authorization.id,
+      authorization_token: retried.result.authorization.token,
+      executed_action: actionEnvelopeToProposedAction(retried.result.action),
+      outcome: "succeeded",
+    }, actor.identity);
+
+    record(
+      results,
+      "revoked-attestation-invalidates-authorization",
+      revokedEvidenceCommit.ok === false &&
+        revokedEvidenceCommit.error === "authorization_attestation_stale",
+      "attestation revoked after Preflight blocks Commit",
+      revokedEvidenceCommit
+    );
 
     const otherObs = await storeRuntimeObservation({
       ...safeInput,
