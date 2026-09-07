@@ -6,7 +6,7 @@ async function main() {
   ];
 
   const missing = required.filter((key) => !process.env[key]);
-  if (process.env.VERCEL_ENV !== "preview" || missing.length) {
+  if (process.env.GITHUB_ACTIONS === "true" || process.env.VERCEL_ENV !== "preview" || missing.length) {
     process.stdout.write(
       `Verify-fix benchmark skipped outside credentialed Vercel preview (missing: ${missing.join(",") || "none"}).\n`
     );
