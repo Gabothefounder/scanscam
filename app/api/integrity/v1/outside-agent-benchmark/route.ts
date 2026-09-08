@@ -102,6 +102,39 @@ function objectValue(value: unknown): Record<string, any> | null {
     : null;
 }
 
+function findMcpPayload(value: unknown): Record<string, any> | null {
+  if (typeof value === "string") {
+    try {
+      return findMcpPayload(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findMcpPayload(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  const record = objectValue(value);
+  if (!record) return null;
+
+  if (
+    typeof record.disposition === "string" ||
+    typeof record.ok === "boolean" ||
+    (record.error && (typeof record.error === "string" || objectValue(record.error)))
+  ) {
+    return record;
+  }
+
+  for (const item of Object.values(record)) {
+    const found = findMcpPayload(item);
+    if (found) return found;
+  }
+  return null;
+}
+
 function mcpPayload(response: any, toolName: string): Record<string, any> {
   const item = Array.isArray(response?.output)
     ? response.output.find(
@@ -110,22 +143,10 @@ function mcpPayload(response: any, toolName: string): Record<string, any> {
     : null;
   if (!item) throw new Error("outside_agent_mcp_call_missing");
 
-  const candidates = [item.output, item.structuredContent, item];
-  for (const candidate of candidates) {
-    if (typeof candidate === "string") {
-      try {
-        const parsed = JSON.parse(candidate);
-        const record = objectValue(parsed);
-        if (record) return record;
-      } catch {
-        // continue
-      }
-    }
-    const record = objectValue(candidate);
-    if (record && ("disposition" in record || "ok" in record || "error" in record)) {
-      return record;
-    }
-  }
+  const found = findMcpPayload(item.output) ??
+    findMcpPayload(item.structuredContent) ??
+    findMcpPayload(item);
+  if (found) return found;
   throw new Error("outside_agent_mcp_payload_missing");
 }
 
