@@ -819,17 +819,22 @@ export async function GET(request: Request): Promise<Response> {
     }, { status: 400 });
   }
 
+  const trustedOidcToken =
+    request.headers.get("x-vercel-oidc-token") || undefined;
   const gatewayToken =
-    process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+    process.env.AI_GATEWAY_API_KEY ||
+    process.env.VERCEL_OIDC_TOKEN ||
+    trustedOidcToken;
   if (!gatewayToken) {
     return Response.json({
       error: "portability_ai_gateway_auth_missing",
-      expected: ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      expected: [
+        "AI_GATEWAY_API_KEY",
+        "VERCEL_OIDC_TOKEN",
+        "request x-vercel-oidc-token",
+      ],
     }, { status: 503 });
   }
-
-  const trustedOidcToken =
-    request.headers.get("x-vercel-oidc-token") || undefined;
   const bypassSecret =
     process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
     process.env.INTEGRITY_MCP_VERCEL_BYPASS_SECRET ||
