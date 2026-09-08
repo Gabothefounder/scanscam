@@ -134,6 +134,13 @@ async function mcpRequest(input: {
     input.bypassSecret
   );
   headers["Mcp-Method"] = input.method;
+  if (
+    input.method === "tools/call" &&
+    typeof input.params.name === "string" &&
+    input.params.name
+  ) {
+    headers["Mcp-Name"] = input.params.name;
+  }
 
   const response = await fetch(input.serverUrl, {
     method: "POST",
