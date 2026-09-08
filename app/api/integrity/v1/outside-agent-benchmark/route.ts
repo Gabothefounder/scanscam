@@ -129,6 +129,24 @@ function mcpPayload(response: any, toolName: string): Record<string, any> {
   throw new Error("outside_agent_mcp_payload_missing");
 }
 
+function mcpCallArguments(response: any, toolName: string): Record<string, any> | null {
+  const item = Array.isArray(response?.output)
+    ? response.output.find(
+        (entry: any) => entry?.type === "mcp_call" && entry?.name === toolName
+      )
+    : null;
+  if (!item) return null;
+  const raw = item.arguments;
+  if (typeof raw === "string") {
+    try {
+      return objectValue(JSON.parse(raw));
+    } catch {
+      return null;
+    }
+  }
+  return objectValue(raw);
+}
+
 function transportHeaders(
   actorKey: string,
   trustedOidcToken?: string,
@@ -409,6 +427,8 @@ async function runScenario(input: {
     let commitResponseId: string | null = null;
     let commitUsage: ReturnType<typeof responseTokenUsage> = null;
     let commitError: string | null = null;
+    let commitDiagnostics: Record<string, unknown> | null = null;
+    let commitOutputSummary: Record<string, unknown> | null = null;
 
     if (actual === "ALLOW") {
       executed = true;
@@ -472,7 +492,35 @@ async function runScenario(input: {
         commitResponseId = String(response.id ?? "");
         commitUsage = responseTokenUsage(response);
         const commit = mcpPayload(response, "integrity_commit");
+        const called = mcpCallArguments(response, "integrity_commit");
         committed = commit.ok === true;
+        commitDiagnostics = {
+          arguments_available: !!called,
+          authorization_id_matches:
+            typeof called?.authorization_id === "string" &&
+            called.authorization_id === commitInput.authorization_id,
+          authorization_token_matches:
+            typeof called?.authorization_token === "string" &&
+            called.authorization_token === commitInput.authorization_token,
+          executed_action_hash_matches:
+            !!called?.executed_action &&
+            hashIntegrityValue(called.executed_action) ===
+              hashIntegrityValue(commitInput.executed_action),
+          outcome_matches: called?.outcome === commitInput.outcome,
+          external_execution_id_matches:
+            called?.external_execution_id === commitInput.external_execution_id,
+        };
+        commitOutputSummary = {
+          api_version:
+            typeof commit.api_version === "string" ? commit.api_version : null,
+          ok: commit.ok === true,
+          error_code:
+            objectValue(commit.error)?.code ??
+            (typeof commit.error === "string" ? commit.error : null),
+          replayed: commit.replayed === true,
+          receipt_id:
+            typeof commit.receipt_id === "string" ? commit.receipt_id : null,
+        };
         if (!committed) {
           commitError =
             objectValue(commit.error)?.code ??
@@ -532,6 +580,8 @@ async function runScenario(input: {
         commit_elapsed_ms: commitElapsed,
         commit_response_id: commitResponseId,
         commit_error: commitError,
+        commit_diagnostics: commitDiagnostics,
+        commit_output_summary: commitOutputSummary,
         real_money_moved: false,
         real_permissions_changed: false,
         real_data_published: false,
