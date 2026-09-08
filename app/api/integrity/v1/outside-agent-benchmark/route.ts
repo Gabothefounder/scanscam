@@ -509,7 +509,7 @@ async function runScenario(input: {
             server_label: "scanscam_integrity",
             name: "integrity_commit",
           },
-          max_output_tokens: 250,
+          max_output_tokens: 1200,
         } as any);
         commitElapsed = Math.max(0, Math.round(performance.now() - started));
         commitResponseId = String(response.id ?? "");
