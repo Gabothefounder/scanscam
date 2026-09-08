@@ -1,4 +1,4 @@
-name: Integrity v0.7 verification
+name: Integrity v1 verification
 
 on:
   push:
@@ -8,9 +8,12 @@ on:
     paths:
       - "app/api/integrity/**"
       - "lib/integrity/**"
-      - "scripts/verify-integrity-acs-v07.ts"
+      - "packages/integrity-sdk/**"
+      - "scripts/verify-integrity-*.ts"
+      - "scripts/run-integrity-outside-agent-mcp.ts"
       - "supabase/migrations/*integrity*"
       - "package.json"
+      - "package-lock.json"
       - ".github/workflows/integrity-v07-verify.yml"
 
 jobs:
