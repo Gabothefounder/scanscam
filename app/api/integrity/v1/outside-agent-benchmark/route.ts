@@ -23,6 +23,7 @@ import {
   responseTokenUsage,
 } from "@/lib/integrity/model-cost";
 import { storeRuntimeObservation } from "@/lib/integrity/observer";
+import { commitExecution } from "@/lib/integrity/receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -450,6 +451,7 @@ async function runScenario(input: {
     let commitError: string | null = null;
     let commitDiagnostics: Record<string, unknown> | null = null;
     let commitOutputSummary: Record<string, unknown> | null = null;
+    let directCommitProbe: Record<string, unknown> | null = null;
 
     if (actual === "ALLOW") {
       executed = true;
@@ -551,6 +553,29 @@ async function runScenario(input: {
         commitElapsed = Math.max(0, Math.round(performance.now() - started));
         commitError = error instanceof Error ? error.message : String(error);
       }
+
+      if (!committed) {
+        const probeStarted = performance.now();
+        try {
+          const probe: any = await commitExecution(commitInput as any, fixture.actor);
+          directCommitProbe = {
+            ok: probe?.ok === true,
+            replayed: probe?.replayed === true,
+            error:
+              typeof probe?.error === "string"
+                ? probe.error
+                : objectValue(probe?.error)?.code ?? null,
+            elapsed_ms: Math.max(0, Math.round(performance.now() - probeStarted)),
+          };
+        } catch (error) {
+          directCommitProbe = {
+            ok: false,
+            replayed: false,
+            error: error instanceof Error ? error.message : String(error),
+            elapsed_ms: Math.max(0, Math.round(performance.now() - probeStarted)),
+          };
+        }
+      }
     }
 
     const preflightUsage = responseTokenUsage(preflightResponse);
@@ -603,6 +628,7 @@ async function runScenario(input: {
         commit_error: commitError,
         commit_diagnostics: commitDiagnostics,
         commit_output_summary: commitOutputSummary,
+        direct_commit_probe: directCommitProbe,
         real_money_moved: false,
         real_permissions_changed: false,
         real_data_published: false,
