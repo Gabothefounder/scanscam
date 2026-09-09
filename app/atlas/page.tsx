@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import AtlasExperience from "./AtlasExperience";
 
 export const metadata: Metadata = {
-  title: "The Vigil — ScanScam",
+  title: "The Archive — ScanScam",
   description:
-    "See the pattern, report what happened, and become harder to fool.",
+    "Explore how manipulation works. Once you see the pattern, you become harder to fool.",
 };
 
-export default function AtlasPage() {
-  return <AtlasExperience />;
+export default async function AtlasPage({ searchParams }: { searchParams: Promise<{ lang?: string; pattern?: string }> }) {
+  const params = await searchParams;
+  return <AtlasExperience initialLang={params.lang === "fr" ? "fr" : "en"} initialPattern={params.pattern || ""} />;
 }
-

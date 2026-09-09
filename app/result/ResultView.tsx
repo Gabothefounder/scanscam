@@ -196,8 +196,8 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Back to home",
     scanAnother: "Scan another message",
-    journeyCta: "Understand what this message was trying to make you do",
-    journeyCtaNote: "Walk through the pressure, your reactions, and the next safe step.",
+    journeyCta: "See this pattern in the Archive",
+    journeyCtaNote: "Explore the pressure, request, probable goal, and safest way to break it.",
     partnerScannerTitle: "Security Message Scanner",
     poweredByScanScam: "Powered by ScanScam",
     sendToItCta: {
@@ -487,8 +487,8 @@ const copy = {
     } as Record<string, { action: string; explanation: string }[]>,
     backHome: "Retour à l'accueil",
     scanAnother: "Analyser un autre message",
-    journeyCta: "Comprendre ce que ce message essayait de vous faire faire",
-    journeyCtaNote: "Parcourez la pression, vos réactions et le prochain geste sûr.",
+    journeyCta: "Voir ce motif dans les Archives",
+    journeyCtaNote: "Explorez la pression, la demande, l’objectif probable et la meilleure façon de le briser.",
     partnerScannerTitle: "Analyseur de messages suspects",
     poweredByScanScam: "Propulsé par ScanScam",
     sendToItCta: {
@@ -2404,7 +2404,7 @@ export default function ResultView() {
       {/* Page-level CTA below the result card (not inside the escalation flow) */}
       <div style={styles.belowCard}>
         {!weakInputGateActive && !partner && (
-          <a href={`/atlas?mode=scan&lang=${lang}`} style={styles.journeyCta}>
+          <a href={`/atlas?from=scan&pattern=${encodeURIComponent(String(intel.narrative_family ?? intel.narrative_category ?? ""))}&lang=${lang}`} style={styles.journeyCta}>
             <strong>{t.journeyCta}</strong>
             <span>{t.journeyCtaNote}</span>
           </a>
