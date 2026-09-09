@@ -4,7 +4,7 @@ export const dynamic = "force-static";
 const INTEGRITY_INFO = {
   product: "ScanScam Integrity",
   status: "experimental",
-  version: "0.1.0",
+  version: "0.1.1",
   purpose:
     "Independent preflight bolt-on for consequential autonomous-agent actions.",
   registry_name: "io.github.Gabothefounder/scanscam-integrity",
