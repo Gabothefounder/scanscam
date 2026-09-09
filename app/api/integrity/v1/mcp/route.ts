@@ -6,6 +6,7 @@ import {
   integrityAuthHttpStatus,
 } from "@/lib/integrity/auth";
 import { createIntegrityActorMcpServer } from "@/lib/integrity/mcp-v1";
+import { createIntegrityPublicMcpServer } from "@/lib/integrity/mcp-public";
 import { integrityV1Error } from "@/lib/integrity/public-v1";
 
 export const runtime = "nodejs";
@@ -44,17 +45,42 @@ function recordMcpRequest(
   );
 }
 
+function createPublicHandler(request: Request) {
+  return createMcpHandler(
+    () =>
+      createIntegrityPublicMcpServer({
+        protocol_version: safeHeader(request.headers.get("mcp-protocol-version"), 40),
+        user_agent: safeHeader(request.headers.get("user-agent")),
+      }),
+    {
+      legacy: "stateless",
+    }
+  );
+}
+
 async function handle(request: Request): Promise<Response> {
   let identity;
   try {
     identity = await authenticateIntegrityRequest(request, "preflight:write");
   } catch (error) {
     const code = error instanceof Error ? error.message : "integrity_auth_failed";
-    if (looksLikeMcpClient(request)) {
+    const mcpClient = looksLikeMcpClient(request);
+
+    if (mcpClient) {
       recordMcpRequest("integrity_mcp_probe", request, {
         auth_result: code,
+        public_discovery_available: code === "integrity_auth_missing",
       });
     }
+
+    // Missing credentials are no longer a dead end for MCP clients. They can
+    // discover the storefront and express structured demand without exposing
+    // transaction contents. Invalid/expired credentials still fail closed.
+    if (mcpClient && code === "integrity_auth_missing") {
+      const handler = createPublicHandler(request);
+      return handler.fetch(request);
+    }
+
     return Response.json(integrityV1Error(code), {
       status: integrityAuthHttpStatus(code),
     });
