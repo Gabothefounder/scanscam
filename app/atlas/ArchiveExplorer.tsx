@@ -32,6 +32,10 @@ const copy = {
     thesis: "Once you see the pattern, you become harder to fool.",
     lead: "Explore how manipulation works—online, by phone, at work, at your door, or face to face.",
     report: "Tell us what happened",
+    helping: "I’m helping someone",
+    family: "Protect my family",
+    join: "Join the Watch",
+    paths: "Choose where you enter",
     scan: "Scan a suspicious message",
     guide: "Select a strand or change the lens.",
     seen: "Seen in the Archive",
@@ -59,6 +63,10 @@ const copy = {
     thesis: "Quand vous voyez le motif, il devient plus difficile de vous tromper.",
     lead: "Explorez le fonctionnement de la manipulation — en ligne, au téléphone, au travail, à votre porte ou en personne.",
     report: "Racontez-nous ce qui s’est passé",
+    helping: "J’aide quelqu’un",
+    family: "Protéger ma famille",
+    join: "Rejoindre la Vigie",
+    paths: "Choisissez votre point d’entrée",
     scan: "Analyser un message suspect",
     guide: "Sélectionnez un fil ou changez de lentille.",
     seen: "Vu dans les Archives",
@@ -196,8 +204,11 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       </nav>
 
       <div className={styles.actions}>
+        <small>{t.paths}</small>
         <Link href={`/scan?lang=${lang}`}>{t.scan}</Link>
-        <Link href={`/atlas/report?lang=${lang}`}>{t.report}</Link>
+        <Link href={`/atlas/report?lang=${lang}&mode=lived`}>{t.report}</Link>
+        <Link href={`/atlas/report?lang=${lang}&mode=helping`}>{t.helping}</Link>
+        <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link>
       </div>
 
       {selection && <aside className={styles.reading} aria-live="polite">
@@ -213,6 +224,10 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
                 {facetCopy[id][lang]}{counts[id] >= 5 && <small>{counts[id]}</small>}
               </button>
             )}
+          </div>
+          <div className={styles.watchActions}>
+            <a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(t.join)}`}>{t.join}</a>
+            <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link>
           </div>
           {sampleSize && <div className={styles.evidence}><b>{sampleSize.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")} {t.analyses}</b><span>{t.observed}</span></div>}
         </> : selectedPattern ? <PatternReading pattern={selectedPattern} lang={lang} counts={counts} onFacet={(nextLens, id) => { setLens(nextLens); setSelection({ kind: "facet", id }); }} /> : selectedFacet ? <>

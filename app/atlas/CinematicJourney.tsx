@@ -10,7 +10,6 @@ type Answers = Record<string, string[]>;
 type Evidence = Record<"when" | "contact" | "organization" | "amount" | "payment" | "reference", string>;
 type ContributionStatus = "idle" | "submitting" | "saved" | "error";
 const emptyEvidence: Evidence = { when: "", contact: "", organization: "", amount: "", payment: "", reference: "" };
-const imageFor = (name: string) => `/atlas/poetic-folk/${name}.webp`;
 
 const ui = {
   en: {
@@ -23,6 +22,7 @@ const ui = {
     detailsTitle: "Make the record more useful", detailsLead: "Optional. Never enter passwords, complete card numbers, government ID numbers or intimate material.", addDetails: "Add precise details", hideDetails: "Close details",
     when: "When", contact: "Phone, email or website", organization: "Claimed organization", amount: "Amount and currency", payment: "Payment method", reference: "Transaction reference",
     path: "What happened", pressure: "Pressure used", feelings: "What I felt", asked: "What they asked for", nextStep: "My next step", private: "This ledger organizes your account and ScanScam’s pattern observations. It is not an official police, bank or legal report.",
+    exploreResult: "Explore this pattern in the Archive",
     copy: "Copy ledger", copied: "Copied", print: "Print or save PDF", report: "Find where to report it", restart: "Begin again", openLedger: "Open my incident ledger", joinWatch: "Join the Watch", familyPilot: "Protect my family", patternContext: "Others have seen this too", reportJoined: "Your report has joined the Vigil.", reportFailed: "Your ledger is ready, but the anonymous report could not be saved. You can try again later.", collective: "One person reveals the tactic. The whole network becomes harder to fool.",
     disclosureTitle: "Turn what happened into something useful.", disclosureBody: "By continuing, you’re making an anonymous report to ScanScam. Your answers will help identify recurring and emerging scam patterns.", disclosureExchange: "In return, we’ll help reveal how the situation was constructed and create a practical incident ledger you can save, copy or bring to your bank or the appropriate authorities.", disclosureSafety: "Do not include passwords, complete card numbers, government identification numbers or intimate material.", disclosureDetails: "See exactly what will be shared", disclosureShared: "Shared: the choices you make about the contact, claimed identity, pressure, emotions, request and next action. Not shared: your optional written words or precise ledger details.", disclosureAccept: "I understand — begin", disclosureBack: "Go back",
   },
@@ -36,6 +36,7 @@ const ui = {
     detailsTitle: "Rendre le registre plus utile", detailsLead: "Facultatif. N’inscrivez aucun mot de passe, numéro de carte complet, numéro d’identité gouvernemental ou contenu intime.", addDetails: "Ajouter des détails précis", hideDetails: "Fermer les détails",
     when: "Quand", contact: "Téléphone, courriel ou site", organization: "Organisation prétendue", amount: "Montant et devise", payment: "Mode de paiement", reference: "Référence de transaction",
     path: "Ce qui s’est passé", pressure: "Pression utilisée", feelings: "Ce que j’ai ressenti", asked: "Ce qu’on m’a demandé", nextStep: "Mon prochain pas", private: "Ce registre organise votre récit et les observations de ScanScam. Ce n’est pas un rapport officiel de police, de banque ou un avis juridique.",
+    exploreResult: "Explorer ce motif dans les Archives",
     copy: "Copier le registre", copied: "Copié", print: "Imprimer ou sauvegarder en PDF", report: "Trouver où le signaler", restart: "Recommencer", openLedger: "Ouvrir mon registre d’incident", joinWatch: "Rejoindre la Vigie", familyPilot: "Protéger ma famille", patternContext: "D’autres ont vu cela aussi", reportJoined: "Votre signalement a rejoint la Vigie.", reportFailed: "Votre registre est prêt, mais le signalement anonyme n’a pas pu être enregistré. Vous pourrez réessayer plus tard.", collective: "Une personne révèle la tactique. Tout le réseau devient plus difficile à tromper.",
     disclosureTitle: "Transformez ce qui s’est passé en quelque chose d’utile.", disclosureBody: "En continuant, vous faites un signalement anonyme à ScanScam. Vos réponses aideront à repérer les motifs d’arnaque récurrents et émergents.", disclosureExchange: "En retour, nous vous aiderons à comprendre comment la situation a été construite et créerons un registre pratique que vous pourrez conserver, copier ou apporter à votre banque ou aux autorités appropriées.", disclosureSafety: "N’inscrivez aucun mot de passe, numéro de carte complet, numéro d’identité gouvernemental ou contenu intime.", disclosureDetails: "Voir exactement ce qui sera partagé", disclosureShared: "Partagé : vos choix sur le contact, l’identité prétendue, la pression, les émotions, la demande et la prochaine action. Non partagé : vos mots facultatifs et les détails précis du registre.", disclosureAccept: "Je comprends — commencer", disclosureBack: "Retour",
   },
@@ -56,7 +57,9 @@ export default function CinematicJourney() {
   const [copied, setCopied] = useState(false);
   const [moving, setMoving] = useState(false);
   const [scanId, setScanId] = useState<string | null>(null);
-  const [sessionId] = useState(() => typeof crypto !== "undefined" ? crypto.randomUUID() : "00000000-0000-4000-8000-000000000000");
+  const [sessionId] = useState(() => typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `local-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   const [patternContext, setPatternContext] = useState<string | null>(null);
   const [contributionStatus, setContributionStatus] = useState<ContributionStatus>("idle");
   const [ledgerOpen, setLedgerOpen] = useState(false);
@@ -66,6 +69,7 @@ export default function CinematicJourney() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.get("lang") === "fr") setLang("fr");
     const incoming = params.get("message");
     if (incoming) setMessage(incoming.slice(0, 4000));
     if (params.get("mode") === "scan") {
@@ -78,6 +82,10 @@ export default function CinematicJourney() {
           if (candidate) setMessage(candidate.slice(0, 4000));
         } catch { /* A missing scan still opens the journey safely. */ }
       }
+    } else if (params.get("mode") === "helping") {
+      setPendingMode("helping");
+    } else if (params.get("mode") === "lived") {
+      setPendingMode("lived");
     }
   }, []);
 
@@ -151,13 +159,13 @@ export default function CinematicJourney() {
   const begin = (entry: EntryMode) => { if (entry === "learn") { setMode(entry); setMessage(t.example); } else setPendingMode(entry); setStep(0); };
   const contextLine = mode === "scan" ? t.scanContext : mode === "helping" ? t.helpingContext : mode === "learn" ? t.learnContext : t.livedContext;
   const copySummary = async () => { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1800); };
-  const image = !mode ? "entrance" : scene.image;
+  const archivePattern = inferArchivePattern(answers);
   const canContinue = selected.length > 0 || Boolean(words[scene?.key]?.trim()) || !scene?.choices || scene.key === "arrival";
 
   return (
     <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={activeEmotion || ""} data-pressure={scene?.key === "pressure" ? Math.min(selected.length, 4) : 0} data-choice={selected[selected.length - 1] || ""}>
-      <nav className={styles.nav}><Link href="/">ScanScam</Link><span>{t.atlas}</span><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
-      <Image className={styles.art} src={imageFor(image)} alt="" fill priority sizes="100vw" />
+      <nav className={styles.nav}><Link href="/">ScanScam</Link><Link href={`/atlas?lang=${lang}`}>{t.atlas}</Link><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
+      <Image className={styles.art} src="/atlas/vigil-brutalist-spectrum.png" alt="" fill priority sizes="100vw" />
       <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" /><VigilCore active={Boolean(mode && mode !== "learn")} complete={scene?.key === "return"} /><div className={styles.storyThread} aria-hidden="true"><i /><i /><i /></div>
       {!mode ? (
         <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><span className={styles.promise}>{t.promise}</span><span className={styles.reassurance}>{t.reassurance}</span><div className={styles.doors}>
@@ -175,7 +183,7 @@ export default function CinematicJourney() {
             {scene.key === "arrival" && mode === "scan" && <label className={styles.message}><span>{t.message}</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.messagePlaceholder} /></label>}
             {scene.key === "arrival" && mode === "learn" && <blockquote>{message}</blockquote>}
             {scene.key === "return" && !ledgerOpen && <div className={styles.integration}><div className={styles.integrationMark}><i /><i /><i /></div><h2>{contributionStatus === "error" ? t.reportFailed : mode === "learn" ? (lang === "en" ? "The pattern is visible now." : "Le motif est maintenant visible.") : t.reportJoined}</h2><p>{t.collective}</p><button className={styles.next} onClick={() => setLedgerOpen(true)}>{t.openLedger}<span>→</span></button></div>}
-            {scene.key === "return" && ledgerOpen && <div className={styles.returnBook}><JourneyPath lang={lang} answers={answers} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}<Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /><div className={styles.afterLedger}><a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(lang === "en" ? "Join the Watch" : "Rejoindre la Vigie")}`}>{t.joinWatch}</a><Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.familyPilot}</Link><button onClick={restart}>{t.restart}</button></div></div>}
+            {scene.key === "return" && ledgerOpen && <div className={styles.returnBook}><JourneyPath lang={lang} answers={answers} /><button className={styles.detailToggle} onClick={() => setShowDetails(!showDetails)}>{showDetails ? t.hideDetails : t.addDetails}</button>{showDetails && <EvidenceForm lang={lang} evidence={evidence} setEvidence={setEvidence} />}<Ledger summary={summary} copied={copied} onCopy={copySummary} onPrint={() => window.print()} lang={lang} /><div className={styles.afterLedger}><Link href={`/atlas?lang=${lang}&pattern=${archivePattern}`}>{t.exploreResult}</Link><a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(lang === "en" ? "Join the Watch" : "Rejoindre la Vigie")}`}>{t.joinWatch}</a><Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.familyPilot}</Link><button onClick={restart}>{t.restart}</button></div></div>}
             {scene.choices && <div className={`${styles.choices} ${scene.key === "emotion" ? styles.emotionChoices : ""}`}>{scene.choices.map(([id, en, fr]) => <button key={id} data-choice={id} aria-pressed={selected.includes(id)} onClick={() => choose(id)}><span>{lang === "en" ? en : fr}</span><i>{selected.includes(id) ? "●" : "○"}</i></button>)}</div>}
             {scene.ownWords && <div className={styles.own}>{!showWords ? <button onClick={() => setShowWords(true)}>＋ {t.own}</button> : <textarea autoFocus value={words[scene.key] || ""} onChange={(event) => setWords({ ...words, [scene.key]: event.target.value })} placeholder={t.ownPlaceholder} />}</div>}
             {emotionLines.length > 0 && <div className={styles.emotionReflections}>{emotionLines.map((item) => <div key={item.id} data-emotion={item.id}><i aria-hidden="true" /><span>{item.text}</span></div>)}</div>}
@@ -190,6 +198,17 @@ export default function CinematicJourney() {
       {pendingMode && <div className={styles.disclosure} role="dialog" aria-modal="true"><div><p>{t.atlas} · {lang === "en" ? "Anonymous report" : "Signalement anonyme"}</p><h2>{t.disclosureTitle}</h2><span>{t.disclosureBody}</span><strong>{t.disclosureExchange}</strong><em>{t.disclosureSafety}</em><details><summary>{t.disclosureDetails}</summary><p>{t.disclosureShared}</p></details><div><button onClick={() => setPendingMode(null)}>{t.disclosureBack}</button><button onClick={() => { setMode(pendingMode); setPendingMode(null); }}>{t.disclosureAccept}</button></div></div></div>}
     </main>
   );
+}
+
+function inferArchivePattern(answers: Answers) {
+  const identity = answers.identity || [];
+  const request = answers.request || [];
+  if (identity.includes("authority")) return "government_impersonation";
+  if (identity.includes("bank") || request.includes("code")) return "account_verification";
+  if (identity.includes("romantic")) return "romance_scam";
+  if (identity.includes("employer")) return "employment_scam";
+  if (request.includes("money")) return "delivery_scam";
+  return "government_impersonation";
 }
 
 function VigilCore({ active, complete }: { active: boolean; complete: boolean }) {
