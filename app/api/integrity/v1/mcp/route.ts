@@ -10,10 +10,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function handle(request: Request): Promise<Response> {
-  if (process.env.VERCEL_ENV === "production") {
-    return Response.json(integrityV1Error("integrity_preview_only"), { status: 404 });
-  }
-
   let identity;
   try {
     identity = await authenticateIntegrityRequest(request, "preflight:write");
