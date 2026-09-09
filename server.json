@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.gabothefounder/scanscam-integrity",
+  "name": "io.github.Gabothefounder/scanscam-integrity",
   "title": "ScanScam Integrity",
   "description": "Independent agent preflight: verify change, mandates, evidence, and exact execution.",
   "version": "0.1.0",
