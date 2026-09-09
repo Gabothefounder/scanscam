@@ -193,7 +193,14 @@ export default function CinematicJourney() {
 }
 
 function VigilCore({ active, complete }: { active: boolean; complete: boolean }) {
-  return <div className={`${styles.vigilCore} ${active ? styles.coreActive : ""} ${complete ? styles.coreComplete : ""}`} aria-hidden="true"><div className={styles.coreBeam} /><div className={styles.signalOrbit}><i /><i /><i /><i /></div><div className={styles.visitorSignal} /></div>;
+  return <div className={`${styles.vigilCore} ${active ? styles.coreActive : ""} ${complete ? styles.coreComplete : ""}`} aria-hidden="true">
+    <div className={styles.coreBeam} />
+    <div className={styles.knowledgeCore}>{Array.from({ length: 18 }, (_, index) => <i key={index} />)}</div>
+    <div className={`${styles.signalOrbit} ${styles.orbitOne}`}><i /><i /><i /></div>
+    <div className={`${styles.signalOrbit} ${styles.orbitTwo}`}><i /><i /><i /></div>
+    <div className={`${styles.signalOrbit} ${styles.orbitThree}`}><i /><i /><i /></div>
+    <div className={styles.visitorSignal} />
+  </div>;
 }
 
 function inferPattern(answers: Answers, lang: Lang) {
@@ -237,4 +244,3 @@ function Ledger({ summary, copied, onCopy, onPrint, lang }: { summary: string; c
   const t = ui[lang];
   return <div className={styles.ledger}><pre>{summary}</pre><p>{t.private}</p><div><button onClick={onCopy}>{copied ? t.copied : t.copy}</button><button onClick={onPrint}>{t.print}</button><a href={lang === "en" ? "https://antifraudcentre-centreantifraude.ca/report-signalez-eng.htm" : "https://antifraudcentre-centreantifraude.ca/report-signalez-fra.htm"} target="_blank" rel="noreferrer">{t.report}</a></div></div>;
 }
-
