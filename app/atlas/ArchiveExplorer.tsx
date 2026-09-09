@@ -142,6 +142,15 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       <div className={styles.shadow} aria-hidden="true" />
       <div className={styles.grain} aria-hidden="true" />
 
+      <div className={styles.source} aria-hidden="true">
+        <div className={styles.redBeam} />
+        <div className={`${styles.orbit} ${styles.orbitOne}`} />
+        <div className={`${styles.orbit} ${styles.orbitTwo}`} />
+        <div className={`${styles.orbit} ${styles.orbitThree}`} />
+        <div className={styles.crown} />
+        <div className={styles.well} />
+      </div>
+
       <header className={styles.nav}>
         <Link href="/">ScanScam</Link>
         <span>{t.archive}</span>
@@ -156,14 +165,10 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
         <p>{t.vigil}</p>
         <h1>{t.thesis}</h1>
         <span>{t.lead}</span>
-        <div>
-          <button onClick={() => chooseLens("patterns")}>{lens === "patterns" ? t.guide : lensCopy.patterns.label[lang]}</button>
-          <Link href={`/atlas/report?lang=${lang}`}>{t.report}</Link>
-        </div>
       </section>
 
       <button className={styles.coreButton} onClick={() => setSelection({ kind: "facet", id: "core" })}>
-        <span>{t.source}</span>
+        <span>{t.source}</span><i aria-hidden="true" />
       </button>
 
       <div className={styles.nodes} aria-label={lensCopy[lens].label[lang]}>
@@ -184,13 +189,19 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       </div>
 
       <nav className={styles.lenses} aria-label={lang === "en" ? "Ways to explore" : "Façons d’explorer"}>
+        <small>{lang === "en" ? "Move through the source" : "Parcourir la source"}</small>
         {lenses.map((item) => <button key={item} aria-pressed={lens === item} onClick={() => chooseLens(item)}>
-          {lensCopy[item].label[lang]}
+          <i aria-hidden="true" /><span>{lensCopy[item].label[lang]}</span>
         </button>)}
-        <p>{lensCopy[lens].prompt[lang]}</p>
       </nav>
 
+      <div className={styles.actions}>
+        <Link href={`/scan?lang=${lang}`}>{t.scan}</Link>
+        <Link href={`/atlas/report?lang=${lang}`}>{t.report}</Link>
+      </div>
+
       {selection && <aside className={styles.reading} aria-live="polite">
+        <div className={styles.drawnThread} aria-hidden="true" />
         <button className={styles.close} onClick={() => setSelection(null)} aria-label={t.close}>×</button>
         {selection.id === "core" ? <>
           <p>{t.vigil}</p>
