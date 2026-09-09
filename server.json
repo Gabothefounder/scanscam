@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Gabothefounder/scanscam-integrity",
   "title": "ScanScam Integrity",
-  "description": "Independent agent preflight: verify change, mandates, evidence, and exact execution.",
-  "version": "0.1.1",
+  "description": "Public agent storefront for independent trust checks. Discover services and express structured demand without auth; authenticated clients can run Guardian preflight checks before consequential actions.",
+  "version": "0.2.0",
   "repository": {
     "url": "https://github.com/Gabothefounder/scanscam",
     "source": "github"
@@ -16,8 +16,8 @@
       "headers": [
         {
           "name": "Authorization",
-          "description": "ScanScam actor credential. Send as: Bearer <credential>.",
-          "isRequired": true,
+          "description": "Optional for public discovery. Required for paid Guardian tools. Send as: Bearer <credential>.",
+          "isRequired": false,
           "isSecret": true
         }
       ]
