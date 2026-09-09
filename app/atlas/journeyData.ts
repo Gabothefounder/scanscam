@@ -233,16 +233,9 @@ export const scenes: JourneyScene[] = [
       "Votre expérience devient un chemin.",
     ],
     lead: [
-      "Keep your private record. If you choose, let its anonymous pattern become a light for someone else.",
-      "Gardez votre registre privé. Si vous le souhaitez, laissez son motif anonyme devenir une lumière pour quelqu’un d’autre.",
-    ],
-    choices: [
-      [
-        "share",
-        "Light the way for someone else",
-        "Éclairer le chemin de quelqu’un d’autre",
-      ],
-      ["private", "Keep this one private", "Garder ceci privé"],
+      "The pattern is visible now. Your practical incident ledger is ready.",
+      "Le motif est maintenant visible. Votre registre pratique de l’incident est prêt.",
     ],
   },
 ];
+
