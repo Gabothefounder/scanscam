@@ -1,45 +1,52 @@
 import vision from "@google-cloud/vision";
-import fs from "node:fs";
 
 /**
- * Load Google Cloud credentials from ENV.
- * Supports both:
- * - JSON string (common on Vercel)
- * - File path (common locally)
+ * Load inline Google Cloud credentials from ENV.
+ *
+ * Supported modes:
+ * - Inline JSON string (common on Vercel): parsed here and passed explicitly.
+ * - File path (common locally): left to Google Application Default Credentials,
+ *   which natively honors GOOGLE_APPLICATION_CREDENTIALS.
+ *
+ * We intentionally do not read an arbitrary filesystem path ourselves. Besides
+ * avoiding duplicate Google auth behavior, that keeps the server bundle from
+ * tracing the entire project because of dynamic filesystem access.
  */
-function loadCredentials(): Record<string, any> | undefined {
-  const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS || "";
+function loadInlineCredentials(): Record<string, unknown> | undefined {
+  const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim() ?? "";
 
-  if (!raw.trim()) {
+  if (!raw || !raw.startsWith("{")) {
     return undefined;
   }
 
   try {
-    if (raw.trim().startsWith("{")) {
-      return JSON.parse(raw);
-    } else {
-      const contents = fs.readFileSync(raw, "utf8");
-      return JSON.parse(contents);
-    }
-  } catch (err: any) {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch (error) {
     throw new Error(
-      `[ocr] Failed to load GOOGLE_APPLICATION_CREDENTIALS: ${err?.message ?? "unknown error"}`
+      `[ocr] Failed to parse inline GOOGLE_APPLICATION_CREDENTIALS JSON: ${
+        error instanceof Error ? error.message : "unknown error"
+      }`
     );
   }
 }
 
+const inlineCredentials = loadInlineCredentials();
+
 /**
- * Google Vision client
- * Credentials are loaded from an ENV VAR (required on Vercel).
+ * Google Vision client.
+ *
+ * For inline JSON we provide credentials directly. For a file path or other
+ * standard Google environment configuration, omitting credentials delegates
+ * authentication to Google's normal Application Default Credentials chain.
  */
-const client = new vision.ImageAnnotatorClient({
-  credentials: loadCredentials(),
-});
+const client = new vision.ImageAnnotatorClient(
+  inlineCredentials ? { credentials: inlineCredentials } : {}
+);
 
 export async function ocrImage(
   base64Image: string
 ): Promise<string> {
-  // Strip data URL prefix if present
+  // Strip data URL prefix if present.
   const cleaned = base64Image.replace(
     /^data:image\/[a-zA-Z]+;base64,/,
     ""
