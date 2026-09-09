@@ -8,7 +8,7 @@
     "url": "https://github.com/Gabothefounder/scanscam",
     "source": "github"
   },
-  "websiteUrl": "https://www.scanscam.ca/integrity/demo",
+  "websiteUrl": "https://www.scanscam.ca/integrity",
   "remotes": [
     {
       "type": "streamable-http",
