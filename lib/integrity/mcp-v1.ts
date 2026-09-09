@@ -1,4 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
+import { after } from "next/server";
+import { logEvent } from "@/lib/observability";
 import * as z from "zod/v4";
 import type { IntegrityClientIdentity } from "./auth";
 import { persistIntegrityChallenge, retryIntegrityChallenge } from "./challenge";
@@ -29,6 +31,27 @@ function toolError(error: unknown) {
 }
 
 const uuid = z.string().uuid();
+
+function integrityToolErrorCode(error: unknown): string {
+  return error instanceof Error ? error.message.slice(0, 120) : "integrity_mcp_tool_failed";
+}
+
+function recordIntegrityToolUse(
+  identity: IntegrityClientIdentity,
+  toolName: string,
+  context: Record<string, unknown>
+) {
+  after(() =>
+    logEvent("integrity_mcp_tool_use", "info", "integrity_mcp", {
+      client_id: identity.client_id,
+      client_name: identity.name.slice(0, 120),
+      client_kind: identity.kind,
+      credential_id: identity.credential_id,
+      tool_name: toolName,
+      ...context,
+    })
+  );
+}
 
 const commitSchema = z.object({
   authorization_id: z.string().min(1),
@@ -98,6 +121,7 @@ export function createIntegrityActorMcpServer(
       },
     },
     async ({ observation_id, attestation_ids }) => {
+      const startedAt = Date.now();
       try {
         const result = await runIntegrityV05(
           {
@@ -108,8 +132,18 @@ export function createIntegrityActorMcpServer(
         );
         const challenge = await persistIntegrityChallenge(result, identity);
         const output = toIntegrityV1Preflight(result, challenge);
+        recordIntegrityToolUse(identity, "integrity_preflight", {
+          outcome: "ok",
+          disposition: output.disposition,
+          duration_ms: Date.now() - startedAt,
+        });
         return toolResult({ ...output });
       } catch (error) {
+        recordIntegrityToolUse(identity, "integrity_preflight", {
+          outcome: "error",
+          error_code: integrityToolErrorCode(error),
+          duration_ms: Date.now() - startedAt,
+        });
         return toolError(error);
       }
     }
@@ -134,6 +168,7 @@ export function createIntegrityActorMcpServer(
       },
     },
     async ({ challenge_id, attestation_ids }) => {
+      const startedAt = Date.now();
       try {
         const retried = await retryIntegrityChallenge(
           challenge_id,
@@ -141,8 +176,18 @@ export function createIntegrityActorMcpServer(
           identity
         );
         const output = toIntegrityV1Preflight(retried.result, retried.challenge);
+        recordIntegrityToolUse(identity, "integrity_retry_challenge", {
+          outcome: "ok",
+          disposition: output.disposition,
+          duration_ms: Date.now() - startedAt,
+        });
         return toolResult({ ...output });
       } catch (error) {
+        recordIntegrityToolUse(identity, "integrity_retry_challenge", {
+          outcome: "error",
+          error_code: integrityToolErrorCode(error),
+          duration_ms: Date.now() - startedAt,
+        });
         return toolError(error);
       }
     }
@@ -164,6 +209,7 @@ export function createIntegrityActorMcpServer(
       },
     },
     async (input) => {
+      const startedAt = Date.now();
       try {
         if (!identity.scopes.includes("commit:write")) {
           throw new Error("integrity_scope_denied");
@@ -176,6 +222,10 @@ export function createIntegrityActorMcpServer(
 
         const result = await commitExecution(request, identity);
         const output = toIntegrityV1Commit(result);
+        recordIntegrityToolUse(identity, "integrity_commit", {
+          outcome: result.ok ? "ok" : "rejected",
+          duration_ms: Date.now() - startedAt,
+        });
         return result.ok
           ? toolResult({ ...output })
           : {
@@ -183,6 +233,11 @@ export function createIntegrityActorMcpServer(
               isError: true,
             };
       } catch (error) {
+        recordIntegrityToolUse(identity, "integrity_commit", {
+          outcome: "error",
+          error_code: integrityToolErrorCode(error),
+          duration_ms: Date.now() - startedAt,
+        });
         return toolError(error);
       }
     }
