@@ -165,7 +165,7 @@ export default function CinematicJourney() {
   return (
     <main className={`${styles.page} ${moving ? styles.moving : ""}`} data-scene={scene?.key || "entry"} data-emotion={activeEmotion || ""} data-pressure={scene?.key === "pressure" ? Math.min(selected.length, 4) : 0} data-choice={selected[selected.length - 1] || ""}>
       <nav className={styles.nav}><Link href="/">ScanScam</Link><Link href={`/atlas?lang=${lang}`}>{t.atlas}</Link><div><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div></nav>
-      <Image className={styles.art} src="/atlas/vigil-brutalist-spectrum.png" alt="" fill priority sizes="100vw" />
+      <Image className={styles.art} src="/atlas/vigil-brutalist-spectrum.webp" alt="" fill priority sizes="100vw" />
       <div className={styles.wash} aria-hidden="true" /><div className={styles.paper} aria-hidden="true" /><VigilCore active={Boolean(mode && mode !== "learn")} complete={scene?.key === "return"} /><div className={styles.storyThread} aria-hidden="true"><i /><i /><i /></div>
       {!mode ? (
         <section className={styles.entry}><p>{t.atlas}</p><h1>{t.prompt}</h1><span className={styles.promise}>{t.promise}</span><span className={styles.reassurance}>{t.reassurance}</span><div className={styles.doors}>

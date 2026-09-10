@@ -172,7 +172,7 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
     <>
     <main className={styles.archive} data-level={activeLevel} data-open={Boolean(selection)} onScroll={trackLevel}>
       <div className={styles.fixedWorld} aria-hidden="true">
-        <Image className={styles.world} src="/atlas/vigil-brutalist-spectrum.png" alt="" fill priority sizes="100vw" />
+        <Image className={styles.world} src="/atlas/vigil-brutalist-spectrum.webp" alt="" fill priority sizes="100vw" />
         <div className={styles.shadow} />
         <div className={styles.source}>
           <div className={styles.redBeam} />
