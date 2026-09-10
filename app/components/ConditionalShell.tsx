@@ -12,7 +12,7 @@ export default function ConditionalShell({
 }) {
   const pathname = usePathname();
   const isInternal = pathname?.startsWith("/internal");
-  const isAtlas = pathname === "/atlas";
+  const isAtlas = pathname?.startsWith("/atlas");
 
   if (isInternal) {
     return <>{children}</>;

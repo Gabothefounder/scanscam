@@ -106,8 +106,8 @@ export const scenes: JourneyScene[] = [
       "Chapitre trois · Le monde qui rétrécit",
     ],
     title: [
-      "Then the room began to close.",
-      "Puis la pièce a commencé à se refermer.",
+      "Then the world began to narrow.",
+      "Puis le monde a commencé à se rétrécir.",
     ],
     lead: [
       "What made it difficult to stop and check? Choose everything that feels true.",
@@ -208,8 +208,8 @@ export const scenes: JourneyScene[] = [
     ],
     title: ["The clock stops here.", "L’horloge s’arrête ici."],
     lead: [
-      "The room is open again. Choose one small action—nothing more is required today.",
-      "La pièce est ouverte de nouveau. Choisissez un petit geste—rien de plus n’est nécessaire aujourd’hui.",
+      "The pressure releases. Choose one small action—nothing more is required today.",
+      "La pression se relâche. Choisissez un petit geste—rien de plus n’est nécessaire aujourd’hui.",
     ],
     choices: [
       ["tell", "Tell someone I trust", "En parler à une personne de confiance"],
@@ -238,4 +238,3 @@ export const scenes: JourneyScene[] = [
     ],
   },
 ];
-
