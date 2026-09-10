@@ -22,3 +22,19 @@
 .reading{left:clamp(1.25rem,4vw,4rem);width:min(560px,43vw);max-height:84svh;transform:translateY(-50%);box-shadow:0 28px 100px #000d,0 0 80px #31badf38;animation:reading-draw .28s ease-out}
 @keyframes reading-draw{from{opacity:0;transform:translate(-24px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
 @media(max-width:700px){.reading{inset:64px .55rem 58px;width:auto;max-height:none;transform:none;animation:reading-mobile .22s ease-out}.archive[data-open=true] .fixedWorld{filter:brightness(.45)}@keyframes reading-mobile{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}}
+
+/* One source, one camera: each archive level moves through the same architecture. */
+.archive{--camera-y:8vh;--camera-scale:1.34}
+.archive[data-level=patterns]{--camera-y:4vh}
+.archive[data-level=goals]{--camera-y:1vh}
+.archive[data-level=pressure]{--camera-y:-3vh}
+.archive[data-level=requests]{--camera-y:-7vh}
+.archive[data-level=breaks]{--camera-y:-10vh}
+.archive[data-level=report]{--camera-y:-13vh;--camera-scale:1.37}
+.world{transform:translate3d(0,var(--camera-y),0) scale(var(--camera-scale));transition:transform .82s cubic-bezier(.2,.72,.2,1),filter .7s ease;will-change:transform}
+.coreButton{left:calc(50% + clamp(5.5rem,9vw,8.5rem));top:53%;width:auto;height:auto;padding:.52rem .7rem;transform:translateY(-50%);border:0;border-block:1px solid #f2c15c59;border-radius:0;color:#ffe9bb;background:#020708b8;box-shadow:none;backdrop-filter:blur(6px)}
+.coreButton span{position:static;width:auto;transform:none;color:inherit;font-size:.65rem;letter-spacing:.14em;text-shadow:0 2px 12px #000}
+.coreButton:before{content:"";position:absolute;right:100%;top:50%;width:clamp(2rem,5vw,5rem);height:1px;background:linear-gradient(90deg,transparent,#f2c15c73)}
+.coreButton:hover,.coreButton:focus-visible{color:#fff4d4;border-color:#f2c15ca8;background:#071215dc;outline:none}
+@media(max-width:700px){.archive{--camera-scale:1.52;--camera-y:7vh}.archive[data-level=patterns]{--camera-y:3vh}.archive[data-level=goals]{--camera-y:0vh}.archive[data-level=pressure]{--camera-y:-3vh}.archive[data-level=requests]{--camera-y:-6vh}.archive[data-level=breaks]{--camera-y:-9vh}.archive[data-level=report]{--camera-y:-12vh;--camera-scale:1.55}.coreButton{left:50%;right:auto;top:42%;transform:translateX(-50%);padding:.45rem .6rem}.coreButton span{display:block}.coreButton:before{display:none}}
+@media(prefers-reduced-motion:reduce){.world{transition:none}}

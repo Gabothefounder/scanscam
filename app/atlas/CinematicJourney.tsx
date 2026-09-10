@@ -218,11 +218,6 @@ function inferArchivePattern(answers: Answers) {
 
 function VigilCore({ active, complete }: { active: boolean; complete: boolean }) {
   return <div className={`${styles.vigilCore} ${active ? styles.coreActive : ""} ${complete ? styles.coreComplete : ""}`} aria-hidden="true">
-    <div className={styles.coreBeam} />
-    <div className={styles.knowledgeCore}>{Array.from({ length: 18 }, (_, index) => <i key={index} />)}</div>
-    <div className={`${styles.signalOrbit} ${styles.orbitOne}`}><i /><i /><i /></div>
-    <div className={`${styles.signalOrbit} ${styles.orbitTwo}`}><i /><i /><i /></div>
-    <div className={`${styles.signalOrbit} ${styles.orbitThree}`}><i /><i /><i /></div>
     <div className={styles.visitorSignal} />
   </div>;
 }

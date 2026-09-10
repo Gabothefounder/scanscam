@@ -174,14 +174,6 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       <div className={styles.fixedWorld} aria-hidden="true">
         <Image className={styles.world} src="/atlas/vigil-brutalist-spectrum.webp" alt="" fill priority sizes="100vw" />
         <div className={styles.shadow} />
-        <div className={styles.source}>
-          <div className={styles.redBeam} />
-          <div className={`${styles.orbit} ${styles.orbitOne}`}><i /><i /></div>
-          <div className={`${styles.orbit} ${styles.orbitTwo}`}><i /><i /></div>
-          <div className={`${styles.orbit} ${styles.orbitThree}`}><i /><i /></div>
-          <div className={styles.crown} />
-          <div className={styles.well} />
-        </div>
         <div className={styles.grain} />
       </div>
 
@@ -246,7 +238,7 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
         </div>
       </section>
 
-      <button className={styles.coreButton} onClick={() => setSelection({ kind: "facet", id: "core" })}><span>{t.source}</span><i /></button>
+      <button className={styles.coreButton} onClick={() => setSelection({ kind: "facet", id: "core" })}><span>{t.source}</span></button>
     </main>
 
       {selection && <aside className={styles.reading} aria-live="polite">
