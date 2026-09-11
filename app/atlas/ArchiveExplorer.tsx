@@ -1,344 +1,151 @@
 "use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  archivePatterns,
-  facetCopy,
-  lensCopy,
-  pair,
-  type ArchiveLang,
-  type ArchiveLens,
-  type ArchivePattern,
-} from "./archiveData";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { archivePatterns, facetCopy, lensCopy, type ArchiveLang, type ArchiveLens, type Pair } from "./archiveData";
+import { bankLines, facetExplanation, lessonSteps } from "./learningContent";
+import type { ArchiveMetrics } from "@/lib/atlasArchiveMetrics";
 import styles from "./archiveExplorer.module.css";
 
-type Counts = Record<string, number>;
-type Selection = { kind: "pattern"; id: string } | { kind: "facet"; id: string } | null;
-
-const lenses: ArchiveLens[] = ["patterns", "goals", "pressure", "requests", "breaks"];
-const learningLevels: Array<Exclude<ArchiveLens, "patterns">> = ["goals", "pressure", "requests", "breaks"];
-const levelOrder = ["threshold", ...lenses, "report"] as const;
-type ArchiveLevel = typeof levelOrder[number];
-const facetField: Record<Exclude<ArchiveLens, "patterns">, keyof ArchivePattern> = {
-  goals: "goal",
-  pressure: "pressure",
-  requests: "requests",
-  breaks: "breaks",
-};
-
-const copy = {
-  en: {
-    archive: "The Archive",
-    vigil: "The Vigil",
-    thesis: "Welcome to the Archive",
-    lead: "Scams may look different, but they often use the same methods: borrowed trust, emotional pressure and a request for action.",
-    report: "Tell us what happened",
-    helping: "I’m helping someone",
-    family: "Protect my family",
-    enterArchive: "Enter the Archive",
-    enterArchiveLead: "Start with a guided example, then explore the patterns for yourself.",
-    archivePurpose: "Signals shared through ScanScam are brought together here to reveal recurring and emerging patterns—so you can recognize them sooner.",
-    collectiveProof: "experiences are helping make these patterns visible",
-    anatomyTitle: "How does a scam work?",
-    anatomyLead: "Most scams construct a path. Understanding that path gives you more places to interrupt it.",
-    anatomySteps: ["A believable situation", "Borrowed trust", "Emotional pressure", "A request for action", "A way to break the pattern"],
-    exampleTitle: "Watch one pattern unfold",
-    exampleLead: "A fake bank message can move from trust to fear to a request for your security code. Follow the connections through the Archive.",
-    seeExample: "See the bank impersonation example",
-    exploreAll: "Or explore every known pattern",
-    join: "Join the Watch",
-    paths: "Choose where you enter",
-    descend: "Follow the source",
-    archiveLead: "Every story is different. The mechanics repeat.",
-    reportLead: "Bring an experience into the Vigil. See how it was constructed and leave with a practical incident ledger.",
-    reportAction: "Begin an anonymous report",
-    helpingLead: "Walk through the experience with someone you care about.",
-    scan: "Scan a suspicious message",
-    guide: "Select a strand or change the lens.",
-    seen: "Seen in the Archive",
-    analyses: "classified analyses",
-    observed: "Observed across ScanScam’s structured signal data. Counts describe detected features, not confirmed crimes.",
-    pattern: "The pattern",
-    setup: "The setup",
-    mechanism: "How control is built",
-    goal: "Probable end goal",
-    pressure: "Pressure and emotion",
-    request: "The request",
-    break: "Break the pattern",
-    realWorld: "Beyond the screen",
-    example: "Example",
-    connected: "Connected patterns",
-    close: "Close",
-    source: "Open collective view",
-    coreTitle: "What the signals reveal together",
-    coreLead: "The source connects different stories that use the same mechanics. A delivery text and an in-person authority threat may look different while borrowing the same trust, urgency and request for action.",
-    live: "Live Archive signal",
-  },
-  fr: {
-    archive: "Les Archives",
-    vigil: "La Vigie",
-    thesis: "Bienvenue dans les Archives",
-    lead: "Les fraudes peuvent sembler différentes, mais elles utilisent souvent les mêmes méthodes : confiance empruntée, pression émotionnelle et demande d’action.",
-    report: "Racontez-nous ce qui s’est passé",
-    helping: "J’aide quelqu’un",
-    family: "Protéger ma famille",
-    enterArchive: "Entrer dans les Archives",
-    enterArchiveLead: "Commencez par un exemple guidé, puis explorez les motifs vous-même.",
-    archivePurpose: "Les signaux partagés dans ScanScam sont réunis ici pour révéler les motifs récurrents et émergents — afin que vous puissiez les reconnaître plus tôt.",
-    collectiveProof: "expériences contribuent à rendre ces motifs visibles",
-    anatomyTitle: "Comment fonctionne une fraude?",
-    anatomyLead: "La plupart des fraudes construisent un parcours. Le comprendre vous donne plus d’occasions de l’interrompre.",
-    anatomySteps: ["Une situation crédible", "Une confiance empruntée", "Une pression émotionnelle", "Une demande d’action", "Une façon de briser le motif"],
-    exampleTitle: "Voyez un motif se construire",
-    exampleLead: "Un faux message bancaire peut passer de la confiance à la peur, puis demander votre code de sécurité. Suivez les liens dans les Archives.",
-    seeExample: "Voir l’exemple d’usurpation bancaire",
-    exploreAll: "Ou explorer tous les motifs connus",
-    join: "Rejoindre la Vigie",
-    paths: "Choisissez votre point d’entrée",
-    descend: "Suivre la source",
-    archiveLead: "Chaque histoire est différente. Les mécanismes se répètent.",
-    reportLead: "Apportez une expérience à la Vigie. Voyez comment elle a été construite et repartez avec un registre pratique.",
-    reportAction: "Commencer un signalement anonyme",
-    helpingLead: "Parcourez l’expérience avec une personne qui vous est chère.",
-    scan: "Analyser un message suspect",
-    guide: "Sélectionnez un fil ou changez de lentille.",
-    seen: "Vu dans les Archives",
-    analyses: "analyses classées",
-    observed: "Observé dans les données structurées de ScanScam. Les comptes décrivent des caractéristiques détectées, pas des crimes confirmés.",
-    pattern: "Le motif",
-    setup: "La mise en place",
-    mechanism: "Comment le contrôle se construit",
-    goal: "Objectif probable",
-    pressure: "Pression et émotion",
-    request: "La demande",
-    break: "Briser le motif",
-    realWorld: "Au-delà de l’écran",
-    example: "Exemple",
-    connected: "Motifs liés",
-    close: "Fermer",
-    source: "Ouvrir la vue collective",
-    coreTitle: "Ce que les signaux révèlent ensemble",
-    coreLead: "La source relie des histoires différentes qui utilisent les mêmes mécanismes. Un texto de livraison et une menace d’autorité en personne peuvent sembler différents tout en empruntant la même confiance, la même urgence et la même demande d’action.",
-    live: "Signal vivant des Archives",
-  },
-};
-
-function facetsFor(lens: Exclude<ArchiveLens, "patterns">) {
-  const values = new Set<string>();
-  for (const pattern of archivePatterns) {
-    for (const value of pattern[facetField[lens]] as string[]) values.add(value);
-  }
-  return [...values];
-}
-
-function countForPattern(pattern: ArchivePattern, counts: Counts) {
-  return pattern.aliases.reduce((sum, alias) => sum + (counts[alias] || 0), counts[pattern.id] || 0);
-}
+type Lens = ArchiveLens | "authority";
+type Metrics = ArchiveMetrics & { generatedAt: string };
+const lenses: Lens[] = ["patterns", "goals", "pressure", "requests", "authority", "breaks"];
+const field: Record<Exclude<Lens, "patterns">, "goal" | "pressure" | "requests" | "breaks" | "authority"> = { goals: "goal", pressure: "pressure", requests: "requests", breaks: "breaks", authority: "authority" };
+const authorityLabels = { government: { en: "Government & police", fr: "Gouvernement et police" }, financial_institution: { en: "Banks", fr: "Banques" }, corporate: { en: "Companies & employers", fr: "Entreprises et employeurs" }, tech_company: { en: "Technology support", fr: "Soutien technologique" } };
+const allLabels: Record<string, Pair> = { ...facetCopy, ...authorityLabels };
 
 export default function ArchiveExplorer({ initialLang = "en", initialPattern = "" }: { initialLang?: ArchiveLang; initialPattern?: string }) {
-  const initialMatch = archivePatterns.find((item) => item.id === initialPattern || item.aliases.includes(initialPattern));
-  const [lang, setLang] = useState<ArchiveLang>(initialLang);
-  const [lens, setLens] = useState<ArchiveLens>("patterns");
-  const [selection, setSelection] = useState<Selection>(initialMatch ? { kind: "pattern", id: initialMatch.id } : null);
-  const [counts, setCounts] = useState<Counts>({});
-  const [sampleSize, setSampleSize] = useState<number | null>(null);
-  const [activeLevel, setActiveLevel] = useState<ArchiveLevel>(initialMatch ? "patterns" : "threshold");
-  const t = copy[lang];
-
+  const [lang, setLang] = useState(initialLang);
+  const tr = (en: string, fr: string) => lang === "fr" ? fr : en;
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [lens, setLens] = useState<Lens>("patterns");
+  const initialMatch = archivePatterns.find(p => p.id === initialPattern || p.aliases.includes(initialPattern));
+  const [patternId, setPatternId] = useState(initialMatch?.id ?? "account_verification");
+  const [facet, setFacet] = useState<string | null>(null);
+  const [immersive, setImmersive] = useState(false);
+  const [motion, setMotion] = useState(true);
+  const exploration = useRef<HTMLElement>(null);
+  const reading = useRef<HTMLElement>(null);
   useEffect(() => {
-    fetch("/api/atlas/archive")
-      .then((response) => response.json())
-      .then((data) => {
-        if (data?.ok && data.counts) setCounts(data.counts);
-        if (typeof data?.sampleSize === "number") setSampleSize(data.sampleSize);
-      })
-      .catch(() => undefined);
-  }, []);
-
+    const controller = new AbortController();
+    fetch("/api/atlas/archive", { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error("unavailable");
+      const data = await response.json();
+      if (!data.ok || typeof data.sampleSize !== "number" || !data.families) throw new Error("unavailable");
+      setMetrics(data);
+    }).catch(error => { if (error.name !== "AbortError") setFailed(true); });
+    return () => controller.abort();
+  }, [attempt]);
   useEffect(() => {
-    if (!initialMatch) return;
-    const frame = requestAnimationFrame(() => {
-      document.getElementById("archive-patterns")?.scrollIntoView({ block: "start" });
-    });
-    return () => cancelAnimationFrame(frame);
+    if (initialMatch) exploration.current?.scrollIntoView({ block: "start" });
   }, [initialMatch]);
-
-  const selectedPattern = selection?.kind === "pattern"
-    ? archivePatterns.find((item) => item.id === selection.id) || null
-    : null;
-  const selectedFacet = selection?.kind === "facet" ? selection.id : null;
-  const connected = selectedFacet && selectedFacet !== "core" && lens !== "patterns"
-    ? archivePatterns.filter((pattern) => (pattern[facetField[lens]] as string[]).includes(selectedFacet))
-    : [];
-
-  const moveTo = (level: ArchiveLevel) => {
-    setSelection(null);
-    setActiveLevel(level);
-    if (level !== "threshold" && level !== "report") setLens(level);
-    document.getElementById(`archive-${level}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const pattern = archivePatterns.find(p => p.id === patternId) ?? archivePatterns[0];
+  const label = (id: string) => allLabels[id]?.[lang] ?? id;
+  const lensLabel = (value: Lens) => value === "authority" ? tr("Claimed identity", "Identité revendiquée") : lensCopy[value].label[lang];
+  const facetList = lens === "patterns" ? [] : [...new Set(archivePatterns.flatMap(p => p[field[lens]]))];
+  const related = lens !== "patterns" && facet ? archivePatterns.filter(p => p[field[lens]].includes(facet)) : [];
+  const changeLens = (next: Lens) => {
+    setLens(next);
+    setFacet(next === "patterns" ? null : archivePatterns.flatMap(p => p[field[next]])[0] ?? null);
   };
-
-  const openPattern = (id: string) => {
-    setLens("patterns");
-    setActiveLevel("patterns");
-    setSelection({ kind: "pattern", id });
-    document.getElementById("archive-patterns")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const openFacet = (nextLens: Exclude<ArchiveLens, "patterns">, id: string) => {
-    setLens(nextLens);
-    setActiveLevel(nextLens);
-    setSelection({ kind: "facet", id });
-    document.getElementById(`archive-${nextLens}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const trackLevel = (event: React.UIEvent<HTMLElement>) => {
-    const scroller = event.currentTarget;
-    const marker = scroller.scrollTop + scroller.clientHeight * .48;
-    let current: ArchiveLevel = "threshold";
-    for (const level of levelOrder) {
-      const section = document.getElementById(`archive-${level}`);
-      if (section && section.offsetTop <= marker) current = level;
-    }
-    setActiveLevel(current);
-  };
-
-  return (
-    <>
-    <main className={styles.archive} data-level={activeLevel} data-open={Boolean(selection)} onScroll={trackLevel}>
-      <div className={styles.fixedWorld} aria-hidden="true">
-        <Image className={styles.world} src="/atlas/vigil-brutalist-spectrum.webp" alt="" fill priority sizes="100vw" />
-        <div className={styles.shadow} />
-        <div className={styles.ambient}><i /><i /><i /><i /><i /><i /></div>
-        <div className={styles.grain} />
+  const openPattern = (id: string) => { setPatternId(id); setLens("patterns"); setFacet(null); reading.current?.focus({ preventScroll: true }); };
+  const openFacet = (next: Exclude<Lens, "patterns">, id: string) => { setLens(next); setFacet(id); reading.current?.focus({ preventScroll: true }); };
+  const facetCount = metrics && facet ? lens === "pressure" ? metrics.pressure[facet] : lens === "requests" ? metrics.requests[facet === "reply" ? "reply_sms" : facet] : lens === "authority" ? metrics.authorities[facet] : undefined : undefined;
+  const number = (n: number) => n.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA");
+  const familyHref = lang === "fr" ? "/fr/protect-family" : "/protect-family";
+  return <div className={styles.page} lang={lang}>
+    <a href="#learn" className={styles.skip}>{tr("Skip to lesson", "Aller à la leçon")}</a>
+    <header className={styles.header}>
+      <Link className={styles.brand} href="/">ScanScam<span>{tr("The Archive", "Les Archives")}</span></Link>
+      <nav aria-label={tr("Ways we can help", "Comment nous pouvons aider")}>
+        <Link href={`/scan?lang=${lang}`}>{tr("Scan a message", "Analyser un message")}</Link>
+        <Link href={`/atlas/report?lang=${lang}&mode=lived`}>{tr("Tell us what happened", "Racontez-nous")}</Link>
+        <Link href={familyHref}>{tr("Protect my family", "Protéger ma famille")}</Link>
+      </nav>
+      <div className={styles.languages}><button aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button><button aria-pressed={lang === "fr"} onClick={() => setLang("fr")}>FR</button></div>
+    </header>
+    <main>
+      <div className={styles.intro}>
+        <p className={styles.eyebrow}>{tr("Understand scams. Recognise manipulation.", "Comprendre les fraudes. Reconnaître la manipulation.")}</p>
+        <h1>{tr("Once you see the pattern,", "Quand vous voyez le stratagème,")}<br /><em>{tr("you become harder to fool.", "vous devenez plus difficile à tromper.")}</em></h1>
+        <p>{tr("Learn what they want, how they create pressure, and where you can interrupt it. Online, by phone, at work or face to face.", "Découvrez ce qu’on cherche à obtenir, comment la pression se construit et où l’interrompre. En ligne, au téléphone, au travail ou en personne.")}</p>
       </div>
-
-      <header className={styles.nav}>
-        <Link href="/">ScanScam</Link><span>{t.archive}</span>
-        <div><button onClick={() => setLang("en")} aria-pressed={lang === "en"}>EN</button><button onClick={() => setLang("fr")} aria-pressed={lang === "fr"}>FR</button></div>
-      </header>
-
-      <nav className={styles.levelRail} aria-label={lang === "en" ? "Archive levels" : "Niveaux des Archives"}>
-        {levelOrder.map((level, index) => <button key={level} aria-current={activeLevel === level ? "step" : undefined} onClick={() => moveTo(level)}>
-          <i>{String(index + 1).padStart(2, "0")}</i><span>{level === "threshold" ? t.archive : level === "report" ? t.report : lensCopy[level].label[lang]}</span>
-        </button>)}
-      </nav>
-
-      <nav className={styles.coreMap} aria-label={lang === "en" ? "Explore the source" : "Explorer la source"}>
-        {lenses.map((level, index) => <button key={level} aria-current={activeLevel === level ? "step" : undefined} onClick={() => moveTo(level)}>
-          <i aria-hidden="true" /><span><small>{String(index + 1).padStart(2, "0")}</small><b>{lensCopy[level].label[lang]}</b></span>
-        </button>)}
-      </nav>
-
-      <section id="archive-threshold" className={`${styles.level} ${styles.threshold}`} data-archive-level="threshold">
-        <div className={styles.thresholdCopy}><h1>{t.thesis}</h1><span>{t.lead}</span><p className={styles.archivePurpose}>{t.archivePurpose}</p><strong className={styles.collectiveProof}>{(sampleSize || 1350).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")} <span>{t.collectiveProof}</span></strong></div>
-        <div className={styles.entryPaths}>
-          <button className={styles.archiveInvitation} onClick={() => moveTo("patterns")}><span><b>{t.enterArchive}</b><em>{t.enterArchiveLead}</em></span><i>↓</i></button>
-          <div className={styles.utilityPaths} aria-label={lang === "en" ? "Other ways ScanScam can help" : "Autres façons dont ScanScam peut vous aider"}>
-            <Link href={`/scan?lang=${lang}`}>{t.scan}</Link>
-            <Link href={`/atlas/report?lang=${lang}&mode=lived`}>{t.report}</Link>
-            <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link>
+      <section id="learn" className={styles.learn} aria-label={tr("Guided example", "Exemple guidé")}>
+        <BankLesson lang={lang} onExplore={() => exploration.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" })} />
+      </section>
+      <section className={styles.dataNote} aria-label={tr("About the data", "À propos des données")}>
+        <div><p className={styles.eyebrow}>{tr("A shared picture, built from real scans", "Une vue collective, issue de vraies analyses")}</p>
+          <p>{tr("Different stories can use the same methods. Learning those methods helps you recognise them in another situation.", "Des histoires différentes peuvent utiliser les mêmes méthodes. Les comprendre aide à les reconnaître dans une autre situation.")}</p></div>
+        <div className={styles.metric} aria-live="polite">{metrics ? <><strong>{number(metrics.sampleSize)}</strong><span>{tr("scan records in the Archive", "analyses dans les Archives")}</span>
+          <details><summary>{tr("What this number means", "Ce que ce nombre signifie")}</summary><p>{tr(`${number(metrics.classified)} have an assigned scam type; ${number(metrics.unclassified)} do not. These are automated classifications, not confirmed crimes or a count of people.`, `${number(metrics.classified)} ont un type de fraude attribué; ${number(metrics.unclassified)} n’en ont pas. Ce sont des classifications automatiques, pas des crimes confirmés ni un nombre de personnes.`)}</p><p>{tr("Updated", "Mis à jour")} <time dateTime={metrics.generatedAt}>{new Date(metrics.generatedAt).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA")}</time>.</p></details></> : <p>{failed ? tr("Counts are temporarily unavailable. You can still explore every lesson.", "Les nombres sont temporairement indisponibles. Les leçons restent accessibles.") : tr("Loading the Archive count…", "Chargement du nombre d’analyses…")}{failed && <button onClick={() => { setFailed(false); setAttempt(n => n + 1); }}>{tr("Try again", "Réessayer")}</button>}</p>}</div>
+      </section>
+      <section ref={exploration} id="explore" className={styles.explore} data-immersive={immersive} data-motion={motion} style={{ "--level": lenses.indexOf(lens) } as CSSProperties}>
+        {immersive && <div className={styles.cathedral} aria-hidden="true"><Image src="/atlas/vigil-brutalist-spectrum.webp" alt="" fill sizes="100vw" /><div /></div>}
+        <div className={styles.exploreInner}>
+          <header className={styles.exploreHeader}><div><p className={styles.eyebrow}>{tr("Keep learning", "Poursuivre la découverte")}</p><h2>{tr("Different stories. Connected patterns.", "Des histoires différentes. Des mécanismes communs.")}</h2><p>{tr("Choose an example, or follow a connection to understand the method behind it.", "Choisissez un exemple ou suivez un lien pour comprendre la méthode derrière l’histoire.")}</p></div>
+            <div className={styles.viewControls}><button aria-pressed={immersive} onClick={() => setImmersive(v => !v)}>{immersive ? tr("Return to light view", "Revenir à la vue claire") : tr("Explore in the cathedral", "Explorer dans la cathédrale")}</button>{immersive && <button aria-pressed={!motion} onClick={() => setMotion(v => !v)}>{motion ? tr("Pause motion", "Arrêter l’animation") : tr("Resume motion", "Reprendre l’animation")}</button>}</div>
+          </header>
+          <div className={styles.explorerSurface}>
+            <nav className={styles.lenses} aria-label={tr("Explore by", "Explorer par")}>
+              {lenses.map(value => <button key={value} aria-pressed={lens === value} onClick={() => changeLens(value)}>{lensLabel(value)}</button>)}
+            </nav>
+            <div className={styles.explorerGrid}>
+              <nav className={styles.index} aria-label={lensLabel(lens)}>{lens === "patterns" ? archivePatterns.map(p => <button key={p.id} aria-pressed={patternId === p.id} onClick={() => openPattern(p.id)}><span>{p.name[lang]}</span><span aria-hidden="true">↗</span></button>) : facetList.map(id => <button key={id} aria-pressed={facet === id} onClick={() => { setFacet(id); reading.current?.focus({ preventScroll: true }); }}><span>{label(id)}</span><span aria-hidden="true">↗</span></button>)}</nav>
+              <article ref={reading} tabIndex={-1} className={styles.reading} aria-label={tr("Explanation", "Explication")}>
+                {lens === "patterns" ? <>
+                  <p className={styles.eyebrow}>{pattern.name[lang]}</p><h3>{pattern.title[lang]}</h3><p>{pattern.opening[lang]}</p>
+                  <blockquote><span>{tr("Illustrative example", "Exemple fictif")}</span>{pattern.example[lang]}</blockquote>
+                  <h4>{tr("What they want", "Ce qu’on cherche à obtenir")}</h4><div className={styles.connections}>{pattern.goal.map(id => <button key={id} onClick={() => openFacet("goals", id)}>{label(id)} <span aria-hidden="true">↗</span></button>)}</div>
+                  <h4>{tr("How the story works", "Comment l’histoire fonctionne")}</h4><p>{pattern.mechanism[lang]}</p>
+                  {(["pressure", "requests", "authority", "breaks"] as const).map(group => <div key={group} className={styles.connectionRow}><h4>{lensLabel(group)}</h4><div className={styles.connections}>{pattern[group].map(id => <button key={id} onClick={() => openFacet(group, id)}>{label(id)} <span aria-hidden="true">↗</span></button>)}{!pattern[group].length && <span>{tr("Trust may come from the relationship itself.", "La confiance peut venir de la relation elle-même.")}</span>}</div></div>)}
+                  <details className={styles.more}><summary>{tr("How this appears beyond the internet", "Comment cela se manifeste hors d’Internet")}</summary><p>{pattern.realWorld[lang]}</p></details>
+                  {metrics && <p className={styles.countCaption}>{tr(`${number(metrics.families[pattern.id] ?? 0)} scans carry this exact type label. Related types are counted separately.`, `${number(metrics.families[pattern.id] ?? 0)} analyses portent exactement ce type. Les types voisins sont comptés séparément.`)}</p>}
+                </> : facet ? <>
+                  <p className={styles.eyebrow}>{lensLabel(lens)}</p><h3>{label(facet)}</h3><p className={styles.facetLead}>{facetExplanation[facet]?.[lang]}</p>
+                  <h4>{tr("See this method in different situations", "Voir cette méthode dans différentes situations")}</h4>
+                  <p>{tr("These are learning connections: examples of how the same method can appear in different scams.", "Ces liens pédagogiques montrent comment une même méthode peut apparaître dans différentes fraudes.")}</p>
+                  <div className={styles.related}>{related.map(p => <button key={p.id} onClick={() => openPattern(p.id)}><b>{p.name[lang]}</b><span>{p.example[lang]}</span><em>{tr("Open example", "Ouvrir l’exemple")} ↗</em></button>)}</div>
+                  {typeof facetCount === "number" && <p className={styles.countCaption}>{tr(`${number(facetCount)} scan records have this detected feature. Each scan is counted once for this feature; this is not a count of victims.`, `${number(facetCount)} analyses contiennent ce signal détecté. Chaque analyse compte une fois pour ce signal; ce n’est pas un nombre de victimes.`)}</p>}
+                </> : null}
+              </article>
+            </div>
           </div>
+          <p className={styles.catalogueNote}>{tr("Six introductory examples. The Archive’s scan data includes additional and unclassified types. These lessons do not cover every scam.", "Six exemples pour commencer. Les données comprennent d’autres types et des analyses non classées. Ces leçons ne couvrent pas toutes les fraudes.")}</p>
         </div>
       </section>
-
-      <section id="archive-patterns" className={`${styles.level} ${styles.patternLevel}`} data-archive-level="patterns">
-        <div className={styles.learningPrelude}>
-          <small>01</small><h2>{t.anatomyTitle}</h2><p>{t.anatomyLead}</p>
-          <ol>{t.anatomySteps.map((step, index) => <li key={step}><i>{index + 1}</i><span>{step}</span></li>)}</ol>
-          <div className={styles.guidedExample}><span><b>{t.exampleTitle}</b><em>{t.exampleLead}</em></span><button onClick={() => openPattern("account_verification")}>{t.seeExample}<i>→</i></button></div>
-          <button className={styles.exploreAll} onClick={() => document.getElementById("all-patterns")?.scrollIntoView({ behavior: "smooth", block: "center" })}>{t.exploreAll}<i>↓</i></button>
-        </div>
-        <LevelHeading number="02" title={lensCopy.patterns.label[lang]} prompt={lensCopy.patterns.prompt[lang]} />
-        <div id="all-patterns" className={styles.patternConstellation}>
-          {archivePatterns.map((pattern, index) => <button key={pattern.id} data-side={index % 2 ? "right" : "left"} onClick={() => openPattern(pattern.id)}>
-            <i aria-hidden="true" /><span><b>{pair(pattern.name, lang)}</b><em>{pair(pattern.opening, lang)}</em></span>
-            {countForPattern(pattern, counts) >= 5 && <small>{countForPattern(pattern, counts)}</small>}
-          </button>)}
-        </div>
+      <section className={styles.support}>
+        <div><p className={styles.eyebrow}>{tr("Something feels familiar?", "Cela vous rappelle quelque chose?")}</p><h2>{tr("You can make sense of what happened.", "Vous pouvez comprendre ce qui s’est passé.")}</h2><p>{tr("Walk through it at your own pace and create an incident ledger you can copy or share with your bank or a reporting service.", "Reprenez les faits à votre rythme et créez un registre que vous pourrez copier ou transmettre à votre banque ou à un service de signalement.")}</p><Link className={styles.primary} href={`/atlas/report?lang=${lang}&mode=lived`}>{tr("Tell us what happened", "Racontez-nous ce qui s’est passé")} <span aria-hidden="true">→</span></Link><Link className={styles.helpLink} href={`/atlas/report?lang=${lang}&mode=helping`}>{tr("I’m helping someone else", "J’aide quelqu’un d’autre")}</Link></div>
+        <aside><h3>{tr("We learn more when we compare notes.", "Ensemble, nous pouvons mieux comprendre.")}</h3><p>{tr("Help shape a community that shares knowledge and supports people facing manipulation.", "Aidez à façonner une communauté qui partage ses connaissances et soutient les personnes confrontées à la manipulation.")}</p><a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(tr("Join the Watch", "Rejoindre la Vigie"))}`}>{tr("Join the Watch — get in touch", "Rejoindre la Vigie — nous écrire")} ↗</a></aside>
       </section>
-
-      {learningLevels.map((level, sectionIndex) => {
-        const facets = facetsFor(level).map((id) => ({ id, count: counts[id] || 0 })).sort((a, b) => b.count - a.count).slice(0, 8);
-        return <section id={`archive-${level}`} key={level} className={`${styles.level} ${styles.facetLevel}`} data-archive-level={level}>
-          <LevelHeading number={String(sectionIndex + 2).padStart(2, "0")} title={lensCopy[level].label[lang]} prompt={lensCopy[level].prompt[lang]} />
-          <div className={styles.facetField}>
-            {facets.map((item, index) => <button key={item.id} style={{ "--order": index } as React.CSSProperties} onClick={() => openFacet(level, item.id)}>
-              <i aria-hidden="true" /><b>{facetCopy[item.id]?.[lang] || item.id}</b>{item.count >= 5 && <small>{item.count}</small>}
-            </button>)}
-          </div>
-        </section>;
-      })}
-
-      <section id="archive-report" className={`${styles.level} ${styles.reportLevel}`} data-archive-level="report">
-        <div className={styles.reportInvitation}>
-          <p>{lang === "en" ? "A new signal" : "Un nouveau signal"}</p>
-          <h2>{t.report}</h2><span>{t.reportLead}</span>
-          <div>
-            <Link href={`/atlas/report?lang=${lang}&mode=lived`}>{t.reportAction}</Link>
-            <Link href={`/atlas/report?lang=${lang}&mode=helping`}>{t.helping}</Link>
-          </div>
-          <small>{lang === "en" ? "Your answers identify recurring and emerging patterns. Your private words and precise ledger details are not contributed." : "Vos réponses servent à repérer les motifs récurrents et émergents. Vos mots privés et les détails précis du registre ne sont pas partagés."}</small>
-        </div>
-        <div className={styles.collective}>
-          <button onClick={() => setSelection({ kind: "facet", id: "core" })}>{t.source}</button>
-          <a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(t.join)}`}>{t.join}</a>
-          <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link>
-        </div>
-      </section>
-
     </main>
-
-      {selection && <aside className={styles.reading} aria-live="polite">
-        <div className={styles.drawnThread} aria-hidden="true" /><button className={styles.close} onClick={() => setSelection(null)} aria-label={t.close}>×</button>
-        {selection.id === "core" ? <><p>{t.vigil}</p><h2>{t.coreTitle}</h2><blockquote>{t.coreLead}</blockquote>
-          <div className={styles.coreRelations}>{(["false_trust", "urgency", "pay_money", "submit_credentials"] as const).map((id) => <button key={id} onClick={() => openFacet(["pay_money", "submit_credentials"].includes(id) ? "requests" : "pressure", id)}>{facetCopy[id][lang]}{counts[id] >= 5 && <small>{counts[id]}</small>}</button>)}</div>
-          <div className={styles.watchActions}><a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(t.join)}`}>{t.join}</a><Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link></div>
-          {sampleSize && <div className={styles.evidence}><b>{sampleSize.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")} {t.analyses}</b><span>{t.observed}</span></div>}
-        </> : selectedPattern ? <PatternReading pattern={selectedPattern} lang={lang} counts={counts} onFacet={openFacet} /> : selectedFacet ? <><p>{lensCopy[lens].label[lang]}</p><h2>{facetCopy[selectedFacet]?.[lang] || selectedFacet}</h2><blockquote>{lensCopy[lens].prompt[lang]}</blockquote><h3>{t.connected}</h3>
-          <div className={styles.connected}>{connected.map((pattern) => <button key={pattern.id} onClick={() => openPattern(pattern.id)}><b>{pair(pattern.name, lang)}</b><span>{pair(pattern.mechanism, lang)}</span></button>)}</div>
-          {counts[selectedFacet] >= 5 && <div className={styles.evidence}><b>{t.live}: {counts[selectedFacet].toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")}</b><span>{t.observed}</span></div>}</> : null}
-      </aside>}
-    </>
-  );
+    <footer className={styles.footer}><span>ScanScam · {tr("Learning together makes the pattern clearer.", "Apprendre ensemble rend les stratagèmes plus visibles.")}</span><Link href={familyHref}>{tr("Protect someone you love", "Protéger une personne que vous aimez")}</Link></footer>
+  </div>;
 }
 
-function LevelHeading({ number, title, prompt }: { number: string; title: string; prompt: string }) {
-  return <header className={styles.levelHeading}><small>{number}</small><h2>{title}</h2><p>{prompt}</p></header>;
-}
-
-function PatternReading({ pattern, lang, counts, onFacet }: {
-  pattern: ArchivePattern;
-  lang: ArchiveLang;
-  counts: Counts;
-  onFacet: (lens: Exclude<ArchiveLens, "patterns">, id: string) => void;
-}) {
-  const t = copy[lang];
-  const count = countForPattern(pattern, counts);
-  const group = (title: string, lens: Exclude<ArchiveLens, "patterns">, values: string[]) => <section>
-    <h3>{title}</h3>
-    <div className={styles.facets}>{values.map((id) => <button key={id} onClick={() => onFacet(lens, id)}>{facetCopy[id][lang]}</button>)}</div>
-  </section>;
-  return <>
-    <p>{t.pattern}</p>
-    <h2>{pair(pattern.title, lang)}</h2>
-    <blockquote>{pair(pattern.opening, lang)}</blockquote>
-    <div className={styles.patternRoute} aria-label={lang === "en" ? "Follow this pattern through the source" : "Suivre ce motif dans la source"}>
-      <span><small>{t.pattern}</small><b>{pair(pattern.name, lang)}</b></span>
-      <button onClick={() => onFacet("goals", pattern.goal[0])}><small>{t.goal}</small><b>{facetCopy[pattern.goal[0]][lang]}</b></button>
-      <button onClick={() => onFacet("pressure", pattern.pressure[0])}><small>{t.pressure}</small><b>{facetCopy[pattern.pressure[0]][lang]}</b></button>
-      <button onClick={() => onFacet("requests", pattern.requests[0])}><small>{t.request}</small><b>{facetCopy[pattern.requests[0]][lang]}</b></button>
-      <button onClick={() => onFacet("breaks", pattern.breaks[0])}><small>{t.break}</small><b>{facetCopy[pattern.breaks[0]][lang]}</b></button>
+function BankLesson({ lang, onExplore }: { lang: ArchiveLang; onExplore: () => void }) {
+  const tr = (en: string, fr: string) => lang === "fr" ? fr : en;
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [complete, setComplete] = useState(false);
+  const [transfer, setTransfer] = useState<number | null>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const current = lessonSteps[step];
+  const answered = answers[step] !== undefined;
+  const change = (next: number) => { setComplete(false); setStep(next); title.current?.focus({ preventScroll: true }); };
+  return <div className={styles.lesson}>
+    <header className={styles.lessonHeader}><div><span className={styles.eyebrow}>{tr("Start here · A short guided example", "Commencez ici · Un court exemple guidé")}</span><h2>{tr("“This is your bank calling.”", "« Ici votre banque. »")}</h2></div><span className={styles.stepCount}>{tr("Step", "Étape")} {complete ? 4 : step + 1} / 4</span></header>
+    <nav className={styles.steps} aria-label={tr("Lesson steps", "Étapes de la leçon")}>{lessonSteps.map((s, index) => <button key={index} onClick={() => change(index)} aria-current={!complete && step === index ? "step" : undefined}><span>{index + 1}</span>{s.label[lang]}</button>)}</nav>
+    <div className={styles.lessonGrid}>
+      <div className={styles.message}><p className={styles.messageLabel}>{tr("An unexpected phone call", "Un appel inattendu")}</p><div className={styles.transcript}>{bankLines.map((line, index) => <p key={index} data-highlight={answered && current.highlight === index && !complete}>{line[lang]}</p>)}</div><p className={styles.exampleNote}>{tr("A fictional example for learning. No real message or personal information is shown.", "Un exemple fictif pour apprendre. Aucun vrai message ni renseignement personnel n’est affiché.")}</p><span className={styles.messageFoot}>{tr("The claim sounds protective. Look at the action it asks for.", "L’affirmation semble protectrice. Regardez le geste demandé.")}</span></div>
+      <div className={styles.exercise}>
+        {!complete ? <><h3 ref={title} tabIndex={-1}>{current.question[lang]}</h3><p className={styles.hint}>{tr("Choose an answer to see why it matters.", "Choisissez une réponse pour comprendre pourquoi.")}</p><div className={styles.answers}>{current.options.map((option, index) => <button key={index} aria-pressed={answers[step] === index} onClick={() => setAnswers(a => ({ ...a, [step]: index }))}><span>{String.fromCharCode(65 + index)}</span>{option[lang]}{answers[step] === index && <b aria-hidden="true">●</b>}</button>)}</div>
+          {answered && <div className={styles.feedback} role="status"><strong>{answers[step] === current.answer ? tr("Yes — that is the key.", "Oui — c’est le point clé.") : tr("Here is the detail to notice.", "Voici le détail à remarquer.")}</strong><p>{current.why[lang]}</p></div>}
+          <div className={styles.lessonActions}>{step > 0 && <button className={styles.back} onClick={() => change(step - 1)}>{tr("Back", "Retour")}</button>}<button className={styles.primary} disabled={!answered} onClick={() => { if (step < 3) change(step + 1); else { setComplete(true); title.current?.focus({ preventScroll: true }); } }}>{step < 3 ? tr("Next connection", "Le lien suivant") : tr("Try it in another situation", "Essayer dans une autre situation")} <span aria-hidden="true">→</span></button></div>
+        </> : <><p className={styles.eyebrow}>{tr("Same method. A different story.", "Même méthode. Une autre histoire.")}</p><h3 ref={title} tabIndex={-1}>{tr("Now it is a delivery message.", "Cette fois, c’est un message de livraison.")}</h3><blockquote>{tr("“Your parcel is on hold. Pay $2.17 through this link within an hour.”", "« Votre colis est retenu. Payez 2,17 $ par ce lien dans l’heure. »")}</blockquote><p>{tr("What breaks the sender’s control over verification?", "Qu’est-ce qui retire à l’expéditeur le contrôle de la vérification?")}</p><div className={styles.answers}>{[tr("Open the delivery company’s app myself", "Ouvrir moi-même l’application du transporteur"), tr("Use their link because the fee is small", "Utiliser le lien, car les frais sont minimes")].map((option, i) => <button key={i} aria-pressed={transfer === i} onClick={() => setTransfer(i)}><span>{i === 0 ? "A" : "B"}</span>{option}</button>)}</div>{transfer !== null && <div className={styles.feedback} role="status"><strong>{transfer === 0 ? tr("You found the connection.", "Vous avez trouvé le lien.") : tr("The small fee is part of the story.", "Les petits frais font partie de l’histoire.")}</strong><p>{tr("A different sender, the same urgency. Opening the real app yourself lets you check outside the sender’s link. The amount alone does not establish whether the request is genuine.", "Un autre expéditeur, la même urgence. Ouvrir vous-même la vraie application permet de vérifier hors du lien fourni. Le montant seul ne prouve pas que la demande est légitime.")}</p></div>}<div className={styles.lessonActions}><button className={styles.back} onClick={() => change(0)}>{tr("Revisit the lesson", "Revoir la leçon")}</button><button className={styles.primary} onClick={onExplore}>{tr("Explore related patterns", "Explorer les mécanismes liés")} ↓</button></div></>}
+      </div>
     </div>
-    <section><h3>{t.mechanism}</h3><p>{pair(pattern.mechanism, lang)}</p></section>
-    {group(t.goal, "goals", pattern.goal)}
-    {group(t.pressure, "pressure", pattern.pressure)}
-    {group(t.request, "requests", pattern.requests)}
-    {group(t.break, "breaks", pattern.breaks)}
-    <section><h3>{t.realWorld}</h3><p>{pair(pattern.realWorld, lang)}</p></section>
-    <section><h3>{t.example}</h3><q>{pair(pattern.example, lang)}</q></section>
-    {count >= 5 && <div className={styles.evidence}><b>{t.seen}: {count.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")}</b><span>{t.observed}</span></div>}
-  </>;
+    <p className={styles.lessonSource}>{tr("For further guidance:", "Pour en savoir plus :")} <a href={lang === "fr" ? "https://antifraudcentre-centreantifraude.ca/scams-fraudes/b-investigator-enqueteur-fra.htm" : "https://antifraudcentre-centreantifraude.ca/scams-fraudes/b-investigator-enqueteur-eng.htm"} target="_blank" rel="noreferrer">{tr("Canadian Anti-Fraud Centre · Bank impersonation", "Centre antifraude du Canada · Faux enquêteurs bancaires")} ↗</a></p>
+  </div>;
 }

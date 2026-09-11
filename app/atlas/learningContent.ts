@@ -1,0 +1,66 @@
+import type { Pair } from "./archiveData";
+const p = (en: string, fr: string): Pair => ({ en, fr });
+export const bankLines = [
+  p("This is your bank’s fraud department.", "Ici le service des fraudes de votre banque."),
+  p("Someone is moving money out of your account right now.", "Quelqu’un retire de l’argent de votre compte en ce moment."),
+  p("Read me the six-digit code we just sent so I can stop it.", "Donnez-moi le code à six chiffres que nous venons d’envoyer pour que je bloque le transfert."),
+];
+export const lessonSteps = [
+  {
+    label: p("The request", "La demande"),
+    question: p("What does the caller want you to do?", "Que veut vous faire faire la personne au téléphone?"),
+    options: [p("Check my account myself", "Vérifier mon compte moi-même"), p("Share a security code", "Partager un code de sécurité"), p("Visit my bank", "Me rendre à ma banque")],
+    answer: 1, highlight: 2,
+    why: p("The key request is to hand over your code. The story is about protecting your money, but the action gives someone else information used to access your account or approve a transaction.", "La demande clé est de donner votre code. L’histoire parle de protéger votre argent, mais le geste fournit à une autre personne une information qui sert à accéder à votre compte ou à autoriser une opération."),
+  },
+  {
+    label: p("The pressure", "La pression"),
+    question: p("Why say it is happening “right now”?", "Pourquoi dire que cela arrive « en ce moment »?"),
+    options: [p("To make me act before checking", "Pour me faire agir avant de vérifier"), p("To prove the call is genuine", "Pour prouver que l’appel est légitime"), p("To give me time to think", "Pour me laisser réfléchir")],
+    answer: 0, highlight: 1,
+    why: p("Urgency and fear can pull your attention toward stopping the loss. That leaves less room to ask who is calling. Feeling alarmed is a normal reaction; it is the pressure the caller is trying to use.", "L’urgence et la peur peuvent concentrer votre attention sur la perte à éviter. Il reste moins de place pour vérifier qui appelle. C’est normal de s’inquiéter : c’est précisément la réaction que la personne cherche à utiliser."),
+  },
+  {
+    label: p("The end goal", "L’objectif"),
+    question: p("What could the code actually help them do?", "À quoi le code pourrait-il réellement leur servir?"),
+    options: [p("Confirm their identity to me", "Me prouver leur identité"), p("Cancel all suspicious activity", "Annuler toute activité suspecte"), p("Access my account or authorise a payment", "Accéder à mon compte ou autoriser un paiement")],
+    answer: 2, highlight: 2,
+    why: p("A real security code can be used in a fake story. The caller may be trying to sign in or approve a transaction. A familiar bank name, caller ID or personal detail does not verify who is speaking.", "Un vrai code de sécurité peut servir dans une fausse histoire. La personne peut essayer de se connecter ou d’autoriser une opération. Un nom de banque, un numéro affiché ou un détail personnel ne prouve pas son identité."),
+  },
+  {
+    label: p("Your response", "Votre réponse"),
+    question: p("How can you check without giving them control?", "Comment vérifier sans leur donner le contrôle?"),
+    options: [p("Ask the caller if they are really from the bank", "Demander si la personne travaille vraiment pour la banque"), p("End the call and contact my bank independently", "Raccrocher et joindre ma banque par moi-même"), p("Share the code, then check later", "Donner le code, puis vérifier après")],
+    answer: 1, highlight: -1,
+    why: p("Keep the code private. End the call and use the number on your bank card, ideally from another phone. You are checking the claim through a contact you chose, outside the caller’s control.", "Gardez le code privé. Raccrochez et composez le numéro inscrit sur votre carte bancaire, idéalement d’un autre téléphone. Vous vérifiez ainsi l’affirmation par un contact que vous avez choisi, hors du contrôle de la personne."),
+  },
+];
+export const facetExplanation: Record<string, Pair> = {
+  money: p("The story ends with money leaving your control: a fee, a transfer, a purchase or an investment. Follow where the payment actually goes.", "L’histoire mène à un paiement que vous ne contrôlez plus : frais, virement, achat ou placement. Suivez la destination réelle de l’argent."),
+  access: p("A password, security code or installed app can become a way into an account. A request framed as protection can actually surrender access.", "Un mot de passe, un code ou une application peut ouvrir l’accès à un compte. Une demande présentée comme une protection peut en réalité céder cet accès."),
+  identity: p("Personal details can help someone impersonate you or make a later request more convincing. Ask why each piece of information is needed.", "Des renseignements personnels peuvent servir à vous imiter ou à rendre une prochaine demande plus crédible. Demandez pourquoi chaque renseignement est nécessaire."),
+  control: p("The immediate objective may be obedience: keeping you talking, following instructions or excluding other people. That can prepare a later demand.", "L’objectif immédiat peut être l’obéissance : vous garder en ligne, vous faire suivre des instructions ou écarter votre entourage. Cela peut préparer une demande ultérieure."),
+  labour: p("A supposed opportunity can be used to obtain unpaid work, workplace access or help moving money. Look at the duties, not just the promised reward.", "Une occasion apparente peut servir à obtenir du travail gratuit, un accès professionnel ou de l’aide pour déplacer de l’argent. Examinez les tâches, pas seulement la récompense."),
+  urgency: p("“Today only.” “Right now.” A deadline shrinks the time available to verify. Urgency is a reason to check, not evidence that the claim is true.", "« Aujourd’hui seulement. » « Tout de suite. » Une échéance réduit le temps pour vérifier. L’urgence justifie une vérification; elle ne prouve pas que l’affirmation est vraie."),
+  threat: p("A threatened loss, arrest or blocked account can make compliance feel safer than questioning. Separate the feared consequence from the evidence that it is real.", "Une menace de perte, d’arrestation ou de blocage de compte peut rendre l’obéissance rassurante. Distinguez la conséquence redoutée des preuves qu’elle est réelle."),
+  false_trust: p("A bank name, uniform, familiar logo or personal detail borrows credibility. Recognising the identity being claimed is different from verifying it.", "Un nom de banque, un uniforme, un logo ou un détail personnel emprunte de la crédibilité. Reconnaître l’identité revendiquée ne suffit pas à la vérifier."),
+  helpfulness: p("A request can turn kindness into an obligation: “Only you can help.” You can care about someone and still verify the request independently.", "Une demande peut transformer la gentillesse en obligation : « Vous seul pouvez m’aider. » Vous pouvez tenir à une personne tout en vérifiant sa demande."),
+  excitement: p("A prize, job or opportunity can make you imagine the benefit before checking the terms. Look at what you must give up to receive it.", "Un prix, un emploi ou une occasion peut vous faire imaginer le bénéfice avant de vérifier les conditions. Regardez ce que vous devez céder pour l’obtenir."),
+  isolation: p("Secrecy keeps another person from offering perspective. “Do not tell your family” or “stay on the line” can keep you inside the same story.", "Le secret empêche une autre personne d’offrir du recul. « N’en parlez pas à votre famille » ou « restez en ligne » peut vous enfermer dans la même histoire."),
+  shame: p("After investing time or money, stopping can feel like admitting a mistake. That discomfort can be used to demand more. Earlier losses do not oblige you to continue.", "Après avoir investi du temps ou de l’argent, arrêter peut ressembler à un aveu d’erreur. Ce malaise peut servir à vous en demander plus. Les pertes passées ne vous obligent pas à continuer."),
+  click_link: p("The link moves you from a message to a page the sender chose. Open the organisation’s app or find its website independently instead.", "Le lien vous déplace vers une page choisie par l’expéditeur. Ouvrez plutôt l’application de l’organisme ou trouvez son site par vous-même."),
+  pay_money: p("A transfer is the point where a convincing story can become a financial loss. Verify both the recipient and the reason before paying.", "Un transfert est le moment où une histoire convaincante peut devenir une perte financière. Vérifiez le destinataire et la raison avant de payer."),
+  submit_credentials: p("Codes and passwords are access tools, even when someone calls them a verification step. Do not read a security code to an unexpected caller.", "Les codes et mots de passe donnent un accès, même si quelqu’un les présente comme une vérification. Ne dictez pas un code à une personne qui vous appelle sans être attendue."),
+  call_number: p("A number inside a suspicious message keeps verification under the sender’s control. Find the organisation’s contact details yourself.", "Un numéro dans un message suspect laisse la vérification sous le contrôle de l’expéditeur. Trouvez vous-même les coordonnées de l’organisme."),
+  download_app: p("An app described as technical support can give another person access to your device. Verify the provider and purpose before installing anything.", "Une application présentée comme du soutien technique peut donner accès à votre appareil. Vérifiez le fournisseur et l’objectif avant toute installation."),
+  reply: p("Continuing a conversation creates more opportunities for persuasion. You do not have to stay in the exchange to check the claim.", "Poursuivre une conversation offre d’autres occasions de vous convaincre. Vous n’avez pas à rester dans l’échange pour vérifier l’affirmation."),
+  independent_channel: p("Choose a contact the sender did not supply: a known app, a number on your card or an established contact. This breaks their control over verification.", "Choisissez un contact qui ne vient pas de l’expéditeur : application connue, numéro sur votre carte ou contact habituel. Vous reprenez ainsi le contrôle de la vérification."),
+  pause: p("Stop the requested action long enough to check. A pause creates space to notice what is being asked and whether the story holds up.", "Interrompez le geste demandé le temps de vérifier. Ce recul permet de voir ce qu’on vous demande et si l’histoire tient la route."),
+  outside_person: p("Talk through the request with someone you trust. A second perspective can reveal assumptions that were hard to notice under pressure.", "Parlez de la demande à une personne de confiance. Un autre regard peut révéler des suppositions difficiles à voir sous pression."),
+  preserve: p("Keep messages, dates and transaction references. They can help you explain what happened when contacting your bank or the relevant reporting service.", "Conservez les messages, dates et références de transactions. Ils peuvent aider à expliquer les faits à votre banque ou au service de signalement concerné."),
+  refuse_transfer: p("Pause payments that are difficult to reverse while you independently verify the recipient and the claim. A promised reward does not make a transfer safe.", "Suspendez les paiements difficiles à annuler pendant que vous vérifiez le destinataire et l’affirmation. Une récompense promise ne rend pas un transfert sûr."),
+  government: p("Police, tax and immigration claims borrow the power of public institutions. Contact the relevant agency through its official directory to check.", "Les affirmations liées à la police, à l’impôt ou à l’immigration empruntent le pouvoir des institutions. Vérifiez auprès de l’organisme par son répertoire officiel."),
+  financial_institution: p("A bank’s name suggests safety and expertise. In a fake fraud alert, that trust can be used to request the very code that protects an account.", "Le nom d’une banque évoque la sécurité et l’expertise. Dans une fausse alerte, cette confiance peut servir à demander le code qui protège un compte."),
+  corporate: p("A familiar employer, delivery company or brand makes a request feel routine. Familiar appearance does not establish who sent it.", "Un employeur, un transporteur ou une marque connue rend la demande banale. Une apparence familière ne prouve pas qui l’a envoyée."),
+  tech_company: p("Someone claiming to represent a technology company may frame access to your device as a necessary repair. Verify through support you contact yourself.", "Une personne se disant d’une entreprise technologique peut présenter l’accès à votre appareil comme une réparation. Vérifiez auprès du soutien que vous contactez vous-même."),
+};
