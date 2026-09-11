@@ -152,9 +152,24 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
     : [];
 
   const moveTo = (level: ArchiveLevel) => {
+    setSelection(null);
     setActiveLevel(level);
     if (level !== "threshold" && level !== "report") setLens(level);
     document.getElementById(`archive-${level}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const openPattern = (id: string) => {
+    setLens("patterns");
+    setActiveLevel("patterns");
+    setSelection({ kind: "pattern", id });
+    document.getElementById("archive-patterns")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const openFacet = (nextLens: Exclude<ArchiveLens, "patterns">, id: string) => {
+    setLens(nextLens);
+    setActiveLevel(nextLens);
+    setSelection({ kind: "facet", id });
+    document.getElementById(`archive-${nextLens}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const trackLevel = (event: React.UIEvent<HTMLElement>) => {
@@ -188,6 +203,12 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
         </button>)}
       </nav>
 
+      <nav className={styles.coreMap} aria-label={lang === "en" ? "Explore the source" : "Explorer la source"}>
+        {lenses.map((level, index) => <button key={level} aria-current={activeLevel === level ? "step" : undefined} onClick={() => moveTo(level)}>
+          <i aria-hidden="true" /><span><small>{String(index + 1).padStart(2, "0")}</small><b>{lensCopy[level].label[lang]}</b></span>
+        </button>)}
+      </nav>
+
       <section id="archive-threshold" className={`${styles.level} ${styles.threshold}`} data-archive-level="threshold">
         <div className={styles.thresholdCopy}><p>{t.vigil}</p><h1>{t.thesis}</h1><span>{t.lead}</span></div>
         <div className={styles.entryPaths}>
@@ -202,7 +223,7 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       <section id="archive-patterns" className={`${styles.level} ${styles.patternLevel}`} data-archive-level="patterns">
         <LevelHeading number="01" title={lensCopy.patterns.label[lang]} prompt={lensCopy.patterns.prompt[lang]} />
         <div className={styles.patternConstellation}>
-          {archivePatterns.map((pattern, index) => <button key={pattern.id} data-side={index % 2 ? "right" : "left"} onClick={() => { setLens("patterns"); setSelection({ kind: "pattern", id: pattern.id }); }}>
+          {archivePatterns.map((pattern, index) => <button key={pattern.id} data-side={index % 2 ? "right" : "left"} onClick={() => openPattern(pattern.id)}>
             <i aria-hidden="true" /><span><b>{pair(pattern.name, lang)}</b><em>{pair(pattern.opening, lang)}</em></span>
             {countForPattern(pattern, counts) >= 5 && <small>{countForPattern(pattern, counts)}</small>}
           </button>)}
@@ -214,7 +235,7 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
         return <section id={`archive-${level}`} key={level} className={`${styles.level} ${styles.facetLevel}`} data-archive-level={level}>
           <LevelHeading number={String(sectionIndex + 2).padStart(2, "0")} title={lensCopy[level].label[lang]} prompt={lensCopy[level].prompt[lang]} />
           <div className={styles.facetField}>
-            {facets.map((item, index) => <button key={item.id} style={{ "--order": index } as React.CSSProperties} onClick={() => { setLens(level); setSelection({ kind: "facet", id: item.id }); }}>
+            {facets.map((item, index) => <button key={item.id} style={{ "--order": index } as React.CSSProperties} onClick={() => openFacet(level, item.id)}>
               <i aria-hidden="true" /><b>{facetCopy[item.id]?.[lang] || item.id}</b>{item.count >= 5 && <small>{item.count}</small>}
             </button>)}
           </div>
@@ -238,17 +259,16 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
         </div>
       </section>
 
-      <button className={styles.coreButton} onClick={() => setSelection({ kind: "facet", id: "core" })}><span>{t.source}</span></button>
     </main>
 
       {selection && <aside className={styles.reading} aria-live="polite">
         <div className={styles.drawnThread} aria-hidden="true" /><button className={styles.close} onClick={() => setSelection(null)} aria-label={t.close}>×</button>
         {selection.id === "core" ? <><p>{t.vigil}</p><h2>{t.coreTitle}</h2><blockquote>{t.coreLead}</blockquote>
-          <div className={styles.coreRelations}>{(["false_trust", "urgency", "pay_money", "submit_credentials"] as const).map((id) => <button key={id} onClick={() => { setLens(["pay_money", "submit_credentials"].includes(id) ? "requests" : "pressure"); setSelection({ kind: "facet", id }); }}>{facetCopy[id][lang]}{counts[id] >= 5 && <small>{counts[id]}</small>}</button>)}</div>
+          <div className={styles.coreRelations}>{(["false_trust", "urgency", "pay_money", "submit_credentials"] as const).map((id) => <button key={id} onClick={() => openFacet(["pay_money", "submit_credentials"].includes(id) ? "requests" : "pressure", id)}>{facetCopy[id][lang]}{counts[id] >= 5 && <small>{counts[id]}</small>}</button>)}</div>
           <div className={styles.watchActions}><a href={`mailto:hello@scanscam.ca?subject=${encodeURIComponent(t.join)}`}>{t.join}</a><Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link></div>
           {sampleSize && <div className={styles.evidence}><b>{sampleSize.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")} {t.analyses}</b><span>{t.observed}</span></div>}
-        </> : selectedPattern ? <PatternReading pattern={selectedPattern} lang={lang} counts={counts} onFacet={(nextLens, id) => { setLens(nextLens); setSelection({ kind: "facet", id }); }} /> : selectedFacet ? <><p>{lensCopy[lens].label[lang]}</p><h2>{facetCopy[selectedFacet]?.[lang] || selectedFacet}</h2><blockquote>{lensCopy[lens].prompt[lang]}</blockquote><h3>{t.connected}</h3>
-          <div className={styles.connected}>{connected.map((pattern) => <button key={pattern.id} onClick={() => setSelection({ kind: "pattern", id: pattern.id })}><b>{pair(pattern.name, lang)}</b><span>{pair(pattern.mechanism, lang)}</span></button>)}</div>
+        </> : selectedPattern ? <PatternReading pattern={selectedPattern} lang={lang} counts={counts} onFacet={openFacet} /> : selectedFacet ? <><p>{lensCopy[lens].label[lang]}</p><h2>{facetCopy[selectedFacet]?.[lang] || selectedFacet}</h2><blockquote>{lensCopy[lens].prompt[lang]}</blockquote><h3>{t.connected}</h3>
+          <div className={styles.connected}>{connected.map((pattern) => <button key={pattern.id} onClick={() => openPattern(pattern.id)}><b>{pair(pattern.name, lang)}</b><span>{pair(pattern.mechanism, lang)}</span></button>)}</div>
           {counts[selectedFacet] >= 5 && <div className={styles.evidence}><b>{t.live}: {counts[selectedFacet].toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")}</b><span>{t.observed}</span></div>}</> : null}
       </aside>}
     </>
@@ -275,6 +295,13 @@ function PatternReading({ pattern, lang, counts, onFacet }: {
     <p>{t.pattern}</p>
     <h2>{pair(pattern.title, lang)}</h2>
     <blockquote>{pair(pattern.opening, lang)}</blockquote>
+    <div className={styles.patternRoute} aria-label={lang === "en" ? "Follow this pattern through the source" : "Suivre ce motif dans la source"}>
+      <span><small>{t.pattern}</small><b>{pair(pattern.name, lang)}</b></span>
+      <button onClick={() => onFacet("goals", pattern.goal[0])}><small>{t.goal}</small><b>{facetCopy[pattern.goal[0]][lang]}</b></button>
+      <button onClick={() => onFacet("pressure", pattern.pressure[0])}><small>{t.pressure}</small><b>{facetCopy[pattern.pressure[0]][lang]}</b></button>
+      <button onClick={() => onFacet("requests", pattern.requests[0])}><small>{t.request}</small><b>{facetCopy[pattern.requests[0]][lang]}</b></button>
+      <button onClick={() => onFacet("breaks", pattern.breaks[0])}><small>{t.break}</small><b>{facetCopy[pattern.breaks[0]][lang]}</b></button>
+    </div>
     <section><h3>{t.mechanism}</h3><p>{pair(pattern.mechanism, lang)}</p></section>
     {group(t.goal, "goals", pattern.goal)}
     {group(t.pressure, "pressure", pattern.pressure)}
