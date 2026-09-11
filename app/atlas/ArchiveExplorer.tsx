@@ -32,13 +32,22 @@ const copy = {
   en: {
     archive: "The Archive",
     vigil: "The Vigil",
-    thesis: "Once you see the pattern, you become harder to fool.",
-    lead: "Explore how manipulation works—online, by phone, at work, at your door, or face to face.",
+    thesis: "Welcome to the Archive",
+    lead: "Scams may look different, but they often use the same methods: borrowed trust, emotional pressure and a request for action.",
     report: "Tell us what happened",
     helping: "I’m helping someone",
     family: "Protect my family",
     enterArchive: "Enter the Archive",
-    enterArchiveLead: "Explore the patterns revealed by more than 1,350 experiences.",
+    enterArchiveLead: "Start with a guided example, then explore the patterns for yourself.",
+    archivePurpose: "Signals shared through ScanScam are brought together here to reveal recurring and emerging patterns—so you can recognize them sooner.",
+    collectiveProof: "experiences are helping make these patterns visible",
+    anatomyTitle: "How does a scam work?",
+    anatomyLead: "Most scams construct a path. Understanding that path gives you more places to interrupt it.",
+    anatomySteps: ["A believable situation", "Borrowed trust", "Emotional pressure", "A request for action", "A way to break the pattern"],
+    exampleTitle: "Watch one pattern unfold",
+    exampleLead: "A fake bank message can move from trust to fear to a request for your security code. Follow the connections through the Archive.",
+    seeExample: "See the bank impersonation example",
+    exploreAll: "Or explore every known pattern",
     join: "Join the Watch",
     paths: "Choose where you enter",
     descend: "Follow the source",
@@ -70,13 +79,22 @@ const copy = {
   fr: {
     archive: "Les Archives",
     vigil: "La Vigie",
-    thesis: "Quand vous voyez le motif, il devient plus difficile de vous tromper.",
-    lead: "Explorez le fonctionnement de la manipulation — en ligne, au téléphone, au travail, à votre porte ou en personne.",
+    thesis: "Bienvenue dans les Archives",
+    lead: "Les fraudes peuvent sembler différentes, mais elles utilisent souvent les mêmes méthodes : confiance empruntée, pression émotionnelle et demande d’action.",
     report: "Racontez-nous ce qui s’est passé",
     helping: "J’aide quelqu’un",
     family: "Protéger ma famille",
     enterArchive: "Entrer dans les Archives",
-    enterArchiveLead: "Explorez les motifs révélés par plus de 1 350 expériences.",
+    enterArchiveLead: "Commencez par un exemple guidé, puis explorez les motifs vous-même.",
+    archivePurpose: "Les signaux partagés dans ScanScam sont réunis ici pour révéler les motifs récurrents et émergents — afin que vous puissiez les reconnaître plus tôt.",
+    collectiveProof: "expériences contribuent à rendre ces motifs visibles",
+    anatomyTitle: "Comment fonctionne une fraude?",
+    anatomyLead: "La plupart des fraudes construisent un parcours. Le comprendre vous donne plus d’occasions de l’interrompre.",
+    anatomySteps: ["Une situation crédible", "Une confiance empruntée", "Une pression émotionnelle", "Une demande d’action", "Une façon de briser le motif"],
+    exampleTitle: "Voyez un motif se construire",
+    exampleLead: "Un faux message bancaire peut passer de la confiance à la peur, puis demander votre code de sécurité. Suivez les liens dans les Archives.",
+    seeExample: "Voir l’exemple d’usurpation bancaire",
+    exploreAll: "Ou explorer tous les motifs connus",
     join: "Rejoindre la Vigie",
     paths: "Choisissez votre point d’entrée",
     descend: "Suivre la source",
@@ -215,21 +233,26 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       </nav>
 
       <section id="archive-threshold" className={`${styles.level} ${styles.threshold}`} data-archive-level="threshold">
-        <div className={styles.thresholdCopy}><p>{t.vigil}</p><h1>{t.thesis}</h1><span>{t.lead}</span></div>
+        <div className={styles.thresholdCopy}><h1>{t.thesis}</h1><span>{t.lead}</span><p className={styles.archivePurpose}>{t.archivePurpose}</p><strong className={styles.collectiveProof}>{(sampleSize || 1350).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA")} <span>{t.collectiveProof}</span></strong></div>
         <div className={styles.entryPaths}>
-          <small>{t.paths}</small>
-          <div className={styles.primaryPaths}>
-            <Link href={`/scan?lang=${lang}`}><b>{t.scan}</b><span>{lang === "en" ? "Do you think you’re being manipulated right now?" : "Pensez-vous être manipulé en ce moment?"}</span></Link>
-            <Link href={`/atlas/report?lang=${lang}&mode=lived`}><b>{t.report}</b><span>{lang === "en" ? "Understand what happened and create your incident ledger." : "Comprenez ce qui s’est passé et créez votre registre d’incident."}</span></Link>
-            <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}><b>{t.family}</b><span>{lang === "en" ? "Learn what to watch for and help someone you love." : "Apprenez quoi surveiller et aidez une personne que vous aimez."}</span></Link>
-          </div>
           <button className={styles.archiveInvitation} onClick={() => moveTo("patterns")}><span><b>{t.enterArchive}</b><em>{t.enterArchiveLead}</em></span><i>↓</i></button>
+          <div className={styles.utilityPaths} aria-label={lang === "en" ? "Other ways ScanScam can help" : "Autres façons dont ScanScam peut vous aider"}>
+            <Link href={`/scan?lang=${lang}`}>{t.scan}</Link>
+            <Link href={`/atlas/report?lang=${lang}&mode=lived`}>{t.report}</Link>
+            <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}>{t.family}</Link>
+          </div>
         </div>
       </section>
 
       <section id="archive-patterns" className={`${styles.level} ${styles.patternLevel}`} data-archive-level="patterns">
-        <LevelHeading number="01" title={lensCopy.patterns.label[lang]} prompt={lensCopy.patterns.prompt[lang]} />
-        <div className={styles.patternConstellation}>
+        <div className={styles.learningPrelude}>
+          <small>01</small><h2>{t.anatomyTitle}</h2><p>{t.anatomyLead}</p>
+          <ol>{t.anatomySteps.map((step, index) => <li key={step}><i>{index + 1}</i><span>{step}</span></li>)}</ol>
+          <div className={styles.guidedExample}><span><b>{t.exampleTitle}</b><em>{t.exampleLead}</em></span><button onClick={() => openPattern("account_verification")}>{t.seeExample}<i>→</i></button></div>
+          <button className={styles.exploreAll} onClick={() => document.getElementById("all-patterns")?.scrollIntoView({ behavior: "smooth", block: "center" })}>{t.exploreAll}<i>↓</i></button>
+        </div>
+        <LevelHeading number="02" title={lensCopy.patterns.label[lang]} prompt={lensCopy.patterns.prompt[lang]} />
+        <div id="all-patterns" className={styles.patternConstellation}>
           {archivePatterns.map((pattern, index) => <button key={pattern.id} data-side={index % 2 ? "right" : "left"} onClick={() => openPattern(pattern.id)}>
             <i aria-hidden="true" /><span><b>{pair(pattern.name, lang)}</b><em>{pair(pattern.opening, lang)}</em></span>
             {countForPattern(pattern, counts) >= 5 && <small>{countForPattern(pattern, counts)}</small>}

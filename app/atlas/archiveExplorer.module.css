@@ -301,7 +301,7 @@
 
 .thresholdCopy { width: min(760px, 86vw); margin: 0 auto; text-align: center; }
 
-.thresholdCopy > p,
+.thresholdCopy > p:not(.archivePurpose),
 .reportInvitation > p,
 .reading > p {
   margin: 0 0 .85rem;
@@ -331,12 +331,53 @@
   text-shadow: 0 2px 16px #000;
 }
 
+.archivePurpose {
+  max-width: 650px;
+  margin: 1rem auto 0;
+  color: #aebdb9;
+  font: .98rem/1.58 Georgia, serif;
+}
+
+.collectiveProof {
+  width: max-content;
+  max-width: 100%;
+  margin: 1rem auto 0;
+  padding-top: .75rem;
+  display: flex;
+  align-items: baseline;
+  gap: .45rem;
+  border-top: 1px solid #efc76b52;
+  color: var(--gold);
+  font: 400 1.2rem Georgia, serif;
+}
+
+.collectiveProof span { color: #9fb0ad; font: .78rem var(--font-geist-sans), system-ui, sans-serif; }
+
 .entryPaths {
-  width: min(920px, 88vw);
+  width: min(720px, 88vw);
   margin: 0 auto;
   display: grid;
   gap: 1rem;
 }
+
+.utilityPaths {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .35rem 1.4rem;
+}
+
+.utilityPaths a {
+  padding: .45rem 0;
+  border-bottom: 1px solid #76d9ec52;
+  color: #b8cbc8;
+  text-decoration: none;
+  font-size: .82rem;
+  transition: color .2s ease, border-color .2s ease;
+}
+
+.utilityPaths a:hover,
+.utilityPaths a:focus-visible { color: #fff0d3; border-color: var(--gold); outline: none; }
 
 .entryPaths > small {
   text-align: center;
@@ -462,6 +503,57 @@
 .levelHeading p { margin: 0; color: #b4c0bd; font: italic 1rem/1.55 Georgia, serif; }
 .patternLevel,
 .facetLevel { padding-top: 12rem; }
+
+.patternLevel { display: block; padding-top: 6rem; }
+
+.learningPrelude {
+  position: relative;
+  z-index: 42;
+  width: min(780px, calc(100vw - 12rem));
+  min-height: calc(100svh - 6rem);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vh, 4rem) clamp(1.2rem, 3vw, 2.6rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: var(--ink);
+  background: linear-gradient(145deg, #061012df, #020607c7);
+  border: 1px solid #efc76b42;
+  box-shadow: 0 24px 90px #000a;
+  backdrop-filter: blur(18px);
+}
+
+.learningPrelude > small { color: var(--gold); font-size: .75rem; letter-spacing: .2em; }
+.learningPrelude > h2 { margin: .5rem 0; color: #fff0d3; font: 400 clamp(2.8rem, 5vw, 5rem)/.95 Georgia, serif; letter-spacing: -.045em; }
+.learningPrelude > p { max-width: 590px; margin: 0; color: #bdc9c5; font: 1rem/1.58 Georgia, serif; }
+
+.learningPrelude ol {
+  position: relative;
+  margin: 2rem 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+}
+
+.learningPrelude ol::before { content: ""; position: absolute; left: 4%; right: 4%; top: 13px; height: 1px; background: linear-gradient(90deg, var(--blue), var(--gold)); opacity: .55; }
+.learningPrelude li { position: relative; padding-right: .65rem; color: #c5d0cc; font-size: .78rem; line-height: 1.35; }
+.learningPrelude li i { position: relative; z-index: 1; width: 27px; height: 27px; margin-bottom: .6rem; display: grid; place-items: center; border: 1px solid #77d6e5a1; border-radius: 50%; color: #bceef5; background: #061012; font-size: .7rem; font-style: normal; }
+.learningPrelude li:last-child i { border-color: var(--gold); color: #ffe2a1; box-shadow: 0 0 12px #e2aa3d38; }
+.learningPrelude li span { display: block; }
+
+.guidedExample { padding: 1.15rem 0; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; border-block: 1px solid #76d9ec45; }
+.guidedExample b,
+.guidedExample em { display: block; }
+.guidedExample b { color: #fff0d3; font: 400 1.25rem Georgia, serif; }
+.guidedExample em { max-width: 470px; margin-top: .35rem; color: #9fb0ad; font-size: .84rem; font-style: normal; line-height: 1.45; }
+.guidedExample button { padding: .7rem .85rem; border: 1px solid var(--gold); color: #172528; background: var(--gold); font: inherit; font-weight: 720; cursor: pointer; }
+.guidedExample button i { margin-left: .5rem; font-style: normal; }
+.exploreAll { width: max-content; margin: 1rem auto 0; padding: .45rem 0; border: 0; border-bottom: 1px solid #efc76b66; color: #c8d5d1; background: transparent; font: inherit; cursor: pointer; }
+.exploreAll i { margin-left: .5rem; color: var(--gold); font-style: normal; }
+
+.patternLevel > .levelHeading { position: relative; left: auto; top: auto; width: min(580px, 70vw); margin: 7rem auto 2rem; transform: none; }
+.patternLevel > .patternConstellation { margin-bottom: 7rem; }
 
 .patternConstellation,
 .facetField {
@@ -728,6 +820,9 @@
   .thresholdCopy,
   .reportInvitation { width: min(100%, 430px); padding: 1rem; background: linear-gradient(90deg, #020607dc, #0206077a); }
   .thresholdCopy h1 { font-size: clamp(2.85rem, 13vw, 4.4rem); }
+  .archivePurpose { font-size: .92rem; }
+  .collectiveProof { display: block; text-align: center; }
+  .collectiveProof span { display: block; margin-top: .2rem; }
   .entryPaths { width: 100%; margin-top: 2rem; padding: 0 1rem; background: #020607b5; }
   .primaryPaths { grid-template-columns: 1fr; }
   .primaryPaths > a { min-height: 76px; padding: .85rem 2rem .85rem .8rem; }
@@ -739,6 +834,14 @@
   .levelHeading h2 { font-size: clamp(2.5rem, 12vw, 3.8rem); }
   .patternLevel,
   .facetLevel { display: block; padding-top: 6rem; }
+  .learningPrelude { width: 100%; min-height: calc(100svh - 8rem); padding: 1.3rem 1rem; }
+  .learningPrelude ol { grid-template-columns: 1fr; gap: .35rem; margin: 1.2rem 0; }
+  .learningPrelude ol::before { left: 13px; right: auto; top: 4%; bottom: 4%; width: 1px; height: auto; }
+  .learningPrelude li { min-height: 34px; padding: 0 0 0 2.5rem; display: flex; align-items: center; }
+  .learningPrelude li i { position: absolute; left: 0; margin: 0; }
+  .guidedExample { grid-template-columns: 1fr; }
+  .guidedExample button { width: 100%; }
+  .patternLevel > .levelHeading { width: 100%; margin: 4rem 0 1.5rem; }
   .patternConstellation,
   .facetField { width: 100%; padding: .55rem; grid-template-columns: 1fr; gap: .15rem; }
   .patternConstellation button,
