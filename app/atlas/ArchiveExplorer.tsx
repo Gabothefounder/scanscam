@@ -37,6 +37,8 @@ const copy = {
     report: "Tell us what happened",
     helping: "I’m helping someone",
     family: "Protect my family",
+    enterArchive: "Enter the Archive",
+    enterArchiveLead: "Explore the patterns revealed by more than 1,350 experiences.",
     join: "Join the Watch",
     paths: "Choose where you enter",
     descend: "Follow the source",
@@ -73,6 +75,8 @@ const copy = {
     report: "Racontez-nous ce qui s’est passé",
     helping: "J’aide quelqu’un",
     family: "Protéger ma famille",
+    enterArchive: "Entrer dans les Archives",
+    enterArchiveLead: "Explorez les motifs révélés par plus de 1 350 expériences.",
     join: "Rejoindre la Vigie",
     paths: "Choisissez votre point d’entrée",
     descend: "Suivre la source",
@@ -214,11 +218,13 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
         <div className={styles.thresholdCopy}><p>{t.vigil}</p><h1>{t.thesis}</h1><span>{t.lead}</span></div>
         <div className={styles.entryPaths}>
           <small>{t.paths}</small>
-          <Link href={`/scan?lang=${lang}`}><b>{t.scan}</b><span>{lang === "en" ? "Check something suspicious now." : "Vérifiez quelque chose de suspect."}</span></Link>
-          <button onClick={() => moveTo("patterns")}><b>{lensCopy.patterns.label[lang]}</b><span>{t.archiveLead}</span></button>
-          <Link href={`/atlas/report?lang=${lang}&mode=lived`}><b>{t.report}</b><span>{t.reportLead}</span></Link>
+          <div className={styles.primaryPaths}>
+            <Link href={`/scan?lang=${lang}`}><b>{t.scan}</b><span>{lang === "en" ? "Do you think you’re being manipulated right now?" : "Pensez-vous être manipulé en ce moment?"}</span></Link>
+            <Link href={`/atlas/report?lang=${lang}&mode=lived`}><b>{t.report}</b><span>{lang === "en" ? "Understand what happened and create your incident ledger." : "Comprenez ce qui s’est passé et créez votre registre d’incident."}</span></Link>
+            <Link href={lang === "en" ? "/protect-family" : "/fr/protect-family"}><b>{t.family}</b><span>{lang === "en" ? "Learn what to watch for and help someone you love." : "Apprenez quoi surveiller et aidez une personne que vous aimez."}</span></Link>
+          </div>
+          <button className={styles.archiveInvitation} onClick={() => moveTo("patterns")}><span><b>{t.enterArchive}</b><em>{t.enterArchiveLead}</em></span><i>↓</i></button>
         </div>
-        <button className={styles.descend} onClick={() => moveTo("patterns")}>{t.descend}<i>↓</i></button>
       </section>
 
       <section id="archive-patterns" className={`${styles.level} ${styles.patternLevel}`} data-archive-level="patterns">

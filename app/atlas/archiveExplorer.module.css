@@ -18,6 +18,11 @@
   isolation: isolate;
 }
 
+.archive[data-level="threshold"] .world { filter: brightness(.42) saturate(.54) contrast(1.03); }
+.archive[data-level="threshold"] .ambient,
+.archive[data-level="threshold"] .coreMap,
+.archive[data-level="threshold"] .levelRail { opacity: 0; pointer-events: none; }
+
 .archive[data-level="patterns"] { --camera-y: 2vh; }
 .archive[data-level="goals"] { --camera-y: .5vh; }
 .archive[data-level="pressure"] { --camera-y: -1.25vh; }
@@ -134,6 +139,7 @@
   width: 152px;
   margin: 0;
   transform: translateY(-50%);
+  transition: opacity .35s ease;
 }
 
 .levelRail button {
@@ -286,12 +292,14 @@
 }
 
 .threshold {
-  display: grid;
-  grid-template-columns: minmax(280px, 390px) 1fr minmax(250px, 315px);
-  gap: clamp(1rem, 3vw, 3rem);
+  padding-inline: clamp(1.25rem, 5vw, 5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(1.5rem, 3vh, 2.5rem);
 }
 
-.thresholdCopy { grid-column: 1; }
+.thresholdCopy { width: min(760px, 86vw); margin: 0 auto; text-align: center; }
 
 .thresholdCopy > p,
 .reportInvitation > p,
@@ -305,8 +313,8 @@
 }
 
 .thresholdCopy h1 {
-  margin: 0;
-  max-width: 390px;
+  margin: 0 auto;
+  max-width: 760px;
   color: #fff0d2;
   font: 400 clamp(3rem, 5.1vw, 5.35rem)/.94 Georgia, serif;
   letter-spacing: -.052em;
@@ -316,69 +324,97 @@
 
 .thresholdCopy > span {
   display: block;
-  max-width: 345px;
-  margin-top: 1.25rem;
+  max-width: 590px;
+  margin: 1.25rem auto 0;
   color: #bdc8c4;
   font: 1rem/1.62 Georgia, serif;
   text-shadow: 0 2px 16px #000;
 }
 
 .entryPaths {
-  grid-column: 3;
-  align-self: center;
+  width: min(920px, 88vw);
+  margin: 0 auto;
   display: grid;
-  gap: 0;
+  gap: 1rem;
 }
 
 .entryPaths > small {
-  margin-bottom: .8rem;
+  text-align: center;
   color: #819194;
   font-size: .75rem;
   letter-spacing: .16em;
   text-transform: uppercase;
 }
 
-.entryPaths > a,
-.entryPaths > button {
+.primaryPaths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-block: 1px solid #78d9e94a;
+}
+
+.primaryPaths > a {
   position: relative;
-  min-height: 84px;
-  padding: 1rem 2rem 1rem 0;
+  min-height: 118px;
+  padding: 1.2rem 2rem 1.2rem 1.1rem;
   border: 0;
-  border-top: 1px solid #78d9e94a;
   color: var(--ink);
-  background: transparent;
+  background: #0207088f;
+  backdrop-filter: blur(10px);
   text-align: left;
   text-decoration: none;
   font: inherit;
   cursor: pointer;
-  transition: padding .2s ease, color .2s ease, border-color .2s ease;
+  transition: background .2s ease, color .2s ease, transform .2s ease;
 }
 
-.entryPaths > :last-child { border-bottom: 1px solid #78d9e94a; }
+.primaryPaths > a + a { border-left: 1px solid #78d9e94a; }
 
-.entryPaths > a::after,
-.entryPaths > button::after {
+.primaryPaths > a::after {
   content: "↘";
   position: absolute;
-  right: .15rem;
-  top: 1rem;
+  right: .8rem;
+  top: 1.2rem;
   color: #74d8ea;
 }
 
-.entryPaths > a:hover,
-.entryPaths > button:hover,
-.entryPaths > a:focus-visible,
-.entryPaths > button:focus-visible {
-  padding-left: .55rem;
+.primaryPaths > a:hover,
+.primaryPaths > a:focus-visible {
+  transform: translateY(-3px);
   color: #ffe6aa;
-  border-color: var(--gold);
+  background: #081416d9;
   outline: none;
 }
 
-.entryPaths b,
-.entryPaths span { display: block; }
-.entryPaths b { font: 400 1.18rem Georgia, serif; }
-.entryPaths span { margin-top: .35rem; color: #9faeac; font-size: .88rem; line-height: 1.42; }
+.primaryPaths b,
+.primaryPaths span { display: block; }
+.primaryPaths b { max-width: 12rem; font: 400 1.18rem Georgia, serif; }
+.primaryPaths span { max-width: 14rem; margin-top: .45rem; color: #aebbb8; font-size: .88rem; line-height: 1.45; }
+
+.archiveInvitation {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: .9rem 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.25rem;
+  border: 0;
+  border-bottom: 1px solid #efc76b75;
+  color: #ffe5ad;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.archiveInvitation span { text-align: left; }
+.archiveInvitation b,
+.archiveInvitation em { display: block; }
+.archiveInvitation b { font: 400 1.12rem Georgia, serif; }
+.archiveInvitation em { margin-top: .2rem; color: #93a5a3; font-size: .78rem; font-style: normal; }
+.archiveInvitation > i { color: var(--gold); font-size: 1.1rem; font-style: normal; transition: transform .2s ease; }
+.archiveInvitation:hover > i,
+.archiveInvitation:focus-visible > i { transform: translateY(4px); }
+.archiveInvitation:focus-visible { outline: 1px solid var(--gold); outline-offset: 5px; }
 
 .descend {
   position: absolute;
@@ -411,6 +447,7 @@
   transform: translateX(-50%);
   text-align: center;
   text-shadow: 0 3px 22px #000;
+  z-index: 42;
 }
 
 .levelHeading small { color: var(--gold); font-size: .75rem; letter-spacing: .2em; }
@@ -428,12 +465,19 @@
 
 .patternConstellation,
 .facetField {
+  position: relative;
+  z-index: 42;
   width: min(820px, calc(100vw - 12rem));
   margin: auto;
+  padding: 1.1rem 1.35rem;
   display: grid;
   grid-template-columns: minmax(230px, 1fr) minmax(230px, 1fr);
   column-gap: clamp(3.5rem, 8vw, 7rem);
   row-gap: .45rem;
+  border: 1px solid #efc76b3d;
+  background: linear-gradient(145deg, #061012cf, #020607b8);
+  box-shadow: 0 24px 80px #0009;
+  backdrop-filter: blur(16px);
 }
 
 .patternConstellation button,
@@ -448,7 +492,6 @@
   border-bottom: 1px solid #72d8e642;
   color: #f1e8d7;
   background: linear-gradient(90deg, #0207084d, #020708c4);
-  backdrop-filter: blur(7px);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -680,21 +723,24 @@
   .levelRail button span { display: none; }
   .levelRail button i { display: block; color: #84999a; font-size: .72rem; font-style: normal; }
   .level { min-height: 100svh; padding: 6rem 1rem 5.5rem; align-items: flex-end; }
-  .threshold,
+  .threshold { display: flex; }
   .reportLevel { display: block; }
   .thresholdCopy,
   .reportInvitation { width: min(100%, 430px); padding: 1rem; background: linear-gradient(90deg, #020607dc, #0206077a); }
   .thresholdCopy h1 { font-size: clamp(2.85rem, 13vw, 4.4rem); }
   .entryPaths { width: 100%; margin-top: 2rem; padding: 0 1rem; background: #020607b5; }
-  .entryPaths > a,
-  .entryPaths > button { min-height: 74px; }
+  .primaryPaths { grid-template-columns: 1fr; }
+  .primaryPaths > a { min-height: 76px; padding: .85rem 2rem .85rem .8rem; }
+  .primaryPaths > a + a { border-left: 0; border-top: 1px solid #78d9e94a; }
+  .primaryPaths span { max-width: none; }
+  .archiveInvitation { min-height: 68px; }
   .descend { display: none; }
   .levelHeading { position: relative; left: auto; top: auto; width: min(100%, 360px); margin-bottom: 1.6rem; padding: .8rem; background: linear-gradient(90deg, #020607dc, transparent); }
   .levelHeading h2 { font-size: clamp(2.5rem, 12vw, 3.8rem); }
   .patternLevel,
   .facetLevel { display: block; padding-top: 6rem; }
   .patternConstellation,
-  .facetField { width: 100%; grid-template-columns: 1fr; gap: .15rem; }
+  .facetField { width: 100%; padding: .55rem; grid-template-columns: 1fr; gap: .15rem; }
   .patternConstellation button,
   .patternConstellation button[data-side="left"],
   .facetField button,
