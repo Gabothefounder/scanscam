@@ -28,7 +28,7 @@
   object-fit: contain;
   object-position: center;
   transform: translate3d(0, var(--journey-y), 0) scale(var(--journey-scale));
-  filter: brightness(.72) saturate(.76) contrast(1.06);
+  filter: brightness(.64) saturate(.7) contrast(1.04);
   transition: transform .78s cubic-bezier(.2, .72, .2, 1), filter .5s ease, opacity .35s ease;
   will-change: transform;
 }
@@ -211,6 +211,7 @@
   padding: 96px clamp(11rem, 14vw, 14rem) 2rem clamp(1.25rem, 4vw, 4rem);
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .progress {
@@ -275,7 +276,7 @@
 .journeyRail button::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%); border: 1px solid #75cadbb3; border-radius: 50%; background: #061013; box-shadow: 0 0 8px #4bbdd442; transition: width .2s ease, height .2s ease, background .2s ease, box-shadow .2s ease; }
 .journeyRail button::before { display: none; }
 .journeyRail button i { display: none; }
-.journeyRail button span { position: absolute; top: 50%; width: 126px; transform: translateY(-50%); font: 400 .82rem Georgia, serif; text-shadow: 0 2px 12px #000; opacity: .5; transition: opacity .2s ease, color .2s ease; }
+.journeyRail button span { position: absolute; top: 50%; width: 126px; transform: translateY(-50%); font: 400 .82rem Georgia, serif; text-shadow: 0 2px 12px #000; opacity: .3; transition: opacity .2s ease, color .2s ease; }
 .journeyRail li:nth-child(odd) button span { left: calc(100% + 12px); text-align: left; }
 .journeyRail li:nth-child(even) button span { right: calc(100% + 12px); text-align: right; }
 .journeyRail li[data-state="complete"] button { color: #a8c6c7; }
@@ -302,15 +303,17 @@
 }
 
 .card {
-  width: min(480px, 40vw);
+  position: relative;
+  z-index: 42;
+  width: min(610px, 58vw);
   max-height: calc(100svh - 128px);
   overflow: auto;
   padding: clamp(1.4rem, 2.5vw, 2.35rem);
   color: var(--ink);
-  background: linear-gradient(105deg, #041013f2, #041013c9 72%, #0410137d);
-  border-left: 1px solid #efc66f8f;
-  box-shadow: 24px 0 70px #0006;
-  backdrop-filter: blur(13px);
+  background: linear-gradient(145deg, #041013e8, #041013d1 72%, #041013b8);
+  border: 1px solid #efc66f70;
+  box-shadow: 0 24px 80px #000a;
+  backdrop-filter: blur(18px);
   scrollbar-color: #617476 transparent;
 }
 

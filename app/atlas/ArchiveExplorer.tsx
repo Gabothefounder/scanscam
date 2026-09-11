@@ -189,6 +189,7 @@ export default function ArchiveExplorer({ initialLang = "en", initialPattern = "
       <div className={styles.fixedWorld} aria-hidden="true">
         <Image className={styles.world} src="/atlas/vigil-brutalist-spectrum.webp" alt="" fill priority sizes="100vw" />
         <div className={styles.shadow} />
+        <div className={styles.ambient}><i /><i /><i /><i /><i /><i /></div>
         <div className={styles.grain} />
       </div>
 
