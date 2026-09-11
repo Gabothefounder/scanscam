@@ -1,6 +1,6 @@
 "use client";
-import ArchiveExplorer from "./ArchiveExplorer";
+import ArchiveWelcome from "./ArchiveWelcome";
 import type { ArchiveLang } from "./archiveData";
-export default function AtlasExperience({ initialLang, initialPattern }: { initialLang?: ArchiveLang; initialPattern?: string }) {
-  return <ArchiveExplorer initialLang={initialLang} initialPattern={initialPattern} />;
+export default function AtlasExperience({ initialLang }: { initialLang?: ArchiveLang }) {
+  return <ArchiveWelcome initialLang={initialLang} />;
 }

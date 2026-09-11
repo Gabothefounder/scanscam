@@ -1,40 +1,5 @@
 import type { Pair } from "./archiveData";
 const p = (en: string, fr: string): Pair => ({ en, fr });
-export const bankLines = [
-  p("This is your bank’s fraud department.", "Ici le service des fraudes de votre banque."),
-  p("Someone is moving money out of your account right now.", "Quelqu’un retire de l’argent de votre compte en ce moment."),
-  p("Read me the six-digit code we just sent so I can stop it.", "Donnez-moi le code à six chiffres que nous venons d’envoyer pour que je bloque le transfert."),
-];
-export const lessonSteps = [
-  {
-    label: p("The request", "La demande"),
-    question: p("What does the caller want you to do?", "Que veut vous faire faire la personne au téléphone?"),
-    options: [p("Check my account myself", "Vérifier mon compte moi-même"), p("Share a security code", "Partager un code de sécurité"), p("Visit my bank", "Me rendre à ma banque")],
-    answer: 1, highlight: 2,
-    why: p("The key request is to hand over your code. The story is about protecting your money, but the action gives someone else information used to access your account or approve a transaction.", "La demande clé est de donner votre code. L’histoire parle de protéger votre argent, mais le geste fournit à une autre personne une information qui sert à accéder à votre compte ou à autoriser une opération."),
-  },
-  {
-    label: p("The pressure", "La pression"),
-    question: p("Why say it is happening “right now”?", "Pourquoi dire que cela arrive « en ce moment »?"),
-    options: [p("To make me act before checking", "Pour me faire agir avant de vérifier"), p("To prove the call is genuine", "Pour prouver que l’appel est légitime"), p("To give me time to think", "Pour me laisser réfléchir")],
-    answer: 0, highlight: 1,
-    why: p("Urgency and fear can pull your attention toward stopping the loss. That leaves less room to ask who is calling. Feeling alarmed is a normal reaction; it is the pressure the caller is trying to use.", "L’urgence et la peur peuvent concentrer votre attention sur la perte à éviter. Il reste moins de place pour vérifier qui appelle. C’est normal de s’inquiéter : c’est précisément la réaction que la personne cherche à utiliser."),
-  },
-  {
-    label: p("The end goal", "L’objectif"),
-    question: p("What could the code actually help them do?", "À quoi le code pourrait-il réellement leur servir?"),
-    options: [p("Confirm their identity to me", "Me prouver leur identité"), p("Cancel all suspicious activity", "Annuler toute activité suspecte"), p("Access my account or authorise a payment", "Accéder à mon compte ou autoriser un paiement")],
-    answer: 2, highlight: 2,
-    why: p("A real security code can be used in a fake story. The caller may be trying to sign in or approve a transaction. A familiar bank name, caller ID or personal detail does not verify who is speaking.", "Un vrai code de sécurité peut servir dans une fausse histoire. La personne peut essayer de se connecter ou d’autoriser une opération. Un nom de banque, un numéro affiché ou un détail personnel ne prouve pas son identité."),
-  },
-  {
-    label: p("Your response", "Votre réponse"),
-    question: p("How can you check without giving them control?", "Comment vérifier sans leur donner le contrôle?"),
-    options: [p("Ask the caller if they are really from the bank", "Demander si la personne travaille vraiment pour la banque"), p("End the call and contact my bank independently", "Raccrocher et joindre ma banque par moi-même"), p("Share the code, then check later", "Donner le code, puis vérifier après")],
-    answer: 1, highlight: -1,
-    why: p("Keep the code private. End the call and use the number on your bank card, ideally from another phone. You are checking the claim through a contact you chose, outside the caller’s control.", "Gardez le code privé. Raccrochez et composez le numéro inscrit sur votre carte bancaire, idéalement d’un autre téléphone. Vous vérifiez ainsi l’affirmation par un contact que vous avez choisi, hors du contrôle de la personne."),
-  },
-];
 export const facetExplanation: Record<string, Pair> = {
   money: p("The story ends with money leaving your control: a fee, a transfer, a purchase or an investment. Follow where the payment actually goes.", "L’histoire mène à un paiement que vous ne contrôlez plus : frais, virement, achat ou placement. Suivez la destination réelle de l’argent."),
   access: p("A password, security code or installed app can become a way into an account. A request framed as protection can actually surrender access.", "Un mot de passe, un code ou une application peut ouvrir l’accès à un compte. Une demande présentée comme une protection peut en réalité céder cet accès."),

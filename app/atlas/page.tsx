@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import AtlasExperience from "./AtlasExperience";
 
 export const metadata: Metadata = {
@@ -9,5 +10,7 @@ export const metadata: Metadata = {
 
 export default async function AtlasPage({ searchParams }: { searchParams: Promise<{ lang?: string; pattern?: string }> }) {
   const params = await searchParams;
-  return <AtlasExperience initialLang={params.lang === "fr" ? "fr" : "en"} initialPattern={params.pattern || ""} />;
+  const lang = params.lang === "fr" ? "fr" : "en";
+  if (params.pattern) redirect(`/atlas/learn?${new URLSearchParams({ lang, pattern: params.pattern })}`);
+  return <AtlasExperience initialLang={lang} />;
 }

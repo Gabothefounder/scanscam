@@ -15,7 +15,7 @@ export async function GET() {
       return { data: data as SignalRow[] | null, count, error };
     });
     return NextResponse.json({ ok: true, ...metrics, generatedAt: new Date().toISOString() }, {
-      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+      headers: { "Cache-Control": "public, s-maxage=15" },
     });
   } catch {
     return NextResponse.json({ ok: false }, { status: 503 });
